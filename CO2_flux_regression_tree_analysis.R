@@ -9,5 +9,5 @@ library(tidyverse)
 #############################################################################################################################
 
 ### Load Data ###############################################################################################################
-flux_30min <- fread(input = "Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_data_halfhourly_modelled_2009_2019.csv")
+flux_cumulative <- fread(input = "Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_cumulative_2009_2019.csv")
 #############################################################################################################################
