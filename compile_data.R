@@ -4,6 +4,7 @@
 #############################################################################################################################
 
 ### Load Libraries ##########################################################################################################
+library(lubridate)
 library(tidyverse)
 #############################################################################################################################
 
@@ -17,41 +18,73 @@ alt_sub <- read.table("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab
   select(-geometry)
 wtd <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2018_compiled.csv")
 
-# this next part is a work in progress. I need to figure out why NaN keeps showing up after summarizing, despite switching them to NA
-# and then removing NA's when summarizing
 # automatically import and merge all of the moisture data from the soil sensors
-filenames <- list.files('C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR',
-                        full.names = TRUE,
-                        pattern = '.Rdata$')
-moisture <- data.frame()
-for (i in 1:length(filenames)) {
-  year_start <- i + 2007
-  year_end <- i + 2008
-  variable_name <- paste('cipehr.', year_start, '.', year_end, '.daily', sep = '')
-  load(filenames[[which(str_detect(filenames, pattern = paste(year_start, '.+', year_end, sep = '')))]])
-  temp_data <- get(variable_name) %>%
-    mutate(treatment = ifelse(plot == 2 | plot == 4,
-                              'Control',
-                              ifelse(plot == 1 | plot == 3,
-                                     'Air Warming',
-                                     ifelse(plot == 6 | plot == 8,
-                                            'Soil Warming',
-                                            'Air + Soil Warming'))),
-           mean_GWC = ifelse(is.nan(mean_GWC),
-                             NA,
-                             mean_GWC),
-           mean_VWC = ifelse(is.nan(mean_VWC),
-                             NA,
-                             mean_VWC)) %>%
-    group_by(year, treatment, Depth) %>%
-    summarise(annual_mean_GWC = mean(mean_GWC, na.rm = TRUE),
-              annual_se_GWC = sd(mean_GWC, na.rm = TRUE)/sqrt(n()),
-              annual_mean_VWC = mean(mean_VWC, na.rm = TRUE),
-              annual_se_VWC = sd(mean_VWC, na.rm = TRUE)/sqrt(n()))
-  moisture <- moisture %>%
-    rbind.data.frame(temp_data)
+# 'C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR'
+import_soil_moisture <- function(folder) {
+  filenames <- list.files(paste(folder),
+                          full.names = TRUE,
+                          pattern = '.Rdata$')
+  df <- data.frame()
+  for (i in 1:length(filenames)) {
+    year_start <- i + 2007
+    year_end <- i + 2008
+    variable_name <- load(filenames[[which(str_detect(filenames, pattern = paste(year_start, '.+', year_end, sep = '')))]]) # load the data and save the variable name string to it's own variable name
+    temp_data <- get(variable_name) %>% # retrieve the data associated with the variable created in the previous line
+      filter(as_date(date) >= as_date(paste(year_end, '_05_01', sep = '')) & as_date(date) <= as_date(paste(year_end, '_09_30', sep = ''))) %>%
+      mutate(treatment = ifelse(plot == 2 | plot == 4,
+                                'Control',
+                                ifelse(plot == 1 | plot == 3,
+                                       'Air Warming',
+                                       ifelse(plot == 6 | plot == 8,
+                                              'Soil Warming',
+                                              'Air + Soil Warming'))),
+             mean_GWC = ifelse(is.nan(mean_GWC),
+                               NA,
+                               mean_GWC),
+             mean_VWC = ifelse(is.nan(mean_VWC),
+                               NA,
+                               mean_VWC))
+    df <- df %>%
+      rbind.data.frame(temp_data)
+  }
+  return(df)
 }
+moisture <- import_soil_moisture('C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR')
 
-test <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR/CiPEHR soil sensor_2009-10-01_to_2010-09-30_daily.csv")
-load("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Soil sensors/2018-2019/DryPEHR/Processed/DryPEHR soil sensor_2018-10-01_to_2019-09-30_half_hourly Bioserver.Rdata")
+biomass <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/EML_AK_CiPEHR_BiomassBySpecies_2009-2013__20150320_VGS.csv") %>%
+  rbind.data.frame(read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/CiPEHR_biomass_2017.csv")) %>%
+  group_by(year, fence, plot) %>%
+  summarise(biomass = sum(biomass, na.rm = TRUE))
+
+ndvi <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv") %>%
+  filter(year != 2009 & year != 2012 & year != 2013) %>%
+  group_by(year, block, fence, plot) %>%
+  summarise(peak_NDVI = max(NDVI_relative, na.rm = TRUE))
+
+filenames <- list.files('C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/chamber_temps/',
+                        full.names = TRUE)
+t_chamb_daily <- map_dfr(filenames,
+                         ~ read.csv(.x) %>%
+                           mutate(date = ifelse(year <= 2016, # some years have date or DOY instead of doy, this makes sure both are present (one still empty), so that grouping works
+                                                NA,
+                                                date),
+                                  doy = ifelse(year >= 2017,
+                                               NA,
+                                               ifelse(year <= 2015 & plot >= 9,
+                                                      DOY,
+                                                      doy))) %>%
+                           group_by(year, doy, date, fence, plot) %>%
+                           summarise(mean.t.chamb = mean(Tchamb_fill, na.rm = TRUE),
+                                     min.t.chamb = min(Tchamb_fill, na.rm = TRUE),
+                                     max.t.chamb = max(Tchamb_fill, na.rm = TRUE))) %>%
+  ungroup() %>%
+  mutate(doy = ifelse(is.na(doy),
+                      yday(as_date(date)),
+                      doy),
+         date = ifelse(is.na(date),
+                      as_date(as_date(paste(year, '_01_01', sep = '')) + doy), # this isn't working - need to figure out still!
+                      doy)) %>%
+  arrange(year, doy, fence, plot) %>%
+  filter(!(is.nan(mean.t.chamb) & min.t.chamb == Inf & max.t.chamb == -Inf))
+
 #############################################################################################################################
