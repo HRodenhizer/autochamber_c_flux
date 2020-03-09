@@ -65,26 +65,20 @@ filenames <- list.files('C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur L
                         full.names = TRUE)
 t_chamb_daily <- map_dfr(filenames,
                          ~ read.csv(.x) %>%
-                           mutate(date = ifelse(year <= 2016, # some years have date or DOY instead of doy, this makes sure both are present (one still empty), so that grouping works
+                           mutate(date = ifelse(year < 2017, # some years have date or DOY instead of doy, this makes sure both are present (one still empty), so that grouping works
                                                 NA,
-                                                date),
+                                                parse_date_time(as.character(date), c('%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y'))),
                                   doy = ifelse(year >= 2017,
-                                               NA,
+                                               yday(as_datetime(date)),
                                                ifelse(year <= 2015 & plot >= 9,
                                                       DOY,
                                                       doy))) %>%
-                           group_by(year, doy, date, fence, plot) %>%
+                           group_by(year, doy, fence, plot) %>%
                            summarise(mean.t.chamb = mean(Tchamb_fill, na.rm = TRUE),
                                      min.t.chamb = min(Tchamb_fill, na.rm = TRUE),
-                                     max.t.chamb = max(Tchamb_fill, na.rm = TRUE))) %>%
-  ungroup() %>%
-  mutate(doy = ifelse(is.na(doy),
-                      yday(as_date(date)),
-                      doy),
-         date = ifelse(is.na(date),
-                      as_date(as_date(paste(year, '_01_01', sep = '')) + doy), # this isn't working - need to figure out still!
-                      doy)) %>%
+                                     max.t.chamb = max(Tchamb_fill, na.rm = TRUE)) %>%
+                           ungroup()) %>%
+  mutate(date = as.Date(doy, origin = paste(as.character(year-1), '-12-31', sep = ''))) %>%
   arrange(year, doy, fence, plot) %>%
-  filter(!(is.nan(mean.t.chamb) & min.t.chamb == Inf & max.t.chamb == -Inf))
-
+  filter(!(is.nan(mean.t.chamb) & min.t.chamb == Inf & max.t.chamb == -Inf)) 
 #############################################################################################################################
