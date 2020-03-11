@@ -5,6 +5,7 @@
 
 ### Load Libraries ##########################################################################################################
 library(lubridate)
+library(tidypredict)
 library(tidyverse)
 #############################################################################################################################
 
@@ -15,7 +16,8 @@ flux_cumulative <- rbind.data.frame(flux_cumulative_cip, flux_cumulative_dry)
 alt_sub <- read.table("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2018.txt",
                       sep = '\t',
                       header = TRUE) %>%
-  select(-geometry)
+  select(-geometry) %>%
+  filter(exp == 'CiPEHR')
 wtd <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2018_compiled.csv")
 
 # automatically import and merge all of the moisture data from the soil sensors
@@ -59,7 +61,10 @@ biomass <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/A
 ndvi <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv") %>%
   filter(year != 2009 & year != 2012 & year != 2013) %>%
   group_by(year, block, fence, plot) %>%
-  summarise(peak_NDVI = max(NDVI_relative, na.rm = TRUE))
+  summarise(peak_NDVI = max(NDVI_relative, na.rm = TRUE)) %>%
+  filter(!is.na(as.numeric(as.character(plot)))) %>%
+  mutate(plot = as.numeric(as.character(plot))) %>%
+  arrange(year, fence, plot)
 
 filenames <- list.files('C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/chamber_temps/',
                         full.names = TRUE)
@@ -81,4 +86,50 @@ t_chamb_daily <- map_dfr(filenames,
   mutate(date = as.Date(doy, origin = paste(as.character(year-1), '-12-31', sep = ''))) %>%
   arrange(year, doy, fence, plot) %>%
   filter(!(is.nan(mean.t.chamb) & min.t.chamb == Inf & max.t.chamb == -Inf)) 
+#############################################################################################################################
+
+### Gap Fill Biomass Data with NDVI #########################################################################################
+bio_ndvi <- biomass %>%
+  full_join(ndvi, by = c('year', 'fence', 'plot')) %>%
+  mutate(block = ifelse(fence <= 2,
+                        'A',
+                        ifelse(fence <= 4,
+                               'B',
+                               'C')),
+         treatment = ifelse(plot == 2 | plot == 4,
+                            'Control',
+                            ifelse(plot == 1 | plot == 3,
+                                   'Air Warming',
+                                   ifelse(plot == 6 | plot == 8,
+                                          'Soil Warming',
+                                          'Air + Soil warming')))) %>%
+  filter(!is.na(peak_NDVI))
+
+bio_ndvi_regress <- bio_ndvi %>%
+  filter(!is.na(biomass))
+
+ggplot(bio_ndvi_regress, aes(x = peak_NDVI, y = biomass, colour = treatment)) +
+  geom_point()
+
+ggplot(bio_ndvi_regress, aes(x = peak_NDVI, y = biomass, colour = year)) +
+  geom_point()
+
+ggplot(bio_ndvi, aes(x = year, y = peak_NDVI, colour = treatment)) +
+  geom_point()
+
+ggplot(bio_ndvi, aes(x = year, y = biomass, colour = treatment)) +
+  geom_point()
+
+bio_lm <- lm(biomass ~ peak_NDVI, bio_ndvi_regress)
+summary(bio_lm)
+
+bio_ndvi_filled <- bio_ndvi %>%
+  tidypredict_to_column(bio_lm, add_interval = TRUE)
+
+ggplot(bio_ndvi_filled, aes(x = biomass, y = fit, colour = treatment)) +
+  geom_point()
+#############################################################################################################################
+
+### Calculate Growing Season Temperature Indices ############################################################################
+
 #############################################################################################################################
