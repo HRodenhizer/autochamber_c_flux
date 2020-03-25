@@ -10,9 +10,16 @@ library(tidyverse)
 #############################################################################################################################
 
 ### Load Data ###############################################################################################################
-flux_cumulative_cip <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_cumulative_2009_2019.csv")
-flux_cumulative_dry <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2012_2019_Drypehr/Flux_cumulative_DryPEHR_2009_2019.csv")
-flux_cumulative <- rbind.data.frame(flux_cumulative_cip, flux_cumulative_dry)
+flux_cumulative_cip <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_cumulative_plot_2009_2019.csv") %>%
+  mutate(treatment = ifelse(plot == 2 | plot == 4,
+                            'Control',
+                            ifelse(plot == 1 | plot == 3,
+                                   'Air Warming',
+                                   ifelse(plot == 6 | plot == 8,
+                                          'Soil Warming',
+                                          'Air + Soil Warming'))))
+# flux_cumulative_dry <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2012_2019_Drypehr/Flux_cumulative_DryPEHR_2009_2019.csv")
+# flux_cumulative <- rbind.data.frame(flux_cumulative_cip, flux_cumulative_dry)
 alt_sub <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2019.csv",
                       header = TRUE,
                       stringsAsFactors = FALSE) %>%
@@ -278,29 +285,32 @@ ggplot(bio_ndvi_filled, aes(x = biomass, y = fit, colour = treatment)) +
 #############################################################################################################################
 
 ### Merge Datasets ##########################################################################################################
-env_var <- alt_sub %>%
-  mutate(well = ifelse(year > 2013 & fence == 1 & plot == 3 |
-                         year > 2013 & fence == 2 & plot == 3 |
-                         year > 2013 & fence == 3 & plot == 2 |
-                         year > 2013 & fence == 4 & plot == 3 |
-                         year > 2013 & fence == 5 & plot == 4 |
-                         year > 2013 & fence == 6 & plot == 2,
-                       2.5,
-                       ifelse(year > 2013 & fence == 1 & plot == 5 |
-                                year > 2013 & fence == 2 & plot == 5 |
-                                year > 2013 & fence == 3 & plot == 7 |
-                                year > 2013 & fence == 4 & plot == 8 |
-                                year > 2013 & fence == 5 & plot == 6 |
-                                year > 2013 & fence == 6 & plot == 7,
-                              4.5,
-                              ifelse(plot == 1 | plot == 4,
-                                     1,
-                                     ifelse(plot == 2 | plot == 3,
-                                            2,
-                                            ifelse(plot == 5 | plot == 8,
-                                                   3,
-                                                   4)))))) %>%
-  select(year, block, fence, plot, well, treatment, subsidence, ALT, thaw.penetration = ALT.corrected) %>%
+env_var <- flux_cumulative_cip %>%
+  full_join(alt_sub %>%
+              mutate(well = ifelse(year > 2013 & fence == 1 & plot == 3 |
+                                     year > 2013 & fence == 2 & plot == 3 |
+                                     year > 2013 & fence == 3 & plot == 2 |
+                                     year > 2013 & fence == 4 & plot == 3 |
+                                     year > 2013 & fence == 5 & plot == 4 |
+                                     year > 2013 & fence == 6 & plot == 2,
+                                   2.5,
+                                   ifelse(year > 2013 & fence == 1 & plot == 5 |
+                                            year > 2013 & fence == 2 & plot == 5 |
+                                            year > 2013 & fence == 3 & plot == 7 |
+                                            year > 2013 & fence == 4 & plot == 8 |
+                                            year > 2013 & fence == 5 & plot == 6 |
+                                            year > 2013 & fence == 6 & plot == 7,
+                                          4.5,
+                                          ifelse(plot == 1 | plot == 4,
+                                                 1,
+                                                 ifelse(plot == 2 | plot == 3,
+                                                        2,
+                                                        ifelse(plot == 5 | plot == 8,
+                                                               3,
+                                                               4)))))) %>%
+              select(year, block, fence, plot, well, treatment, subsidence, ALT, thaw.penetration = ALT.corrected),
+            by = c('year', 'fence', 'plot', 'treatment')) %>%
+  select(year, block, fence, plot, well, treatment, NEE.sum, Reco.sum, GPP.sum, subsidence, ALT, thaw.penetration) %>%
   full_join(t_chamb_annual, by = c('year', 'block', 'fence', 'plot', 'treatment')) %>%
   full_join(moisture_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
   full_join(soil_temp_5_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
