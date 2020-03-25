@@ -13,15 +13,14 @@ library(tidyverse)
 flux_cumulative_cip <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_cumulative_2009_2019.csv")
 flux_cumulative_dry <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2012_2019_Drypehr/Flux_cumulative_DryPEHR_2009_2019.csv")
 flux_cumulative <- rbind.data.frame(flux_cumulative_cip, flux_cumulative_dry)
-alt_sub <- read.table("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2018.txt",
-                      sep = '\t',
+alt_sub <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2019.csv",
                       header = TRUE,
                       stringsAsFactors = FALSE) %>%
   filter(exp == 'CiPEHR') %>%
-  select(-geometry, -exp) %>%
+  select(-exp) %>%
   mutate(plot = as.numeric(plot),
          block = toupper(block))
-wtd <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2018_compiled.csv",
+wtd <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2019_compiled.csv",
                 stringsAsFactors = FALSE)
 
 # automatically import and merge all of the moisture data from the soil sensors
@@ -301,6 +300,7 @@ env_var <- alt_sub %>%
                                             ifelse(plot == 5 | plot == 8,
                                                    3,
                                                    4)))))) %>%
+  select(year, block, fence, plot, well, treatment, subsidence, ALT, thaw.penetration = ALT.corrected) %>%
   full_join(t_chamb_annual, by = c('year', 'block', 'fence', 'plot', 'treatment')) %>%
   full_join(moisture_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
   full_join(soil_temp_5_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
@@ -309,4 +309,6 @@ env_var <- alt_sub %>%
   full_join(soil_temp_40_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
   full_join(select(bio_ndvi_filled, year, block, fence, plot, treatment, biomass.filled),
             by = c('year', 'block', 'fence', 'plot', 'treatment'))
+
+# write.csv(env_var, 'C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv')
 #############################################################################################################################
