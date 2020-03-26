@@ -320,5 +320,6 @@ env_var <- flux_cumulative_cip %>%
   full_join(select(bio_ndvi_filled, year, block, fence, plot, treatment, biomass.filled),
             by = c('year', 'block', 'fence', 'plot', 'treatment'))
 
-# write.csv(env_var, 'C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv')
+# write.csv(env_var, 'C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv',
+#           row.names = FALSE)
 #############################################################################################################################
