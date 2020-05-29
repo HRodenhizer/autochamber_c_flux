@@ -29,7 +29,7 @@ nee.pred <- compiled_data %>%
 ggplot(nee.pred, aes(x = NEE.sum, y = nee.pred)) +
   geom_point()
 plot(nee.gbm, i = 'biomass.filled')
-pretty(nee.gbm)
+pretty.gbm.tree(nee.gbm, i.tree = 10000)
 
 # Reco
 reco <- compiled_data %>%
