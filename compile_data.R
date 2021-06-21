@@ -9,6 +9,8 @@ library(tidypredict)
 library(tidyverse)
 #############################################################################################################################
 
+# make ALT be deepest TD and also incorporate day of ALT into modeling?
+
 ### Load Data ###############################################################################################################
 flux_cumulative_cip <- read.csv("Z:/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/Multiyear_Summaries/2009_2019/Flux_cumulative_plot_2009_2019.csv") %>%
   mutate(treatment = ifelse(plot == 2 | plot == 4,

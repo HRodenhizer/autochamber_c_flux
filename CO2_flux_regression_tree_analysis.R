@@ -9,7 +9,7 @@ library(tidyverse)
 #############################################################################################################################
 
 ### Load Data ###############################################################################################################
-compiled_data <- read.csv("C:/Users/Heidi Rodenhizer/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv") %>%
+compiled_data <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv") %>%
   filter(!is.na(NEE.sum) & !is.na(Reco.sum) & !is.na(GPP.sum))
 #############################################################################################################################
 
