@@ -53,7 +53,7 @@ load.r2 <- function(filenames) {
                                 24,
                                 hourmin),
                hour = hourmin - 0.5) %>%
-        select(year, fence, plot, doy.old = DOY, doy.new = DOY, hour.old = hour, hour.new = hour, co2_r2 = rsquare, T_chamb = chambT.mean)
+        select(year, fence, plot, doy.old = DOY, doy.new = DOY, hour.old = hour, hour.new = hour, r2 = rsquare, T_chamb = chambT.mean)
       
     } else if(str_detect(filenames[i], 'Rdata$')) {
       
@@ -79,7 +79,7 @@ load.r2 <- function(filenames) {
                       hour.new = ifelse(year == 2018,
                                         hour(floor_date(timestamp, '30 mins')) + minute(floor_date(timestamp, '30 mins'))/60,
                                         hour.old)) %>%
-               select(year, fence, plot, doy.old, doy.new, hour.old, hour.new, co2_r2 = rsquare, T_chamb = chambT.mean)
+               select(year, fence, plot, doy.old, doy.new, hour.old, hour.new, r2 = rsquare, T_chamb = chambT.mean)
       )
       
     } else {
@@ -118,7 +118,7 @@ co2 <- co2[!is.na(Reco_g)]
 co2[,.N, by = c('year')] # make sure there are about the equal numbers in all years except 2019, which should have fewer
 
 # Date
-co2[, date := parse_date_time(as.Date(doy-1, origin = paste0(year, '-01-01')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
+co2[, date := parse_date_time(as_date(doy-1, origin = paste0(year, '-01-01')), orders = c('Y!-m!*-d!'))] # doy-1 because as_date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
 co2[hour == round(hour), minute := 0]
 co2[hour != round(hour), minute := 30]
 co2[, ts := parse_date_time(paste(date, paste(floor(hour), minute, sep = ':')), orders = c('Y!-m!*-d! H!:M!'))]
@@ -132,8 +132,8 @@ co2[(WW == 'W' | WW == 'WW') & SW == 'C', treatment := 'Soil Warming']
 co2[(WW == 'W' | WW == 'WW') & (SW == 'S' | SW == 'SW'), treatment := 'Air + Soil Warming']
 
 # Plot ID
-co2[, Plot_ID := paste(fence, plot, sep = '_')]
-co2 <- co2[order(date, Plot_ID)]
+co2[, plot.id := paste(fence, plot, sep = '_')]
+co2 <- co2[order(date, plot.id)]
 
 # 2009-2011 chamber temps
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/ITEX/warmxresp/2020_09_Dataset request/flux_data/co2/chamb_t_2009-2011/',
@@ -164,14 +164,14 @@ co2[is.na(T_chamb) & !is.na(Tchamb_fill), T_chamb := Tchamb_fill]
 co2[T_chamb > 50, T_chamb := NA]
 
 # Select columns needed for ITEX format
-co2 <- co2[, .(ts, date, year, month, week, doy, hourmin = hour, fence, plot, Plot_ID, treatment, filled, nee = NEE_g, reco = Reco_g, gpp = GPP_g, co2_r2, t.chamb = T_chamb)]
+co2 <- co2[, .(ts, date, year, month, week, doy, hourmin = hour, fence, plot, plot.id, treatment, filled, nee = NEE_g, reco = Reco_g, gpp = GPP_g, r2, t.chamb = T_chamb)]
 co2[,.N, by = year(date)] # make sure there are about the equal numbers in all years except 2019, which should have fewer
 
 ## add in hour variable to join with par later
 co2[, hour := floor(hourmin)]
 
 # order
-co2 <- co2[order(date, Plot_ID, treatment, hourmin)]
+co2 <- co2[order(date, plot.id, treatment, hourmin)]
 ###########################################################################################
 
 ### Weather Data ##########################################################################
@@ -181,7 +181,9 @@ filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber
 weather <- map_dfr(filenames,
                    ~ read.csv(.x,
                               header = TRUE) %>%
-                     select(year = matches('[Y|y]ear'), DOY, CO2_hr = matches('hour'), Tair, PAR))
+                     select(year = matches('[Y|y]ear'), DOY,
+                            hourmin = matches('hour'), Tair, par = PAR,
+                            precip = matches('[P|p]recip'), rh = RH))
 
 weather <- data.table(weather)
 
@@ -190,15 +192,17 @@ weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', 
 weather[, year := year(date)]
 weather[, month := month(date)]
 weather[, day := mday(date)]
-weather[, hour := floor(CO2_hr)]
+weather[, hour := floor(hourmin)]
 weather <- weather[order(date, hour)]
 
 # Neaten
-par <- weather[, .(date, hour, Tair, PAR)]
-par <- par[, .(PAR = mean(PAR, na.rm = TRUE), Tair = mean(Tair, na.rm = TRUE)), by = .(date, hour)]
-tair <- weather[CO2_hr >= 9 & CO2_hr <= 15, .(date, CO2_hr, Tair)]
-tair <- tair[, lapply(.SD, mean, na.rm = TRUE), by = .(date)]
-tair <- tair[, .(date, Tair)]
+weather <- weather[, .(date, hour, Tair, par, precip, rh)]
+weather <- weather[,
+                   .(par = mean(par, na.rm = TRUE),
+                     Tair = mean(Tair, na.rm = TRUE),
+                     precip = mean(precip, na.rm = TRUE),
+                     rh = mean(rh, na.rm = TRUE)),
+                   by = .(date, hour)]
 ###########################################################################################
 
 ### Soil Sensor Data ######################################################################
@@ -233,10 +237,10 @@ soil.sensor[plot == 6 | plot == 8, treatment := 'Soil Warming']
 soil.sensor[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 
 # Format Plot IDs
-soil.sensor[, Plot_ID := paste(fence, plot, sep = '_')]
+soil.sensor[, plot.id := paste(fence, plot, sep = '_')]
 
 # Neaten
-soil.sensor <- soil.sensor[, .(date, fence, hourmin, treatment, Plot_ID, t5 = T_five, t10 = T_ten,
+soil.sensor <- soil.sensor[, .(date, fence, hourmin, treatment, plot.id, t5 = T_five, t10 = T_ten,
                                t20 = T_twenty, t40 = T_forty, vwc = VWC, gwc = GWC)]
 ###########################################################################################
 
@@ -255,7 +259,7 @@ wtd[, date := parse_date_time(date, orders = c('Y!/m!*/d!'))]
 wtd[, year := year(date)]
 wtd[, month := month(date)]
 wtd[, day := mday(date)]
-wtd[, WTD_Date := paste(day, month, year, sep = '/')]
+wtd[, WTD_Date := ymd(paste(year, month, day, sep = '/'))]
 
 # Assign plots to wells
 well.assignment <- expand.grid(year = seq(2009, 2020),
@@ -318,10 +322,10 @@ wtd.2009[, plot := NA]
 wtd <- rbind(wtd.2009, wtd)
 
 # Format Plot IDs
-wtd[, Plot_ID := paste(fence, plot, sep = '_')]
+wtd[, plot.id := paste(fence, plot, sep = '_')]
 
 # Neaten
-wtd <- wtd[, .(date, fence,  WTD_Date, treatment, Plot_ID, wtd = WTD)]
+wtd <- wtd[, .(date, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
 ###########################################################################################
 
 ### Load Thaw Depth Data ##################################################################
@@ -338,7 +342,7 @@ td[, date := parse_date_time(date, orders = c('Y!-m!*-d!'))]
 td[, year := year(date)]
 td[, month := month(date)]
 td[, day := mday(date)]
-td[, TD_Date := paste(day, month, year, sep = '/')]
+td[, TD_Date := dmy(paste(day, month, year, sep = '/'))]
 
 # Duplicate 2009 data with NA in plot so that it can be joined with 2009 fluxes
 # that don't have plot information
@@ -353,61 +357,62 @@ td[(ww == 'w' | ww == 'ww') & sw == 'c', treatment := 'Soil Warming']
 td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil Warming']
 
 # Plot ID
-td[, Plot_ID := paste(fence, plot, sep = '_')]
-td <- td[order(date, Plot_ID)]
-td <- td[,.(date, fence, TD_Date, treatment, Plot_ID, Thaw_Depth = td)]
+td[, plot.id := paste(fence, plot, sep = '_')]
+td <- td[order(date, plot.id)]
+td <- td[,.(date, fence, TD_Date, treatment, plot.id, td)]
+###########################################################################################
+
+### Load Subsidence Data ##################################################################
+alt_sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
+                    header = TRUE,
+                    stringsAsFactors = FALSE)
+alt_sub <- alt_sub[exp == 'CiPEHR']
+alt_sub[, ':='(exp = NULL,
+               plot = as.numeric(plot))]
+###########################################################################################
+
+### Load Vegetation Data ##################################################################
+biomass <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/EML_AK_CiPEHR_BiomassBySpecies_2009-2013__20150320_VGS.csv",
+                    stringsAsFactors = FALSE) %>%
+  rbind.data.frame(read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/CiPEHR_biomass_2017.csv",
+                            stringsAsFactors = FALSE)) %>%
+  group_by(year, fence, plot) %>%
+  summarise(biomass = sum(biomass, na.rm = TRUE)) # sum of all species
+biomass <- as.data.table(biomass)
+
+ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv",
+                 stringsAsFactors = FALSE)
+ndvi <- ndvi[plot_type == 'flux' & !is.na(as.numeric(plot))]
+ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!')),
+             ndvi.date = mdy(date),
+             plot = as.numeric(plot),
+             ndvi = NDVI_relative)]
+ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
 ###########################################################################################
 
 ### Merge Datasets ########################################################################
-### PAR
-flux <- merge(co2, par, by = c('date', 'hour'), all.x = TRUE)
-
-# Filter out daytime measurements to keep only dark respiration
-flux <- flux[PAR <= 10 | month(date) %in% c(1, 2, 3, 4, 10, 11, 12)]
-
-# Create Replicate Column
-flux[, rep := sequence(.N), by = c('Flux_Date', 'Treatment', 'Plot_ID')]
-flux[, Treatment_if_other := paste('REPMEAS_', rep, ':', co2_hr, sep = '')]
-
-### co2 + CH4
-flux <- merge(flux, methane, all = TRUE, by = c('date', 'year', 'doy', 'fence', 'Flux_Date', 'Treatment', 'Treatment_if_other', 'Plot_ID'))
-flux <- flux[!is.na(co2) & is.na(CH4), C_Loss := 'co2']
-flux <- flux[is.na(co2) & !is.na(CH4), C_Loss := 'CH4']
-flux <- flux[!is.na(co2) & !is.na(CH4), C_Loss := 'co2 & CH4']
-
-### Tair for methane
-flux <- merge(flux, tair, by = c('date'))
-flux[, Tair := Tair.x]
-flux[is.na(Tair) & C_Loss == 'CH4', Tair := Tair.y]
-flux[is.na(Tair), .N]
+### PAR and Tair
+flux <- merge(co2, weather, by = c('date', 'hour'), all.x = TRUE)
+flux[is.nan(precip),
+     precip := NA]
 
 ### Soil sensors
 flux <- merge(flux,
               soil.sensor,
-              by = c('date', 'fence', 'co2_hr', 'Treatment', 'Plot_ID'),
+              by = c('date', 'fence', 'hourmin', 'treatment', 'plot.id'),
               all.x = TRUE,
               all.y = FALSE)
-flux <- merge(flux,
-              soil.avg,
-              by = c('date', 'fence', 'Treatment', 'Plot_ID'),
-              all.x = TRUE,
-              all.y = FALSE)
-flux[is.na(Soil_Temp.x), .N]
-flux[is.na(Soil_Moist.x), .N]
-flux[is.na(Soil_Temp.y), .N]
-flux[is.na(Soil_Moist.y), .N]
-# Fill in missing half hour measurements with daily average
-flux[, Soil_Temp := Soil_Temp.x]
-flux[is.na(Soil_Temp.x), Soil_Temp := Soil_Temp.y]
-flux[, Soil_Moist := Soil_Moist.x]
-flux[is.na(Soil_Moist.x), Soil_Moist := Soil_Moist.y]
-flux[is.na(Soil_Temp), .N]
-flux[is.na(Soil_Moist), .N]
+flux[is.na(t5), .N]
+flux[is.na(t10), .N]
+flux[is.na(t20), .N]
+flux[is.na(t40), .N]
+flux[is.na(vwc), .N]
+flux[is.na(gwc), .N]
 
 ### Water Table Depth
 # set the key to allow proper rolling join
-setkey(wtd, fence, Treatment, Plot_ID, date)
-setkey(flux, fence, Treatment, Plot_ID, date)
+setkey(wtd, fence, treatment, plot.id, date)
+setkey(flux, fence, treatment, plot.id, date)
 
 # Rolling join of water table depth and flux
 # This joins by matching treatment and plot id and finding the closest date match between
@@ -418,17 +423,20 @@ flux <- wtd[flux, roll = 'nearest']
 
 # Remove duplicate wtd measurements for one flux measurement by selecting the earlier thaw
 # depth
-setkey(flux, date, Flux_Date, Treatment, Treatment_if_other, Plot_ID, C_Loss, co2_hr,
-       co2, co2_r2, CH4, T_chamb)
-flux <- flux[, first(.SD), by = .(date, Flux_Date, Treatment, Treatment_if_other,
-                                  Plot_ID, C_Loss, co2_hr, co2, co2_r2, CH4, T_chamb)]
+setkey(flux, date, fence, treatment, plot.id, hourmin, hour, ts, year, month, week, doy,
+       plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5, t10, t20, t40, vwc, gwc)
+flux <- flux[, first(.SD), by = .(date, fence, treatment, plot.id, hourmin, hour, ts, year, month, week, doy,
+                                  plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5, t10, t20, t40, vwc, gwc)]
 
-flux[is.na(Water_Table_Depth), .N]
+# If WTD date is more than 1 week from date, remove wtd
+flux[abs(interval(date, WTD_Date)/ddays(1)) > 14,
+     wtd := NA]
+flux[is.na(wtd), .N]
 
 ### Thaw Depth
 # set the key to allow proper rolling join
-setkey(td, fence, Treatment, Plot_ID, date)
-setkey(flux, fence, Treatment, Plot_ID, date)
+setkey(td, fence, treatment, plot.id, date)
+setkey(flux, fence, treatment, plot.id, date)
 
 # Rolling join of thaw depth and flux
 # This joins by matching treatment and plot id and finding the closest date match between
@@ -439,92 +447,209 @@ flux <- td[flux, roll = 'nearest']
 
 # Remove duplicate thaw depths for one flux measurement by selecting the earlier thaw
 # depth
-setkey(flux, date, Flux_Date, Treatment, Treatment_if_other, Plot_ID, C_Loss, co2_hr,
-       co2, co2_r2, CH4, T_chamb, WTD_Date, Water_Table_Depth)
+setkey(flux, date, fence, treatment, plot.id, hourmin, hour, ts, year, month,
+       week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
+       t10, t20, t40, vwc, gwc, WTD_Date, wtd)
 flux <- flux[, first(.SD),
-             by = .(date, Flux_Date, Treatment,
-                    Treatment_if_other, Plot_ID, C_Loss, co2_hr,co2, co2_r2, CH4,
-                    T_chamb, WTD_Date, Water_Table_Depth)]
-flux[is.na(Thaw_Depth), .N]
-flux <- flux[order(date, Plot_ID)]
+             by = .(date, fence, treatment, plot.id, hourmin, hour, ts, year, month,
+                    week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
+                    t10, t20, t40, vwc, gwc, WTD_Date, wtd)]
 
-# Plot to make sure things look right
-# Chamber temps vs. air temps
-ggplot(flux, aes(x = Tair, y = T_chamb, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~Treatment)
+# If TD date is more than 1 week from date, remove td
+flux[abs(interval(date, TD_Date)/ddays(1)) > 14,
+     td := NA]
+flux[is.na(td), .N]
 
-# co2
-ggplot(flux, aes(x = doy, y = co2, colour = year), alpha = 0.2) +
-  geom_point()
+### Biomass
+flux <- merge(flux,
+              biomass,
+              by = c('year', 'fence', 'plot'),
+              all.x = TRUE,
+              all.y = FALSE)
 
-ggplot(flux, aes(x = Soil_Temp, y = co2, colour = year), alpha = 0.2) +
-  geom_point()
+### NDVI
+# set the key to allow proper rolling join
+setkey(ndvi, year, fence, plot, date)
+setkey(flux, year, fence, plot, date)
 
-ggplot(flux, aes(x = T_chamb, y = co2, colour = year), alpha = 0.2) +
-  geom_point()
+# Rolling join of thaw depth and flux
+# This joins by matching year, fence, and plot and finding the closest date match between
+# NDVI and flux. In cases where there are two NDVIs equally distant in time
+# from the flux measurement, it will return both, resulting in a longer data table than 
+# the flux input. 
+flux <- ndvi[flux, roll = 'nearest']
 
-ggplot(flux, aes(x = Soil_Moist, y = co2, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~Treatment)
+# Remove duplicate NDVI values for one flux measurement by selecting the earlier thaw
+# depth
+setkey(flux, date, fence, treatment, plot.id, hourmin, hour, ts, year, month,
+       week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
+       t10, t20, t40, vwc, gwc, WTD_Date, wtd, td, biomass)
+flux <- flux[, first(.SD),
+             by = .(date, fence, treatment, plot.id, hourmin, hour, ts, year, month,
+                    week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
+                    t10, t20, t40, vwc, gwc, WTD_Date, wtd, td, biomass)]
 
-# CH4
-ggplot(flux, aes(x = doy, y = CH4, colour = year), alpha = 0.2) +
-  geom_point()
+# If NDVI date is more than 1 week from date, remove ndvi
+flux[abs(interval(date, ndvi.date)/ddays(1)) > 14,
+     ndvi := NA]
+flux[is.na(ndvi), .N]
 
-ggplot(flux, aes(x = Soil_Temp, y = CH4, colour = year), alpha = 0.2) +
-  geom_point()
+### Subsidence, ALT, TP
+flux <- merge(flux,
+              alt_sub,
+              by = c('year', 'fence', 'plot', 'treatment'),
+              all.x = TRUE,
+              all.y = FALSE)
 
-ggplot(flux, aes(x = Tair, y = CH4, colour = year), alpha = 0.2) +
-  geom_point()
+flux <- flux[order(ts, plot.id)]
 
-ggplot(flux, aes(x = Soil_Moist, y = CH4, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~Treatment)
 
-# one erroneously high value
-flux <- flux[co2 <= 0.5 | is.na(co2)]
+# # Plot to make sure things look right
+# # Chamber temps vs. air temps
+# ggplot(flux, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
+# 
+# # reco
+# ggplot(flux, aes(x = doy, y = reco, colour = year), alpha = 0.2) +
+#   geom_point()
+# # gpp
+# ggplot(flux, aes(x = doy, y = gpp, colour = year), alpha = 0.2) +
+#   geom_point()
+# # nee
+# ggplot(flux, aes(x = doy, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# 
+# # soil temp and nee
+# ggplot(flux, aes(x = t5, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# ggplot(flux, aes(x = t10, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# ggplot(flux, aes(x = t20, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# ggplot(flux, aes(x = t40, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# 
+# # air temp and nee
+# ggplot(flux, aes(x = t.chamb, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# 
+# # soil moisture and nee
+# ggplot(flux, aes(x = vwc, y = nee, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
+# ggplot(flux, aes(x = gwc, y = nee, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
+# 
+# # td and nee
+# ggplot(flux, aes(x = td, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# 
+# # wtd and nee
+# ggplot(flux, aes(x = wtd, y = nee, colour = year), alpha = 0.2) +
+#   geom_point()
+# 
+# # one erroneously high value
+# flux <- flux[co2 <= 0.5 | is.na(co2)]
 ###########################################################################################
 
 ### Gap Fill Chamber Temps ################################################################
 # Remove really low chamber temps when air temp is much higher
-flux[(Tair-T_chamb) > 10, T_chamb := NA]
-ggplot(flux, aes(x = Tair, y = T_chamb, colour = year), alpha = 0.2) +
+flux[(Tair-t.chamb) > 10, t.chamb := NA]
+ggplot(flux, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
   geom_point() +
-  facet_grid(.~Treatment)
+  facet_grid(.~treatment)
 
-tchamb.m <- lm(T_chamb ~ Tair + Treatment, data = flux)
+tchamb.m <- lm(t.chamb ~ Tair + treatment, data = flux)
 summary(tchamb.m)
 
-flux[Treatment == 'Control', T_chamb_m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
-flux[Treatment == 'Air Warming', T_chamb_m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
-flux[Treatment == 'Air + Soil Warming', T_chamb_m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
-flux[Treatment == 'Soil Warming', T_chamb_m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
+flux[treatment == 'Control', t.chamb.m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
+flux[treatment == 'Air Warming', t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
+flux[treatment == 'Air + Soil Warming', t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
+flux[treatment == 'Soil Warming', t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
 
-ggplot(flux, aes(x = Tair, y = T_chamb_m, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~Treatment)
+# ggplot(flux, aes(x = Tair, y = t.chamb.m, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
 
-flux[is.na(T_chamb), T_chamb := ifelse(C_Loss == 'co2' & !(month(date) %in% c(1, 2, 3, 4, 10, 11, 12)),
-                                       T_chamb_m,
-                                       NA)]
-flux[, Air_Temp := ifelse(!is.na(T_chamb),
-                          T_chamb,
+flux[is.na(t.chamb), t.chamb := t.chamb.m]
+flux[, tair := ifelse(!is.na(t.chamb),
+                          t.chamb,
                           Tair)]
 
-ggplot(flux, aes(x = Tair, y = T_chamb, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~Treatment)
+# ggplot(flux, aes(x = tair, y = t.chamb, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
 ###########################################################################################
 
-### Final Clean-up
-flux[, Flux_Year := '']
-flux[, Flux_Julian_Day := '']
-flux[, Season := '']
-flux[, Flux_ID := '']
-flux.final <- flux[, .(date, Flux_Date, Flux_Year, Flux_Julian_Day, Treatment, Treatment_if_other,
-                       Plot_ID, C_Loss, Season, Flux_ID, co2, co2_r2, CH4, CH4_r2, PAR,
-                       Air_Temp, Soil_Temp, Soil_Moist, Water_Table_Depth, Thaw_Depth)]
+### Create Summaries and Derived Variables ################################################
+flux.final <- flux[, .(ts, date, year, month, week, doy, hour, hourmin, fence,
+                       plot, plot.id, treatment, filled, nee, reco, gpp, r2,
+                       par, tair, t5, t10, t20, t40, vwc, gwc, wtd, td, biomass,
+                       ndvi, precip, rh, subsidence, alt = ALT, tp = TP)]
+
+flux.daily <- flux.final[,
+                         .(nee.sum = sum(nee, na.rm = TRUE),
+                           reco.sum = sum(reco, na.rm = TRUE),
+                           gpp.sum = sum(gpp, na.rm = TRUE),
+                           tair.max = max(tair, na.rm = TRUE),
+                           tair.mean = mean(tair, na.rm = TRUE),
+                           tair.min = min(tair, na.rm = TRUE),
+                           tair.sd = sd(tair, na.rm = TRUE),
+                           growing.days = mean(tair, na.rm = TRUE) - 5,
+                           freezing.days = mean(tair, na.rm = TRUE)*-1,
+                           t5.max = max(t5, na.rm = TRUE),
+                           t5.mean = mean(t5, na.rm = TRUE),
+                           t5.min = min(t5, na.rm = TRUE),
+                           t5.sd = sd(t5, na.rm = TRUE),
+                           t10.max = max(t10, na.rm = TRUE),
+                           t10.mean = mean(t10, na.rm = TRUE),
+                           t10.min = min(t10, na.rm = TRUE),
+                           t10.sd = sd(t10, na.rm = TRUE),
+                           t20.max = max(t20, na.rm = TRUE),
+                           t20.mean = mean(t20, na.rm = TRUE),
+                           t20.min = min(t20, na.rm = TRUE),
+                           t20.sd = sd(t20, na.rm = TRUE),
+                           t40.max = max(t40, na.rm = TRUE),
+                           t40.mean = mean(t40, na.rm = TRUE),
+                           t40.min = min(t40, na.rm = TRUE),
+                           t40.sd = sd(t40, na.rm = TRUE),
+                           vwc.max = max(vwc, na.rm = TRUE),
+                           vwc.mean = mean(vwc, na.rm = TRUE),
+                           vwc.min = min(vwc, na.rm = TRUE),
+                           vwc.sd = sd(vwc, na.rm = TRUE),
+                           gwc.max = max(gwc, na.rm = TRUE),
+                           gwc.mean = mean(gwc, na.rm = TRUE),
+                           gwc.min = min(gwc, na.rm = TRUE),
+                           gwc.sd = sd(gwc, na.rm = TRUE),
+                           wtd = mean(wtd, na.rm = TRUE),
+                           td = mean(td, na.rm = TRUE),
+                           biomass = mean(biomass, na.rm = TRUE),
+                           ndvi = mean(ndvi, na.rm = TRUE),
+                           precip = sum(precip, na.rm = TRUE),
+                           rh = mean(rh, na.rm = TRUE),
+                           subsidence = mean(subsidence, na.rm = TRUE),
+                           alt = mean(alt, na.rm = TRUE),
+                           tp = mean(tp, na.rm = TRUE)),
+                         by = c('date', 'year', 'month', 'week', 'doy', 'fence',
+                                'plot', 'plot.id', 'treatment')]
+flux.daily[growing.days < 0,
+           growing.days := NA]
+flux.daily[freezing.days < 0,
+           freezing.days := NA]
+flux.daily[, flux.year := ifelse(month >= 10,
+                                 year +1,
+                                 year)]
+flux.daily[, ':=' (gdd = cumsum(growing.days),
+                   fdd = cumsum(freezing.days)),
+           by = c('flux.year')]
+
+flux.weekly <- flux.daily[,
+                          .(),
+                          by = c('date', 'flux.year', 'month', 'week', 'fence',
+                                 'plot', 'plot.id', 'treatment')]
+
 # write.csv(flux.final, '/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/ITEX_WarmXResp/2020_09_Dataset request/flux_data/itex_flux_winter.csv',
 #           row.names = FALSE)
 
