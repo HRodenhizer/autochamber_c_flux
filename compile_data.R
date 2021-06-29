@@ -392,12 +392,29 @@ ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
 
 ### Merge Datasets ########################################################################
 ### plot frame to join environmental data that doesn't have plot information with
-plot.frame.hour <- expand_grid(fence = seq(1, 6),
+plot.frame <- expand_grid(fence = seq(1, 6),
                           plot = seq(1, 8),
                           date = parse_date_time(seq(ymd('2008-09-01'), ymd('2020-09-30'), by = 'days'),
                                                  orders = c('Y!-m!*-d!')),
-                          hour = as.numeric(seq(0, 23)))
-plot.frame.hour <- as.data.table(plot.frame.hour)
+                          hourmin = as.numeric(seq(0, 23.5, by = 0.5))) %>%
+  mutate(hour = floor(hourmin),
+         mins = ifelse(hourmin == floor(hourmin),
+                      0,
+                      30),
+         ts = parse_date_time(paste(date, paste(hour, mins, sep = ':')), orders = c('Y!-m!*-d! H!:M!')),
+         year = year(ts),
+         month = month(ts),
+         week = week(ts),
+         doy = yday(ts),
+         treatment = case_when(
+           plot == 2 | plot == 4 ~ 'Control',
+           plot == 1 | plot == 3 ~ 'Air Warming',
+           plot == 6 | plot == 8 ~ 'Soil Warming',
+           plot == 5 | plot == 7 ~ 'Air + Soil Warming'
+         ),
+         plot.id = paste(fence, plot, sep = '_')) %>%
+  select(-mins)
+plot.frame <- as.data.table(plot.frame)
 # plot.frame.hourmin <- expand_grid(fence = seq(1, 6),
 #                                plot = seq(1, 8),
 #                                date = parse_date_time(seq(ymd('2008-09-01'), ymd('2020-09-30'), by = 'days'),
@@ -407,8 +424,8 @@ plot.frame.hour <- as.data.table(plot.frame.hour)
 
 ### PAR and Tair
 weather <- weather[date >= ymd('2008-09-01'),]
-weather <- merge(weather, plot.frame.hour, by = c('date', 'hour'), allow.cartesian = TRUE)
-flux <- merge(co2, weather, by = c('date', 'hour', 'plot', 'fence'), all = TRUE)
+weather <- merge(weather, plot.frame, by = c('date', 'hour'), allow.cartesian = TRUE)
+flux <- merge(co2, weather, by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour', 'hourmin', 'fence', 'plot', 'plot.id', 'treatment'), all = TRUE)
 flux[is.nan(precip),
      precip := NA]
 flux[is.nan(rh),
@@ -519,7 +536,7 @@ flux <- merge(flux,
               all = TRUE,)
 
 flux <- flux[order(ts, plot.id)]
-
+flux[, tp.to.date := td - subsidence]
 
 # # Plot to make sure things look right
 # # Chamber temps vs. air temps
