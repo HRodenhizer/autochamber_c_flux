@@ -14,6 +14,7 @@ library(tidyverse)
 #############################################################################################################################
 
 # make ALT be deepest TD and also incorporate day of ALT into modeling?
+# substitute deep soil temps from nearby plots for ones without probes?
 
 ### co2 Data ##############################################################################
 ### Load Fluxes
@@ -348,12 +349,6 @@ td[, month := month(date)]
 td[, day := mday(date)]
 td[, TD_Date := dmy(paste(day, month, year, sep = '/'))]
 
-# Duplicate 2009 data with NA in plot so that it can be joined with 2009 fluxes
-# that don't have plot information
-td.2009 <- td[year == 2009]
-td.2009[, plot := NA]
-td <- rbind(td.2009, td)
-
 # Treatment
 td[ww == 'c' & sw == 'c', treatment := 'Control']
 td[ww == 'c' & (sw == 's' | sw == 'sw'), treatment := 'Air Warming']
@@ -363,17 +358,25 @@ td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil
 # Plot ID
 td[, plot.id := paste(fence, plot, sep = '_')]
 td <- td[order(date, plot.id)]
-td <- td[,.(date, fence, TD_Date, treatment, plot.id, td)]
+td <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
+
+# ALT
+alt <- td[, .(alt = max(td, na.rm = TRUE),
+              alt.date = TD_Date[which(td == max(td, na.rm = TRUE))]),
+          by = .(fence, plot.id, treatment, year)]
+alt <- alt[, .(alt = first(alt),
+               alt.date = first(alt.date)),
+           by = .(fence, plot.id, treatment, year)]
 ###########################################################################################
 
 ### Load Subsidence Data ##################################################################
-alt_sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
+sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
                     header = TRUE,
                     stringsAsFactors = FALSE)
-alt_sub <- alt_sub[exp == 'CiPEHR']
-alt_sub[, ':='(exp = NULL,
+sub <- sub[exp == 'CiPEHR']
+sub[, ':='(exp = NULL,
                plot = as.numeric(plot))]
-alt_sub <- alt_sub[, .(year, block, fence, plot, treatment, subsidence, tp = TP, alt = ALT)]
+sub <- sub[, .(year, fence, plot, treatment, subsidence)]
 ###########################################################################################
 
 ### Load Vegetation Data ##################################################################
@@ -466,8 +469,8 @@ flux[is.na(wtd), .N]
 
 ### Thaw Depth
 # set the key to allow proper rolling join
-setkey(td, fence, treatment, plot.id, date)
-setkey(flux, fence, treatment, plot.id, date)
+setkey(td, year, fence, treatment, plot.id, date)
+setkey(flux, year, fence, treatment, plot.id, date)
 
 # Rolling join of thaw depth and flux
 # This joins by matching treatment and plot id and finding the closest date match between
@@ -490,6 +493,22 @@ flux <- flux[, first(.SD),
 flux[abs(interval(date, TD_Date)/ddays(1)) > 14,
      td := NA]
 flux[is.na(td), .N]
+
+### Subsidence
+flux <- merge(flux,
+              sub,
+              by = c('year', 'fence', 'plot', 'treatment'),
+              all = TRUE)
+
+### ALT
+flux <- merge(flux,
+              alt,
+              by = c('year', 'fence', 'plot.id', 'treatment'),
+              all = TRUE)
+
+flux <- flux[order(ts, plot.id)]
+flux[, tp := alt - subsidence]
+flux[, tp.to.date := td - subsidence]
 
 ### Biomass
 flux <- merge(flux,
@@ -524,14 +543,17 @@ flux[abs(interval(date, ndvi.date)/ddays(1)) > 14,
      ndvi := NA]
 flux[is.na(ndvi), .N]
 
-### Subsidence, ALT, TP
-flux <- merge(flux,
-              alt_sub,
-              by = c('year', 'fence', 'plot', 'treatment'),
-              all = TRUE)
-
-flux <- flux[order(ts, plot.id)]
-flux[, tp.to.date := td - subsidence]
+### Add block and season variables
+flux[,
+     season := ifelse(month <= 4 | month >= 10,
+                     0,
+                     1)]
+flux[,
+     block := ifelse(fence <= 2,
+                     'a',
+                     ifelse(fence <= 4,
+                            'b',
+                            'c'))]
 
 # # Plot to make sure things look right
 # # Chamber temps vs. air temps
@@ -585,7 +607,7 @@ flux[, tp.to.date := td - subsidence]
 
 ### Gap Fill ##############################################################################
 ### Clean up
-rm(alt_sub, biomass, chambt, co2, ndvi, plot.frame, soil.sensor,
+rm(alt, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
    td, td.2009, weather, well.assignment, wtd, wtd.2009)
 ### Chamber Temps
 # determine period when chambers are deployed
@@ -648,17 +670,20 @@ flux[is.na(subsidence), .N, by = 'year']
 flux[is.na(alt), .N, by = 'year']
 flux[is.na(tp), .N, by = 'year']
 flux[is.na(tp.to.date), .N, by = 'year'] # missing a lot - but not during growing season
+
+### Could maybe assign deep soil temps to neighboring plots of same treatment?
 ###########################################################################################
 
 ### Create Summaries and Derived Variables ################################################
-flux.final <- flux[, .(ts, date, year, month, week, doy, hour, hourmin, block,
+flux.final <- flux[, .(ts, date, year, season, month, week, doy, hour, hourmin, block,
                        fence, plot, plot.id, treatment, deployed, filled, nee,
                        reco, gpp, r2, par, tair, t5, t10, t20, t40, vwc, gwc,
-                       wtd, td, biomass, ndvi, precip, rh, subsidence, alt, tp,
-                       tp.to.date)]
-
+                       wtd, td, biomass, ndvi, ndvi.date, precip, rh, subsidence, alt,
+                       alt.date, tp, tp.to.date)]
+### Daily Summary
 flux.daily <- flux.final[,
-                         .(nee.sum = sum(nee, na.rm = TRUE),
+                         .(deployed = first(deployed),
+                           nee.sum = sum(nee, na.rm = TRUE),
                            reco.sum = sum(reco, na.rm = TRUE),
                            gpp.sum = sum(gpp, na.rm = TRUE),
                            tair.max = max(tair, na.rm = TRUE),
@@ -691,17 +716,24 @@ flux.daily <- flux.final[,
                            gwc.mean = mean(gwc, na.rm = TRUE),
                            gwc.min = min(gwc, na.rm = TRUE),
                            gwc.sd = sd(gwc, na.rm = TRUE),
-                           wtd = mean(wtd, na.rm = TRUE),
-                           td = mean(td, na.rm = TRUE),
-                           biomass = mean(biomass, na.rm = TRUE),
-                           ndvi = mean(ndvi, na.rm = TRUE),
+                           wtd = first(wtd),
                            precip = sum(precip, na.rm = TRUE),
-                           rh = mean(rh, na.rm = TRUE),
-                           subsidence = mean(subsidence, na.rm = TRUE),
-                           alt = mean(alt, na.rm = TRUE),
-                           tp = mean(tp, na.rm = TRUE)),
-                         by = c('date', 'year', 'month', 'week', 'doy', 'fence',
-                                'plot', 'plot.id', 'treatment')]
+                           rh.max = max(rh, na.rm = TRUE),
+                           rh.mean = mean(rh, na.rm = TRUE),
+                           rh.min = min(rh, na.rm = TRUE),
+                           rh.sd = sd(rh, na.rm = TRUE),
+                           subsidence.annual = first(subsidence),
+                           td = first(td),
+                           tp.to.date = first(tp.to.date),
+                           alt.annual = first(alt),
+                           alt.doy = yday(first(alt.date)),
+                           tp.annual = first(tp),
+                           biomass.annual = first(biomass),
+                           ndvi = first(ndvi),
+                           ndvi.doy = yday(first(ndvi.date))),
+                         by = c('date', 'year', 'season', 'month', 'week',
+                                'doy', 'block', 'fence', 'plot', 'plot.id',
+                                'treatment')]
 flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
 flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
 
@@ -711,16 +743,16 @@ flux.daily[freezing.days < 0,
            freezing.days := 0]
 flux.daily[is.na(precip),
            precip := 0]
-flux.daily[, flux.year := ifelse(month >= 10,
-                                 year +1,
-                                 year)]
+flux.daily[, ':=' (flux.year = ifelse(month >= 10,
+                                      year +1,
+                                      year))]
 flux.daily[, ':=' (gdd = cumsum(growing.days),
                    fdd = cumsum(freezing.days),
                    precip.cum = cumsum(precip)),
-           by = c('flux.year', 'fence', 'plot')]
+           by = c('flux.year', 'block', 'fence', 'plot')]
 
 flux.daily[,
-           ':=' (gdd.2d = frollsum(growing.days, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+           ':=' (gdd.2d = frollsum(growing.days, n = 2, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  gdd.3d = frollsum(growing.days, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  gdd.4d = frollsum(growing.days, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
                  gdd.5d = frollsum(growing.days, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
@@ -741,6 +773,27 @@ flux.daily[,
                  precip.6d = frollsum(precip, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
                  precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
                  precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 rh.mean.2d = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+                 rh.mean.3d = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 rh.mean.4d = frollmean(rh.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 rh.mean.5d = frollmean(rh.mean, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 rh.mean.6d = frollmean(rh.mean, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 rh.mean.1w = frollmean(rh.mean, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 rh.mean.2w = frollmean(rh.mean, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 rh.max.2d = frollapply(rh.max, n = 2, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 rh.max.3d = frollapply(rh.max, n = 3, align = 'right', FUN = max, na.rm = TRUE), # 2 days prior + current day
+                 rh.max.4d = frollapply(rh.max, n = 4, align = 'right', FUN = max, na.rm = TRUE), # 3 days prior + current day
+                 rh.max.5d = frollapply(rh.max, n = 5, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 rh.max.6d = frollapply(rh.max, n = 6, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 rh.max.1w = frollapply(rh.max, n = 7, align = 'right', FUN = max, na.rm = TRUE), # full week prior including current day
+                 rh.max.2w = frollapply(rh.max, n = 14, align = 'right', FUN = max, na.rm = TRUE), # 2 weeks prior including current day
+                 rh.min.2d = frollapply(rh.min, n = 2, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 rh.min.3d = frollapply(rh.min, n = 3, align = 'right', FUN = min, na.rm = TRUE), # 2 days prior + current day
+                 rh.min.4d = frollapply(rh.min, n = 4, align = 'right', FUN = min, na.rm = TRUE), # 3 days prior + current day
+                 rh.min.5d = frollapply(rh.min, n = 5, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 rh.min.6d = frollapply(rh.min, n = 6, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 rh.min.1w = frollapply(rh.min, n = 7, align = 'right', FUN = min, na.rm = TRUE), # full week prior including current day
+                 rh.min.2w = frollapply(rh.min, n = 14, align = 'right', FUN = min, na.rm = TRUE), # 2 weeks prior including current day
                  vwc.mean.2d = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
                  vwc.mean.3d = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  vwc.mean.4d = frollmean(vwc.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
@@ -783,14 +836,14 @@ flux.daily[,
                  gwc.min.6d = frollapply(gwc.min, n = 6, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
                  gwc.min.1w = frollapply(gwc.min, n = 7, align = 'right', FUN = min, na.rm = TRUE), # full week prior including current day
                  gwc.min.2w = frollapply(gwc.min, n = 14, align = 'right', FUN = min, na.rm = TRUE)), # 2 weeks prior including current day
-           by = c('fence', 'plot')]
+           by = c('block', 'fence', 'plot')]
 # remove NaN, -Inf, and Inf introduced by calculations
 flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
 flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
 
 # check that everything worked as expected
-View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', 'tair.mean', grep('gdd', colnames(flux.daily), value = TRUE))])
-View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', 'tair.mean', grep('fdd', colnames(flux.daily), value = TRUE))])
+View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', 'tair.mean', 'growing.days', grep('gdd', colnames(flux.daily), value = TRUE))])
+View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', 'tair.mean', 'freezing.days', grep('fdd', colnames(flux.daily), value = TRUE))])
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('precip', colnames(flux.daily), value = TRUE))])
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('vwc.mean', colnames(flux.daily), value = TRUE))])
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('vwc.max', colnames(flux.daily), value = TRUE))])
@@ -798,338 +851,269 @@ View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.mean', colnames(flux.daily), value = TRUE))])
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.max', colnames(flux.daily), value = TRUE))])
 View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.min', colnames(flux.daily), value = TRUE))])
+View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.mean', colnames(flux.daily), value = TRUE))])
+View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.max', colnames(flux.daily), value = TRUE))])
+View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.min', colnames(flux.daily), value = TRUE))])
+# write.csv(flux.daily, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_daily.csv',
+#           row.names = FALSE)
 
+
+# only keep rows with flux data for output
+flux.daily.neat <- flux.daily[season == 1 & year >= 2009]
+# write.csv(flux.daily.neat, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_daily_neat.csv',
+#           row.names = FALSE)
+
+### Winter environmental conditions
+env.winter <- flux.daily[season == 0,
+                         .(winter.fdd = sum(fdd, na.rm = TRUE),
+                           winter.min.tair.min = min(tair.min, na.rm = TRUE),
+                           winter.mean.tair.min = mean(tair.min, na.rm = TRUE),
+                           winter.tair.mean = mean(tair.mean, na.rm = TRUE),
+                           winter.tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                           winter.min.t5.min = min(t5.min, na.rm = TRUE),
+                           winter.t5.mean = mean(t5.mean, na.rm = TRUE),
+                           winter.t5.sd = sqrt(sum(t5.sd, na.rm = TRUE)/.N),
+                           winter.min.t10.min = min(t10.min, na.rm = TRUE),
+                           winter.t10.mean = mean(t10.mean, na.rm = TRUE),
+                           winter.t10.sd = sqrt(sum(t10.sd, na.rm = TRUE)/.N),
+                           winter.min.t20.min = min(t20.min, na.rm = TRUE),
+                           winter.t20.mean = mean(t20.mean, na.rm = TRUE),
+                           winter.t20.sd = sqrt(sum(t20.sd, na.rm = TRUE)/.N),
+                           winter.min.t40.min = min(t40.min, na.rm = TRUE),
+                           winter.t40.mean = mean(t40.mean, na.rm = TRUE),
+                           winter.t40.sd = sqrt(sum(t40.sd, na.rm = TRUE)/.N)),
+                         by = c('flux.year', 'block', 'fence', 'plot',
+                                'plot.id', 'treatment')]
+# remove NaN, -Inf, and Inf introduced by calculations
+env.winter <- env.winter[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+env.winter <- env.winter[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+env.winter[is.na(winter.t20.mean),
+           winter.t20.sd := NA]
+env.winter[is.na(winter.t40.mean),
+           winter.t40.sd := NA]
+
+### Weekly Summary
 flux.weekly <- flux.daily[,
-                          .(),
-                          by = c('date', 'flux.year', 'month', 'week', 'fence',
+                          .(deployed = max(deployed),
+                            flux.year = first(flux.year),
+                            season = ceiling(mean(season)),
+                            nee.sum = sum(nee.sum, na.rm = TRUE),
+                            reco.sum = sum(reco.sum, na.rm = TRUE),
+                            gpp.sum = sum(gpp.sum, na.rm = TRUE),
+                            max.tair.max = max(tair.max, na.rm = TRUE),
+                            mean.tair.max = mean(tair.max, na.rm = TRUE),
+                            tair.mean = mean(tair.mean, na.rm = TRUE),
+                            mean.tair.min = mean(tair.min, na.rm = TRUE),
+                            min.tair.min = min(tair.min, na.rm = TRUE),
+                            tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                            gdd = sum(gdd, na.rm = TRUE),
+                            fdd = sum(fdd, na.rm = TRUE),
+                            max.t5.max = max(t5.max, na.rm = TRUE),
+                            mean.t5.max = mean(t5.max, na.rm = TRUE),
+                            t5.mean = mean(t5.mean, na.rm = TRUE),
+                            mean.t5.min = mean(t5.min, na.rm = TRUE),
+                            min.t5.min = min(t5.min, na.rm = TRUE),
+                            t5.sd = sqrt(sum(t5.sd, na.rm = TRUE)/.N),
+                            max.t10.max = max(t10.max, na.rm = TRUE),
+                            mean.t10.max = mean(t10.max, na.rm = TRUE),
+                            t10.mean = mean(t10.mean, na.rm = TRUE),
+                            mean.t10.min = mean(t10.min, na.rm = TRUE),
+                            min.t10.min = min(t10.min, na.rm = TRUE),
+                            t10.sd = sqrt(sum(t10.sd, na.rm = TRUE)/.N),
+                            max.t20.max = max(t20.max, na.rm = TRUE),
+                            mean.t20.max = mean(t20.max, na.rm = TRUE),
+                            t20.mean = mean(t20.mean, na.rm = TRUE),
+                            mean.t20.min = mean(t20.min, na.rm = TRUE),
+                            min.t20.min = min(t20.min, na.rm = TRUE),
+                            t20.sd = sqrt(sum(t20.sd, na.rm = TRUE)/.N),
+                            max.t40.max = max(t40.max, na.rm = TRUE),
+                            mean.t40.max = mean(t40.max, na.rm = TRUE),
+                            t40.mean = mean(t40.mean, na.rm = TRUE),
+                            mean.t40.min = mean(t40.min, na.rm = TRUE),
+                            min.t40.min = min(t40.min, na.rm = TRUE),
+                            t40.sd = sqrt(sum(t40.sd, na.rm = TRUE)/.N),
+                            max.vwc.max = max(vwc.max, na.rm = TRUE),
+                            mean.vwc.max = mean(vwc.max, na.rm = TRUE),
+                            vwc.mean = mean(vwc.mean, na.rm = TRUE),
+                            mean.vwc.min = mean(vwc.min, na.rm = TRUE),
+                            min.vwc.min = min(vwc.min, na.rm = TRUE),
+                            vwc.sd = sqrt(sum(vwc.sd, na.rm = TRUE)/.N),
+                            max.gwc.max = max(gwc.max, na.rm = TRUE),
+                            mean.gwc.max = mean(gwc.max, na.rm = TRUE),
+                            gwc.mean = mean(gwc.mean, na.rm = TRUE),
+                            mean.gwc.min = mean(gwc.min, na.rm = TRUE),
+                            min.gwc.min = min(gwc.min, na.rm = TRUE),
+                            gwc.sd = sqrt(sum(gwc.sd, na.rm = TRUE)/.N),
+                            max.rh.max = max(rh.max, na.rm = TRUE),
+                            mean.rh.max = mean(rh.max, na.rm = TRUE),
+                            rh.mean = mean(rh.mean, na.rm = TRUE),
+                            mean.rh.min = mean(rh.min, na.rm = TRUE),
+                            min.rh.min = min(rh.min, na.rm = TRUE),
+                            rh.sd = sqrt(sum(rh.sd, na.rm = TRUE)/.N),
+                            precip.sum = sum(precip, na.rm = TRUE),
+                            precip.cum = last(precip.cum),
+                            subsidence.annual = first(subsidence.annual),
+                            td = max(td, na.rm = TRUE),
+                            tp.to.date = max(tp.to.date, na.rm = TRUE),
+                            alt.annual = first(alt.annual),
+                            alt.doy = first(alt.doy),
+                            tp.annual = first(alt.annual),
+                            biomass.annual = first(biomass.annual),
+                            ndvi = first(ndvi),
+                            ndvi.doy = first(ndvi.doy)),
+                          by = c('year', 'month', 'week', 'block', 'fence',
                                  'plot', 'plot.id', 'treatment')]
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.weekly <- flux.weekly[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.weekly <- flux.weekly[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
 
-# write.csv(flux.final, '/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/ITEX_WarmXResp/2020_09_Dataset request/flux_data/itex_flux_winter.csv',
+flux.weekly[,
+           ':=' (gdd.2w = frollsum(gdd, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 gdd.3w = frollsum(gdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
+                 gdd.1m = frollsum(gdd, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 fdd.2w = frollsum(fdd, n = 2, align = 'right', na.rm = TRUE), # previous week + current week 
+                 fdd.3w = frollsum(fdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
+                 fdd.1m = frollsum(fdd, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 precip.2w = frollsum(precip.sum, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 precip.3w = frollsum(precip.sum, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 precip.1m = frollsum(precip.sum, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 rh.mean.2w = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 rh.mean.3w = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 rh.mean.1m = frollmean(rh.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 max.rh.max.2w = frollmean(max.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 max.rh.max.3w = frollmean(max.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 max.rh.max.1m = frollmean(max.rh.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.rh.max.2w = frollmean(mean.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.rh.max.3w = frollmean(mean.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.rh.max.1m = frollmean(mean.rh.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 min.rh.min.2w = frollmean(min.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 min.rh.min.3w = frollmean(min.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 min.rh.min.1m = frollmean(min.rh.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.rh.min.2w = frollmean(mean.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.rh.min.3w = frollmean(mean.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.rh.min.1m = frollmean(mean.rh.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 vwc.mean.2w = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 vwc.mean.3w = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 vwc.mean.1m = frollmean(vwc.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 max.vwc.max.2w = frollmean(max.vwc.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 max.vwc.max.3w = frollmean(max.vwc.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 max.vwc.max.1m = frollmean(max.vwc.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.vwc.max.2w = frollmean(mean.vwc.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.vwc.max.3w = frollmean(mean.vwc.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.vwc.max.1m = frollmean(mean.vwc.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 min.vwc.min.2w = frollmean(min.vwc.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 min.vwc.min.3w = frollmean(min.vwc.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 min.vwc.min.1m = frollmean(min.vwc.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.vwc.min.2w = frollmean(mean.vwc.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.vwc.min.3w = frollmean(mean.vwc.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.vwc.min.1m = frollmean(mean.vwc.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 gwc.mean.2w = frollmean(gwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 gwc.mean.3w = frollmean(gwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 gwc.mean.1m = frollmean(gwc.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 max.gwc.max.2w = frollmean(max.gwc.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 max.gwc.max.3w = frollmean(max.gwc.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 max.gwc.max.1m = frollmean(max.gwc.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.gwc.max.2w = frollmean(mean.gwc.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.gwc.max.3w = frollmean(mean.gwc.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.gwc.max.1m = frollmean(mean.gwc.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 min.gwc.min.2w = frollmean(min.gwc.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 min.gwc.min.3w = frollmean(min.gwc.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 min.gwc.min.1m = frollmean(min.gwc.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 mean.gwc.min.2w = frollmean(mean.gwc.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 mean.gwc.min.3w = frollmean(mean.gwc.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 mean.gwc.min.1m = frollmean(mean.gwc.min, n = 4, align = 'right', na.rm = TRUE)), # full month including current week
+           by = c('fence', 'plot')]
+
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.weekly <- flux.weekly[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.weekly <- flux.weekly[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# write.csv(flux.weekly, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_weekly.csv',
+#           row.names = FALSE)
+
+# only keep growing season for data export
+flux.weekly.neat <- flux.weekly[season == 1 & year >= 2009]
+# write.csv(flux.weekly.neat, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_weekly_neat.csv',
 #           row.names = FALSE)
 
 
+### Annual
+flux.annual <- flux.weekly[season == 1,
+                          .(nee.sum = sum(nee.sum, na.rm = TRUE),
+                            reco.sum = sum(reco.sum, na.rm = TRUE),
+                            gpp.sum = sum(gpp.sum, na.rm = TRUE),
+                            max.tair.max = max(max.tair.max, na.rm = TRUE),
+                            mean.tair.max = mean(mean.tair.max, na.rm = TRUE),
+                            tair.mean = mean(tair.mean, na.rm = TRUE),
+                            mean.tair.min = mean(mean.tair.min, na.rm = TRUE),
+                            min.tair.min = min(min.tair.min, na.rm = TRUE),
+                            tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                            gdd = sum(gdd, na.rm = TRUE),
+                            fdd = sum(fdd, na.rm = TRUE),
+                            max.t5.max = max(max.t5.max, na.rm = TRUE),
+                            mean.t5.max = mean(mean.t5.max, na.rm = TRUE),
+                            t5.mean = mean(t5.mean, na.rm = TRUE),
+                            mean.t5.min = mean(mean.t5.min, na.rm = TRUE),
+                            min.t5.min = min(min.t5.min, na.rm = TRUE),
+                            t5.sd = sqrt(sum(t5.sd, na.rm = TRUE)/.N),
+                            max.t10.max = max(max.t10.max, na.rm = TRUE),
+                            mean.t10.max = mean(mean.t10.max, na.rm = TRUE),
+                            t10.mean = mean(t10.mean, na.rm = TRUE),
+                            mean.t10.min = mean(mean.t10.min, na.rm = TRUE),
+                            min.t10.min = min(min.t10.min, na.rm = TRUE),
+                            t10.sd = sqrt(sum(t10.sd, na.rm = TRUE)/.N),
+                            max.t20.max = max(max.t20.max, na.rm = TRUE),
+                            mean.t20.max = mean(mean.t20.max, na.rm = TRUE),
+                            t20.mean = mean(t20.mean, na.rm = TRUE),
+                            mean.t20.min = mean(mean.t20.min, na.rm = TRUE),
+                            min.t20.min = min(min.t20.min, na.rm = TRUE),
+                            t20.sd = sqrt(sum(t20.sd, na.rm = TRUE)/.N),
+                            max.t40.max = max(max.t40.max, na.rm = TRUE),
+                            mean.t40.max = mean(mean.t40.max, na.rm = TRUE),
+                            t40.mean = mean(t40.mean, na.rm = TRUE),
+                            mean.t40.min = mean(mean.t40.min, na.rm = TRUE),
+                            min.t40.min = min(min.t40.min, na.rm = TRUE),
+                            t40.sd = sqrt(sum(t40.sd, na.rm = TRUE)/.N),
+                            max.vwc.max = max(max.vwc.max, na.rm = TRUE),
+                            mean.vwc.max = mean(mean.vwc.max, na.rm = TRUE),
+                            vwc.mean = mean(vwc.mean, na.rm = TRUE),
+                            mean.vwc.min = mean(mean.vwc.min, na.rm = TRUE),
+                            min.vwc.min = min(min.vwc.min, na.rm = TRUE),
+                            vwc.sd = sqrt(sum(vwc.sd, na.rm = TRUE)/.N),
+                            max.gwc.max = max(max.gwc.max, na.rm = TRUE),
+                            mean.gwc.max = mean(mean.gwc.max, na.rm = TRUE),
+                            gwc.mean = mean(gwc.mean, na.rm = TRUE),
+                            mean.gwc.min = mean(mean.gwc.min, na.rm = TRUE),
+                            min.gwc.min = min(min.gwc.min, na.rm = TRUE),
+                            gwc.sd = sqrt(sum(gwc.sd, na.rm = TRUE)/.N),
+                            max.rh.max = max(max.rh.max, na.rm = TRUE),
+                            mean.rh.max = mean(mean.rh.max, na.rm = TRUE),
+                            rh.mean = mean(rh.mean, na.rm = TRUE),
+                            mean.rh.min = mean(mean.rh.min, na.rm = TRUE),
+                            min.rh.min = min(min.rh.min, na.rm = TRUE),
+                            rh.sd = sqrt(sum(rh.sd, na.rm = TRUE)/.N),
+                            precip.sum = sum(precip.sum, na.rm = TRUE),
+                            precip.cum = last(precip.cum),
+                            subsidence.annual = first(subsidence.annual),
+                            alt.annual = first(alt.annual),
+                            alt.doy = first(alt.doy),
+                            tp.annual = first(alt.annual),
+                            biomass.annual = first(biomass.annual),
+                            ndvi = max(ndvi, na.rm = TRUE),
+                            ndvi.doy = ndvi.doy[which(ndvi == max(ndvi, na.rm = TRUE))]),
+                          by = c('flux.year', 'season', 'block', 'fence',
+                                 'plot', 'plot.id', 'treatment')]
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.annual <- flux.annual[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.annual <- flux.annual[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
 
+# merge with winter data
+flux.annual <- merge(flux.annual,
+                     env.winter,
+                     by = c('flux.year', 'block', 'fence', 'plot', 'plot.id', 'treatment'))
 
-
-### Load Data ###############################################################################################################
-flux_cumulative_cip <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/co2 fluxes/Autochamber/Multiyear_Summaries/2009_2020/Flux_cumulative_plot_2009_2020.csv") %>%
-  mutate(treatment = ifelse(plot == 2 | plot == 4,
-                            'Control',
-                            ifelse(plot == 1 | plot == 3,
-                                   'Air Warming',
-                                   ifelse(plot == 6 | plot == 8,
-                                          'Soil Warming',
-                                          'Air + Soil Warming'))))
-# flux_cumulative_dry <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/co2 fluxes/Autochamber/Multiyear_Summaries/2012_2019_Drypehr/Flux_cumulative_DryPEHR_2009_2019.csv")
-# flux_cumulative <- rbind.data.frame(flux_cumulative_cip, flux_cumulative_dry)
-alt_sub <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
-                      header = TRUE,
-                      stringsAsFactors = FALSE) %>%
-  filter(exp == 'CiPEHR') %>%
-  select(-exp) %>%
-  mutate(plot = as.numeric(plot),
-         block = toupper(block))
-wtd <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2020_compiled.csv",
-                stringsAsFactors = FALSE)
-
-# automatically import and merge all of the moisture data from the soil sensors
-# '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR'
-import_soil_moisture <- function(folder) {
-  filenames <- list.files(paste(folder),
-                          full.names = TRUE,
-                          pattern = '.Rdata$')
-  df <- data.frame()
-  for (i in 1:length(filenames)) {
-    year_start <- i + 2007
-    year_end <- i + 2008
-    variable_name <- load(filenames[[which(str_detect(filenames, pattern = paste(year_start, '.+', year_end, sep = '')))]]) # load the data and save the variable name string to it's own variable name
-    temp_data <- get(variable_name) %>% # retrieve the data associated with the variable created in the previous line
-      filter(as_date(date) >= as_date(paste(year_end, '_05_01', sep = '')) & as_date(date) <= as_date(paste(year_end, '_09_30', sep = ''))) %>%
-      mutate(treatment = ifelse(plot == 2 | plot == 4,
-                                'Control',
-                                ifelse(plot == 1 | plot == 3,
-                                       'Air Warming',
-                                       ifelse(plot == 6 | plot == 8,
-                                              'Soil Warming',
-                                              'Air + Soil Warming'))),
-             mean_GWC = ifelse(is.nan(mean_GWC),
-                               NA,
-                               mean_GWC),
-             mean_VWC = ifelse(is.nan(mean_VWC),
-                               NA,
-                               mean_VWC))
-    df <- df %>%
-      rbind.data.frame(temp_data)
-  }
-  return(df)
-}
-moisture <- import_soil_moisture('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/soil_sensors/CiPEHR')
-
-biomass <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/EML_AK_CiPEHR_BiomassBySpecies_2009-2013__20150320_VGS.csv",
-                    stringsAsFactors = FALSE) %>%
-  rbind.data.frame(read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/biomass/CiPEHR/CiPEHR_biomass_2017.csv",
-                            stringsAsFactors = FALSE)) %>%
-  group_by(year, fence, plot) %>%
-  summarise(biomass = sum(biomass, na.rm = TRUE))
-
-ndvi <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv",
-                 stringsAsFactors = FALSE) %>%
-  filter(year != 2009 & year != 2012 & year != 2013) %>%
-  group_by(year, block, fence, plot) %>%
-  summarise(peak_NDVI = max(NDVI_relative, na.rm = TRUE)) %>%
-  filter(!is.na(as.numeric(plot))) %>%
-  mutate(plot = as.numeric(plot)) %>%
-  arrange(year, fence, plot)
-
-filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/chamber_temps/',
-                        full.names = TRUE)
-t_chamb_daily <- map_dfr(filenames,
-                         ~ read.csv(.x,
-                                    stringsAsFactors = FALSE) %>%
-                           mutate(date = ifelse(year < 2017, # some years have date or DOY instead of doy, this makes sure both are present (one still empty), so that grouping works
-                                                NA,
-                                                parse_date_time(as.character(date), c('%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y'))),
-                                  doy = ifelse(year >= 2017,
-                                               yday(as_datetime(date)),
-                                               ifelse(year <= 2015 & plot >= 9,
-                                                      DOY,
-                                                      doy))) %>%
-                           group_by(year, doy, fence, plot) %>%
-                           summarise(mean.t.chamb = mean(Tchamb_fill, na.rm = TRUE),
-                                     min.t.chamb = min(Tchamb_fill, na.rm = TRUE),
-                                     max.t.chamb = max(Tchamb_fill, na.rm = TRUE),
-                                     growing.days = ifelse(mean.t.chamb >= 5,
-                                                           mean.t.chamb - 5,
-                                                           NA),
-                                     freezing.days = ifelse(mean.t.chamb <= 0,
-                                                            mean.t.chamb,
-                                                            NA)) %>%
-                           ungroup()) %>%
-  mutate(date = as.Date(doy, origin = paste(as.character(year-1), '-12-31', sep = ''))) %>%
-  arrange(year, doy, fence, plot) %>%
-  filter(!(is.nan(mean.t.chamb) & min.t.chamb == Inf & max.t.chamb == -Inf))  %>%
-  filter(plot <= 8)
-#############################################################################################################################
-
-### Calculate Growing Season Air Temperature Indices #########################################################################
-# mean daily mean
-# mean daily min
-# mean daily max
-# min daily min?
-# max daily max?
-
-t_chamb_annual <- t_chamb_daily %>%
-  mutate(block = ifelse(fence <= 2,
-                        'A',
-                        ifelse(fence <= 4,
-                               'B',
-                               'C')),
-         treatment = ifelse(plot == 2 | plot == 4,
-                            'Control',
-                            ifelse(plot == 1 | plot == 3,
-                                   'Air Warming',
-                                   ifelse(plot == 6 | plot == 8,
-                                          'Soil Warming',
-                                          'Air + Soil Warming')))) %>%
-  group_by(year, block, fence, plot, treatment) %>%
-  summarise(mean.t.chamb.mean = mean(mean.t.chamb),
-            se.t.chamb.mean = sd(mean.t.chamb)/sqrt(n()),
-            mean.t.chamb.max = mean(max.t.chamb),
-            max.t.chamb.max = max(max.t.chamb),
-            se.t.chamb.max = sd(max.t.chamb)/sqrt(n()),
-            mean.t.chamb.min = mean(min.t.chamb),
-            min.t.chamb.min = min(min.t.chamb),
-            se.t.chamb.min = sd(min.t.chamb)/sqrt(n()),
-            gdd = sum(growing.days),
-            fdd = sum(freezing.days*-1))
-
-ggplot(t_chamb_annual, aes(x = year, colour = treatment)) +
-  geom_point(aes(y = mean.t.chamb.mean)) +
-  geom_point(aes(y = mean.t.chamb.min)) +
-  geom_point(aes(y = mean.t.chamb.max)) +
-  geom_point(aes(y = min.t.chamb.min)) +
-  geom_point(aes(y = max.t.chamb.max))
-  
-ggplot(t_chamb_annual, aes(x = year, y = mean.t.chamb.mean, colour = treatment)) +
-  geom_point() +
-  ggtitle('Mean Growing Season Temperature')
-
-ggplot(t_chamb_annual, aes(x = year, y = mean.t.chamb.min, colour = treatment)) +
-  geom_point() +
-  ggtitle('Mean Growing Season Daily Min Temperature')
-
-ggplot(t_chamb_annual, aes(x = year, y = mean.t.chamb.max, colour = treatment)) +
-  geom_point() +
-  ggtitle('Mean Growing Season Daily Max Temperature')
-
-ggplot(t_chamb_annual, aes(x = year, y = min.t.chamb.min, colour = treatment)) +
-  geom_point() +
-  ggtitle('Min Growing Season Temperature')
-
-ggplot(t_chamb_annual, aes(x = year, y = max.t.chamb.max, colour = treatment)) +
-  geom_point() +
-  ggtitle('Max Growing Season Temperature')
-#############################################################################################################################
-
-### Calculate Growing Season Soil Sensor Indices ############################################################################
-moisture_annual <- moisture %>%
-  mutate(fence = as.numeric(fence),
-         plot = as.numeric(plot)) %>%
-  group_by(year, fence, plot, treatment) %>%
-  summarise(mean.GWC = mean(mean_GWC, na.rm = TRUE),
-            se.GWC = sd(mean_GWC, na.rm = TRUE)/sqrt(n()),
-            mean.VWC = mean(mean_VWC, na.rm = TRUE),
-            se.VWC = sd(mean_VWC, na.rm = TRUE)/sqrt(n()))
-
-soil_temp_annual <- moisture %>%
-  mutate(fence = as.numeric(fence),
-         plot = as.numeric(plot),
-         mean_t = ifelse(is.nan(mean_t) | mean_t == Inf | mean_t == -Inf,
-                         NA,
-                         mean_t),
-         t.max = ifelse(is.nan(max.t) | max.t == Inf | max.t == -Inf,
-                       NA,
-                       max.t),
-         t.min = ifelse(is.nan(min.t) | min.t == Inf | min.t == -Inf,
-                       NA,
-                       min.t)) %>%
-  group_by(year, fence, plot, treatment, Depth) %>%
-  summarise(mean.t = mean(mean_t, na.rm = TRUE),
-            se.t = sd(mean_t, na.rm = TRUE)/sqrt(n()),
-            max.t = max(t.max, na.rm = TRUE),
-            se.t.max = sd(t.max, na.rm = TRUE)/sqrt(n()),
-            min.t = min(t.min, na.rm = TRUE),
-            se.t.min = sd(t.min, na.rm = TRUE)/sqrt(n()))
-
-soil_temp_5_annual <- soil_temp_annual %>%
-  filter(Depth == 'T_five') %>%
-  select(year, fence, plot, treatment, mean.t.5 = mean.t, se.mean.t.5 = se.t, max.t.5 = max.t, se.max.t.5 = se.t.max, min.t.5 = min.t, se.min.t.5 = se.t.min)
-
-soil_temp_10_annual <- soil_temp_annual %>%
-  filter(Depth == 'T_ten') %>%
-  select(year, fence, plot, treatment, mean.t.10 = mean.t, se.mean.t.10 = se.t, max.t.10 = max.t, se.max.t.10 = se.t.max, min.t.10 = min.t, se.min.t.10 = se.t.min)
-
-soil_temp_20_annual <- soil_temp_annual %>%
-  filter(Depth == 'T_twenty') %>%
-  select(year, fence, plot, treatment, mean.t.20 = mean.t, se.mean.t.20 = se.t, max.t.20 = max.t, se.max.t.20 = se.t.max, min.t.20 = min.t, se.min.t.20 = se.t.min)
-
-soil_temp_40_annual <- soil_temp_annual %>%
-  filter(Depth == 'T_forty') %>%
-  select(year, fence, plot, treatment, mean.t.40 = mean.t, se.mean.t.40 = se.t, max.t.40 = max.t, se.max.t.40 = se.t.max, min.t.40 = min.t, se.min.t.40 = se.t.min)
-#############################################################################################################################
-
-### Calculate Growing season WTD Indices ####################################################################################
-wtd_monthly <- wtd %>%
-  mutate(month = month(date)) %>%
-  group_by(year, block, fence, well, treatment, month) %>%
-  summarise(mean.wtd = mean(WTD, na.rm = TRUE),
-            se.wtd = sd(WTD, na.rm = TRUE)/sqrt(n()))
-
-wtd_annual <- wtd %>%
-  mutate(month = month(date)) %>%
-  group_by(year, block, fence, well, treatment) %>%
-  summarise(mean.wtd = mean(WTD, na.rm = TRUE),
-            se.wtd = sd(WTD, na.rm = TRUE)/sqrt(n())) %>%
-  full_join(wtd_monthly %>%
-                     filter(month == 6) %>%
-                     select(year, block, fence, well, treatment, mean.june.wtd = mean.wtd, se.june.wtd = se.wtd),
-            by = c('year', 'block', 'fence', 'well', 'treatment')) %>%
-  full_join(wtd_monthly %>%
-              filter(month == 7) %>%
-              select(year, block, fence, well, treatment, mean.july.wtd = mean.wtd, se.july.wtd = se.wtd),
-            by = c('year', 'block', 'fence', 'well', 'treatment')) %>%
-  full_join(wtd_monthly %>%
-              filter(month == 8) %>%
-              select(year, block, fence, well, treatment, mean.aug.wtd = mean.wtd, se.aug.wtd = se.wtd),
-            by = c('year', 'block', 'fence', 'well', 'treatment')) %>%
-  full_join(wtd_monthly %>%
-              filter(month == 9) %>%
-              select(year, block, fence, well, treatment, mean.sept.wtd = mean.wtd, se.sept.wtd = se.wtd),
-            by = c('year', 'block', 'fence', 'well', 'treatment'))
-#############################################################################################################################
-
-### Gap Fill Biomass Data with NDVI #########################################################################################
-bio_ndvi <- biomass %>%
-  full_join(ndvi, by = c('year', 'fence', 'plot')) %>%
-  mutate(block = ifelse(fence <= 2,
-                        'A',
-                        ifelse(fence <= 4,
-                               'B',
-                               'C')),
-         treatment = ifelse(plot == 2 | plot == 4,
-                            'Control',
-                            ifelse(plot == 1 | plot == 3,
-                                   'Air Warming',
-                                   ifelse(plot == 6 | plot == 8,
-                                          'Soil Warming',
-                                          'Air + Soil Warming'))))
-
-bio_ndvi_regress <- bio_ndvi %>%
-  filter(!is.na(peak_NDVI)) %>%
-  filter(!is.na(biomass))
-
-ggplot(bio_ndvi_regress, aes(x = peak_NDVI, y = biomass, colour = treatment)) +
-  geom_point()
-
-ggplot(bio_ndvi_regress, aes(x = peak_NDVI, y = biomass, colour = as.factor(year))) +
-  geom_point()
-
-ggplot(bio_ndvi, aes(x = year, y = peak_NDVI, colour = treatment)) +
-  geom_point()
-
-ggplot(bio_ndvi, aes(x = year, y = biomass, colour = treatment)) +
-  geom_point()
-
-bio_lm <- lm(biomass ~ peak_NDVI, bio_ndvi_regress)
-summary(bio_lm)
-
-bio_ndvi_filled <- bio_ndvi %>%
-  tidypredict_to_column(bio_lm, add_interval = TRUE) %>%
-  arrange(year, fence, plot) %>%
-  mutate(biomass.filled = ifelse(!is.na(biomass),
-                                        biomass,
-                                        fit))
-
-ggplot(bio_ndvi_filled, aes(x = biomass, y = fit, colour = treatment)) +
-  geom_point()
-#############################################################################################################################
-
-### Merge Datasets ##########################################################################################################
-env_var <- flux_cumulative_cip %>%
-  full_join(alt_sub %>%
-              mutate(well = ifelse(year > 2013 & fence == 1 & plot == 3 |
-                                     year > 2013 & fence == 2 & plot == 3 |
-                                     year > 2013 & fence == 3 & plot == 2 |
-                                     year > 2013 & fence == 4 & plot == 3 |
-                                     year > 2013 & fence == 5 & plot == 4 |
-                                     year > 2013 & fence == 6 & plot == 2,
-                                   2.5,
-                                   ifelse(year > 2013 & fence == 1 & plot == 5 |
-                                            year > 2013 & fence == 2 & plot == 5 |
-                                            year > 2013 & fence == 3 & plot == 7 |
-                                            year > 2013 & fence == 4 & plot == 8 |
-                                            year > 2013 & fence == 5 & plot == 6 |
-                                            year > 2013 & fence == 6 & plot == 7,
-                                          4.5,
-                                          ifelse(plot == 1 | plot == 4,
-                                                 1,
-                                                 ifelse(plot == 2 | plot == 3,
-                                                        2,
-                                                        ifelse(plot == 5 | plot == 8,
-                                                               3,
-                                                               4)))))) %>%
-              select(year, block, fence, plot, well, treatment, subsidence, ALT, thaw.penetration = ALT.corrected),
-            by = c('year', 'fence', 'plot', 'treatment')) %>%
-  select(year, block, fence, plot, well, treatment, NEE.sum, Reco.sum, GPP.sum, subsidence, ALT, thaw.penetration) %>%
-  full_join(t_chamb_annual, by = c('year', 'block', 'fence', 'plot', 'treatment')) %>%
-  full_join(moisture_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
-  full_join(soil_temp_5_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
-  full_join(soil_temp_10_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
-  full_join(soil_temp_20_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
-  full_join(soil_temp_40_annual, by = c('year', 'fence', 'plot', 'treatment')) %>%
-  full_join(select(bio_ndvi_filled, year, block, fence, plot, treatment, biomass.filled),
-            by = c('year', 'block', 'fence', 'plot', 'treatment'))
-
-# write.csv(env_var, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/annual_environmental_data_compiled.csv',
+# write.csv(flux.annual, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_annual.csv',
 #           row.names = FALSE)
+
 #############################################################################################################################
