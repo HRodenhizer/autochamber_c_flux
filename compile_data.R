@@ -123,6 +123,7 @@ co2[, date := parse_date_time(as_date(doy-1, origin = paste0(year, '-01-01')), o
 co2[hour == round(hour), minute := 0]
 co2[hour != round(hour), minute := 30]
 co2[, ts := parse_date_time(paste(date, paste(floor(hour), minute, sep = ':')), orders = c('Y!-m!*-d! H!:M!'))]
+co2[, week := week(ts)]
 co2[, day := mday(date)]
 co2[, Flux_Date := paste(day, month, year, sep = '/')]
 
@@ -507,8 +508,8 @@ flux <- merge(flux,
               all = TRUE)
 
 flux <- flux[order(ts, plot.id)]
-flux[, tp := alt - subsidence]
-flux[, tp.to.date := td - subsidence]
+flux[, tp := alt - 100*subsidence]
+flux[, tp.to.date := td - 100*subsidence]
 
 ### Biomass
 flux <- merge(flux,
@@ -683,9 +684,15 @@ flux.final <- flux[, .(ts, date, year, season, month, week, doy, hour, hourmin, 
 ### Daily Summary
 flux.daily <- flux.final[,
                          .(deployed = first(deployed),
-                           nee.sum = sum(nee, na.rm = TRUE),
-                           reco.sum = sum(reco, na.rm = TRUE),
-                           gpp.sum = sum(gpp, na.rm = TRUE),
+                           nee.sum = fifelse(all(is.na(nee)),
+                                            NaN,
+                                            sum(nee, na.rm = TRUE)),
+                           reco.sum = fifelse(all(is.na(reco)),
+                                             NaN,
+                                             sum(reco, na.rm = TRUE)),
+                           gpp.sum = fifelse(all(is.na(gpp)),
+                                            NaN,
+                                            sum(gpp, na.rm = TRUE)),
                            tair.max = max(tair, na.rm = TRUE),
                            tair.mean = mean(tair, na.rm = TRUE),
                            tair.min = min(tair, na.rm = TRUE),
@@ -717,7 +724,9 @@ flux.daily <- flux.final[,
                            gwc.min = min(gwc, na.rm = TRUE),
                            gwc.sd = sd(gwc, na.rm = TRUE),
                            wtd = first(wtd),
-                           precip = sum(precip, na.rm = TRUE),
+                           precip = fifelse(all(is.na(precip)),
+                                           NaN,
+                                           sum(precip, na.rm = TRUE)),
                            rh.max = max(rh, na.rm = TRUE),
                            rh.mean = mean(rh, na.rm = TRUE),
                            rh.min = min(rh, na.rm = TRUE),
@@ -752,7 +761,8 @@ flux.daily[, ':=' (gdd = cumsum(growing.days),
            by = c('flux.year', 'block', 'fence', 'plot')]
 
 flux.daily[,
-           ':=' (gdd.2d = frollsum(growing.days, n = 2, align = 'right', na.rm = TRUE), # 2 days prior + current day
+           ':=' (tair.spread = tair.max - tair.min,
+                 gdd.2d = frollsum(growing.days, n = 2, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  gdd.3d = frollsum(growing.days, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  gdd.4d = frollsum(growing.days, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
                  gdd.5d = frollsum(growing.days, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
@@ -870,6 +880,9 @@ env.winter <- flux.daily[season == 0,
                            winter.mean.tair.min = mean(tair.min, na.rm = TRUE),
                            winter.tair.mean = mean(tair.mean, na.rm = TRUE),
                            winter.tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                           winter.max.tair.spread = max(tair.spread, na.rm = TRUE),
+                           winter.mean.tair.spread = mean(tair.spread, na.rm = TRUE),
+                           winter.min.tair.spread = min(tair.spread, na.rm = TRUE),
                            winter.min.t5.min = min(t5.min, na.rm = TRUE),
                            winter.t5.mean = mean(t5.mean, na.rm = TRUE),
                            winter.t5.sd = sqrt(sum(t5.sd, na.rm = TRUE)/.N),
@@ -892,21 +905,32 @@ env.winter[is.na(winter.t20.mean),
            winter.t20.sd := NA]
 env.winter[is.na(winter.t40.mean),
            winter.t40.sd := NA]
+# write.csv(env.winter, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/env_winter.csv',
+#           row.names = FALSE)
 
 ### Weekly Summary
 flux.weekly <- flux.daily[,
                           .(deployed = max(deployed),
                             flux.year = first(flux.year),
                             season = ceiling(mean(season)),
-                            nee.sum = sum(nee.sum, na.rm = TRUE),
-                            reco.sum = sum(reco.sum, na.rm = TRUE),
-                            gpp.sum = sum(gpp.sum, na.rm = TRUE),
+                            nee.sum = ifelse(all(is.na(nee.sum)),
+                                             NaN,
+                                             sum(nee.sum, na.rm = TRUE)),
+                            reco.sum = ifelse(all(is.na(reco.sum)),
+                                              NaN,
+                                              sum(reco.sum, na.rm = TRUE)),
+                            gpp.sum = ifelse(all(is.na(gpp.sum)),
+                                             NaN,
+                                             sum(gpp.sum, na.rm = TRUE)),
                             max.tair.max = max(tair.max, na.rm = TRUE),
                             mean.tair.max = mean(tair.max, na.rm = TRUE),
                             tair.mean = mean(tair.mean, na.rm = TRUE),
                             mean.tair.min = mean(tair.min, na.rm = TRUE),
                             min.tair.min = min(tair.min, na.rm = TRUE),
                             tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                            max.tair.spread = max(tair.spread, na.rm = TRUE),
+                            mean.tair.spread = mean(tair.spread, na.rm = TRUE),
+                            min.tair.spread = min(tair.spread, na.rm = TRUE),
                             gdd = sum(gdd, na.rm = TRUE),
                             fdd = sum(fdd, na.rm = TRUE),
                             max.t5.max = max(t5.max, na.rm = TRUE),
@@ -951,7 +975,9 @@ flux.weekly <- flux.daily[,
                             mean.rh.min = mean(rh.min, na.rm = TRUE),
                             min.rh.min = min(rh.min, na.rm = TRUE),
                             rh.sd = sqrt(sum(rh.sd, na.rm = TRUE)/.N),
-                            precip.sum = sum(precip, na.rm = TRUE),
+                            precip = ifelse(all(is.na(precip)),
+                                                NaN,
+                                                sum(precip, na.rm = TRUE)),
                             precip.cum = last(precip.cum),
                             subsidence.annual = first(subsidence.annual),
                             td = max(td, na.rm = TRUE),
@@ -975,9 +1001,9 @@ flux.weekly[,
                  fdd.2w = frollsum(fdd, n = 2, align = 'right', na.rm = TRUE), # previous week + current week 
                  fdd.3w = frollsum(fdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
                  fdd.1m = frollsum(fdd, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 precip.2w = frollsum(precip.sum, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 precip.3w = frollsum(precip.sum, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 precip.1m = frollsum(precip.sum, n = 4, align = 'right', na.rm = TRUE), # full month including current week
+                 precip.2w = frollsum(precip, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                 precip.3w = frollsum(precip, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                 precip.1m = frollsum(precip, n = 4, align = 'right', na.rm = TRUE), # full month including current week
                  rh.mean.2w = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
                  rh.mean.3w = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
                  rh.mean.1m = frollmean(rh.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
@@ -1040,15 +1066,24 @@ flux.weekly.neat <- flux.weekly[season == 1 & year >= 2009]
 
 ### Annual
 flux.annual <- flux.weekly[season == 1,
-                          .(nee.sum = sum(nee.sum, na.rm = TRUE),
-                            reco.sum = sum(reco.sum, na.rm = TRUE),
-                            gpp.sum = sum(gpp.sum, na.rm = TRUE),
+                          .(nee.sum = fifelse(all(is.na(nee.sum)),
+                                             NaN,
+                                             sum(nee.sum, na.rm = TRUE)),
+                            reco.sum = fifelse(all(is.na(reco.sum)),
+                                              NaN,
+                                              sum(reco.sum, na.rm = TRUE)),
+                            gpp.sum = fifelse(all(is.na(gpp.sum)),
+                                             NaN,
+                                             sum(gpp.sum, na.rm = TRUE)),
                             max.tair.max = max(max.tair.max, na.rm = TRUE),
                             mean.tair.max = mean(mean.tair.max, na.rm = TRUE),
                             tair.mean = mean(tair.mean, na.rm = TRUE),
                             mean.tair.min = mean(mean.tair.min, na.rm = TRUE),
                             min.tair.min = min(min.tair.min, na.rm = TRUE),
                             tair.sd = sqrt(sum(tair.sd, na.rm = TRUE)/.N),
+                            max.tair.spread = max(max.tair.spread, na.rm = TRUE),
+                            mean.tair.spread = mean(mean.tair.spread, na.rm = TRUE),
+                            min.tair.spread = min(min.tair.spread, na.rm = TRUE),
                             gdd = sum(gdd, na.rm = TRUE),
                             fdd = sum(fdd, na.rm = TRUE),
                             max.t5.max = max(max.t5.max, na.rm = TRUE),
@@ -1093,7 +1128,7 @@ flux.annual <- flux.weekly[season == 1,
                             mean.rh.min = mean(mean.rh.min, na.rm = TRUE),
                             min.rh.min = min(min.rh.min, na.rm = TRUE),
                             rh.sd = sqrt(sum(rh.sd, na.rm = TRUE)/.N),
-                            precip.sum = sum(precip.sum, na.rm = TRUE),
+                            precip.sum = sum(precip, na.rm = TRUE),
                             precip.cum = last(precip.cum),
                             subsidence.annual = first(subsidence.annual),
                             alt.annual = first(alt.annual),
@@ -1116,4 +1151,202 @@ flux.annual <- merge(flux.annual,
 # write.csv(flux.annual, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux_input_data/flux_annual.csv',
 #           row.names = FALSE)
 
-#############################################################################################################################
+###########################################################################################
+
+### Plot to Check Merge and Summaries Went Properly #######################################
+### Daily
+# Fluxes
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = gpp.sum, color = 'GPP'), alpha = 0.5) +
+  geom_line(aes(y = nee.sum, color = 'NEE'), alpha = 0.5) +
+  geom_line(aes(y = -1*reco.sum, color = 'Reco'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_y_continuous(name = 'Flux (g C / day)') +
+  scale_color_manual(values = c('green', 'blue', 'red')) +
+  ggtitle('Daily Fluxes')
+
+# Air temps
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = tair.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('purple', 'red', 'black', 'blue')) +
+  ggtitle('Air Temperature')
+
+# GDD and FDD
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = fdd, color = 'FDD'), alpha = 0.5) +
+  geom_line(aes(y = gdd, color = 'GDD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('blue', 'red')) +
+  ggtitle('Growing Degree Days and Freezing Degree Days')
+
+# Soil Temps
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t5.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('5 cm Soil Temperature')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t10.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('10 cm Soil Temperature')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t20.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('20 cm Soil Temperature')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t40.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('40 cm Soil Temperature')
+
+# Soil Moisture
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = vwc.max, color = 'Max VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean, color = 'Mean VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.min, color = 'Min VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('VWC')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = vwc.sd, color = 'SD VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('VWC SD')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = gwc.max, color = 'Max GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.mean, color = 'Mean GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.min, color = 'Min GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('GWC')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = gwc.sd, color = 'SD GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('GWC SD')
+
+# Precipitation
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = wtd, color = 'WTD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Water Table Depth')
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = precip, color = 'Daily Precip'), alpha = 0.5) +
+  geom_line(aes(y = precip.cum, color = 'Cumulative Precip'), alpha = 0.5) +
+  scale_color_manual(values = c('blue', 'black')) +
+  ggtitle('Precipitation')
+
+# Relative Humidity
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = rh.max, color = 'Max RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.mean, color = 'Mean RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.min, color = 'Min RH'), alpha = 0.5) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Relative Humidity')
+
+# Subsidence, Thaw Depth, TP, ALT
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = td*-1, color = 'Thaw Depth'), alpha = 0.5) +
+  geom_line(aes(y = tp.to.date*-1, color = 'Thaw Penetration'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'red')) +
+  facet_grid(fence~plot) +
+  ggtitle('Thaw Depth')
+
+# NDVI
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = ndvi), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('NDVI')
+
+# Check lagged variables for a few plots
+ggplot(flux.daily[year == 2010 & plot.id == '1_1' &
+                    as_date(date) >= as_date('2010-06-01') &
+                    as_date(date) < as_date('2010-10-01')],
+       aes(x = date)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.2d, color = 'VWC 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.3d, color = 'VWC 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.4d, color = 'VWC 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.4d, color = 'VWC 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.4d, color = 'VWC 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.4d, color = 'VWC 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('VWC')
+
+ggplot(flux.daily[year == 2010 & plot.id == '1_1'],
+       aes(x = date)) +
+  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('GDD')
+
+ggplot(flux.daily[year == 2010 & plot.id == '4_6'],
+       aes(x = date)) +
+  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('GDD')
+
+ggplot(flux.daily[year == 2015 & plot.id == '1_1'],
+       aes(x = date)) +
+  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('GDD')
+
+ggplot(flux.daily[year == 2015 & plot.id == '4_6'],
+       aes(x = date)) +
+  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('GDD')
+
+### Weekly
+# Fluxes
+
+###########################################################################################
