@@ -376,7 +376,8 @@ sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subside
                     stringsAsFactors = FALSE)
 sub <- sub[exp == 'CiPEHR']
 sub[, ':='(exp = NULL,
-               plot = as.numeric(plot))]
+           plot = as.numeric(plot),
+           subsidence = subsidence *100)]
 sub <- sub[, .(year, fence, plot, treatment, subsidence)]
 ###########################################################################################
 
@@ -508,8 +509,8 @@ flux <- merge(flux,
               all = TRUE)
 
 flux <- flux[order(ts, plot.id)]
-flux[, tp := alt - 100*subsidence]
-flux[, tp.to.date := td - 100*subsidence]
+flux[, tp := alt - subsidence]
+flux[, tp.to.date := td - subsidence]
 
 ### Biomass
 flux <- merge(flux,
@@ -875,7 +876,7 @@ flux.daily.neat <- flux.daily[season == 1 & year >= 2009]
 
 ### Winter environmental conditions
 env.winter <- flux.daily[season == 0,
-                         .(winter.fdd = sum(fdd, na.rm = TRUE),
+                         .(winter.fdd = sum(freezing.days, na.rm = TRUE),
                            winter.min.tair.min = min(tair.min, na.rm = TRUE),
                            winter.mean.tair.min = mean(tair.min, na.rm = TRUE),
                            winter.tair.mean = mean(tair.mean, na.rm = TRUE),
@@ -911,8 +912,9 @@ env.winter[is.na(winter.t40.mean),
 ### Weekly Summary
 flux.weekly <- flux.daily[,
                           .(deployed = max(deployed),
-                            flux.year = first(flux.year),
+                            year = first(year),
                             season = ceiling(mean(season)),
+                            month = first(month),
                             nee.sum = ifelse(all(is.na(nee.sum)),
                                              NaN,
                                              sum(nee.sum, na.rm = TRUE)),
@@ -931,8 +933,10 @@ flux.weekly <- flux.daily[,
                             max.tair.spread = max(tair.spread, na.rm = TRUE),
                             mean.tair.spread = mean(tair.spread, na.rm = TRUE),
                             min.tair.spread = min(tair.spread, na.rm = TRUE),
-                            gdd = sum(gdd, na.rm = TRUE),
-                            fdd = sum(fdd, na.rm = TRUE),
+                            gdd.current = sum(growing.days, na.rm = TRUE),
+                            fdd.current = sum(freezing.days, na.rm = TRUE),
+                            gdd = max(gdd, na.rm = TRUE),
+                            fdd = max(fdd, na.rm = TRUE),
                             max.t5.max = max(t5.max, na.rm = TRUE),
                             mean.t5.max = mean(t5.max, na.rm = TRUE),
                             t5.mean = mean(t5.mean, na.rm = TRUE),
@@ -969,6 +973,7 @@ flux.weekly <- flux.daily[,
                             mean.gwc.min = mean(gwc.min, na.rm = TRUE),
                             min.gwc.min = min(gwc.min, na.rm = TRUE),
                             gwc.sd = sqrt(sum(gwc.sd, na.rm = TRUE)/.N),
+                            wtd.mean = mean(wtd, na.rm = TRUE),
                             max.rh.max = max(rh.max, na.rm = TRUE),
                             mean.rh.max = mean(rh.max, na.rm = TRUE),
                             rh.mean = mean(rh.mean, na.rm = TRUE),
@@ -984,11 +989,11 @@ flux.weekly <- flux.daily[,
                             tp.to.date = max(tp.to.date, na.rm = TRUE),
                             alt.annual = first(alt.annual),
                             alt.doy = first(alt.doy),
-                            tp.annual = first(alt.annual),
+                            tp.annual = first(tp.annual),
                             biomass.annual = first(biomass.annual),
-                            ndvi = first(ndvi),
+                            ndvi = max(ndvi),
                             ndvi.doy = first(ndvi.doy)),
-                          by = c('year', 'month', 'week', 'block', 'fence',
+                          by = c('flux.year', 'week', 'block', 'fence',
                                  'plot', 'plot.id', 'treatment')]
 # remove NaN, -Inf, and Inf introduced by calculations
 flux.weekly <- flux.weekly[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
@@ -1084,8 +1089,8 @@ flux.annual <- flux.weekly[season == 1,
                             max.tair.spread = max(max.tair.spread, na.rm = TRUE),
                             mean.tair.spread = mean(mean.tair.spread, na.rm = TRUE),
                             min.tair.spread = min(min.tair.spread, na.rm = TRUE),
-                            gdd = sum(gdd, na.rm = TRUE),
-                            fdd = sum(fdd, na.rm = TRUE),
+                            gdd = max(gdd, na.rm = TRUE),
+                            fdd = max(fdd, na.rm = TRUE),
                             max.t5.max = max(max.t5.max, na.rm = TRUE),
                             mean.t5.max = mean(mean.t5.max, na.rm = TRUE),
                             t5.mean = mean(t5.mean, na.rm = TRUE),
@@ -1122,6 +1127,7 @@ flux.annual <- flux.weekly[season == 1,
                             mean.gwc.min = mean(mean.gwc.min, na.rm = TRUE),
                             min.gwc.min = min(min.gwc.min, na.rm = TRUE),
                             gwc.sd = sqrt(sum(gwc.sd, na.rm = TRUE)/.N),
+                            wtd.mean = mean(wtd.mean, na.rm = TRUE),
                             max.rh.max = max(max.rh.max, na.rm = TRUE),
                             mean.rh.max = mean(mean.rh.max, na.rm = TRUE),
                             rh.mean = mean(rh.mean, na.rm = TRUE),
@@ -1133,7 +1139,7 @@ flux.annual <- flux.weekly[season == 1,
                             subsidence.annual = first(subsidence.annual),
                             alt.annual = first(alt.annual),
                             alt.doy = first(alt.doy),
-                            tp.annual = first(alt.annual),
+                            tp.annual = first(tp.annual),
                             biomass.annual = first(biomass.annual),
                             ndvi = max(ndvi, na.rm = TRUE),
                             ndvi.doy = ndvi.doy[which(ndvi == max(ndvi, na.rm = TRUE))]),
@@ -1243,15 +1249,15 @@ ggplot(flux.daily, aes(x = date)) +
   facet_grid(fence~plot) +
   ggtitle('GWC SD')
 
-# Precipitation
 ggplot(flux.daily, aes(x = date)) +
   geom_line(aes(y = wtd, color = 'WTD'), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Water Table Depth')
 
+# Precipitation
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = precip, color = 'Daily Precip'), alpha = 0.5) +
-  geom_line(aes(y = precip.cum, color = 'Cumulative Precip'), alpha = 0.5) +
+  geom_step(aes(y = precip, color = 'Daily Precip'), alpha = 0.5) +
+  geom_step(aes(y = precip.cum, color = 'Cumulative Precip'), alpha = 0.5) +
   scale_color_manual(values = c('blue', 'black')) +
   ggtitle('Precipitation')
 
@@ -1348,5 +1354,297 @@ ggplot(flux.daily[year == 2015 & plot.id == '4_6'],
 
 ### Weekly
 # Fluxes
+flux.weekly[, year.decimal := year + week/max(week), by = 'year']
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = gpp.sum, color = 'GPP'), alpha = 0.5) +
+  geom_line(aes(y = nee.sum, color = 'NEE'), alpha = 0.5) +
+  geom_line(aes(y = -1*reco.sum, color = 'Reco'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_y_continuous(name = 'Flux (g C / week)') +
+  scale_color_manual(values = c('green', 'blue', 'red')) +
+  ggtitle('Weekly Fluxes')
+
+# Air temps
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.tair.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.tair.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = mean.tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('purple', 'red', 'black', 'blue')) +
+  ggtitle('Air Temperature')
+
+# GDD and FDD
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = fdd, color = 'FDD'), alpha = 0.5) +
+  geom_line(aes(y = gdd, color = 'GDD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('blue', 'red')) +
+  ggtitle('Weekly Growing Degree Days and Freezing Degree Days')
+
+# Soil Temps
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.t5.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t5.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly 5 cm Soil Temperature')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.t10.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t10.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly 10 cm Soil Temperature')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.t20.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly 20 cm Soil Temperature')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.t40.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t40.min, color = 'Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly 40 cm Soil Temperature')
+
+# Soil Moisture
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.vwc.max, color = 'Max VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean, color = 'Mean VWC'), alpha = 0.5) +
+  geom_line(aes(y = min.vwc.min, color = 'Min VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly VWC')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = vwc.sd, color = 'SD VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly VWC SD')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.gwc.max, color = 'Max GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.mean, color = 'Mean GWC'), alpha = 0.5) +
+  geom_line(aes(y = min.gwc.min, color = 'Min GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly GWC')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = gwc.sd, color = 'SD GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly GWC SD')
+
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = wtd.mean, color = 'WTD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly Water Table Depth')
+
+# Precipitation
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_step(aes(y = precip, color = 'Precip'), alpha = 0.5) +
+  geom_step(aes(y = precip.cum, color = 'Cumulative\nPrecip'), alpha = 0.5) +
+  scale_color_manual(values = c('blue', 'black')) +
+  ggtitle('Weekly Precipitation')
+
+ggplot(flux.weekly, aes(x = week, group = year)) +
+  geom_step(aes(y = precip.cum, color = factor(year)), alpha = 0.5) +
+  ggtitle('Weekly Precipitation')
+
+# Relative Humidity
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = max.rh.max, color = 'Max RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.mean, color = 'Mean RH'), alpha = 0.5) +
+  geom_line(aes(y = min.rh.min, color = 'Min RH'), alpha = 0.5) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Weekly Relative Humidity')
+
+# Thaw Depth, TP
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = td*-1, color = 'Thaw Depth'), alpha = 0.5) +
+  geom_line(aes(y = tp.to.date*-1, color = 'Thaw Penetration'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'red')) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly Thaw Depth')
+
+# NDVI
+ggplot(flux.weekly, aes(x = year.decimal)) +
+  geom_line(aes(y = ndvi), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly NDVI')
+
+# Check lagged variables for a few plots
+ggplot(flux.weekly[plot.id == '1_1'],
+       aes(x = year.decimal)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.2w, color = 'VWC 2 Week'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.3w, color = 'VWC 3 Week'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.1m, color = 'VWC 4 Week'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45')) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly VWC')
+
+ggplot(flux.weekly[plot.id == '4_6'],
+       aes(x = year.decimal)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.2w, color = 'VWC 2 Week'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.3w, color = 'VWC 3 Week'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean.1m, color = 'VWC 4 Week'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45')) +
+  facet_grid(fence~plot) +
+  ggtitle('Weekly VWC')
+
+ggplot(flux.daily[year == 2010 & plot.id == '4_6'],
+       aes(x = date)) +
+  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
+  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
+                                'gray60', 'gray75', 'gray90')) +
+  facet_grid(fence~plot) +
+  ggtitle('GDD')
+
+### Annual
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_hline(yintercept = 0) +
+  geom_line(aes(y = gpp.sum, color = 'GPP'), alpha = 0.5) +
+  geom_line(aes(y = nee.sum, color = 'NEE'), alpha = 0.5) +
+  geom_line(aes(y = -1*reco.sum, color = 'Reco'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_y_continuous(name = 'Flux (g C / yr)') +
+  scale_color_manual(values = c('green', 'blue', 'red')) +
+  ggtitle('Annual Fluxes')
+
+# Air Temps
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.tair.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.tair.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.tair.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = mean.tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('purple', 'red', 'black', 'blue', 'turquoise')) +
+  ggtitle('Annual Air Temperature')
+
+# GDD and FDD
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = fdd, color = 'FDD'), alpha = 0.5) +
+  geom_line(aes(y = gdd, color = 'GDD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('blue', 'red')) +
+  ggtitle('Annual Growing Degree Days and Freezing Degree Days')
+
+# Soil Temps
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.t5.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t5.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t5.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
+  ggtitle('Annual 5 cm Soil Temperature')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.t10.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t10.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t10.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
+  ggtitle('Annual 10 cm Soil Temperature')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.t20.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t20.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
+  ggtitle('Annual 20 cm Soil Temperature')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.t40.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t40.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t40.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
+  ggtitle('Annual 40 cm Soil Temperature')
+
+# Soil Moisture
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.vwc.max, color = 'Max VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.mean, color = 'Mean VWC'), alpha = 0.5) +
+  geom_line(aes(y = min.vwc.min, color = 'Min VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Annual VWC')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = vwc.sd, color = 'SD VWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual VWC SD')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.gwc.max, color = 'Max GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.mean, color = 'Mean GWC'), alpha = 0.5) +
+  geom_line(aes(y = min.gwc.min, color = 'Min GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Annual GWC')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = gwc.sd, color = 'SD GWC'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual GWC SD')
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = wtd.mean, color = 'WTD'), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual Water Table Depth')
+
+# Precipitation
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_col(aes(y = precip.sum/100, color = 'Precip', fill = 'Precip')) +
+  scale_y_continuous(name = 'Precip (cm)') +
+  scale_color_manual(values = c('blue'),
+                     guide = FALSE) +
+  scale_fill_manual(values = c('blue'),
+                    guide = FALSE) +
+  ggtitle('Annual Precipitation')
+
+# Relative Humidity
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = max.rh.max, color = 'Max RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.mean, color = 'Mean RH'), alpha = 0.5) +
+  geom_line(aes(y = min.rh.min, color = 'Min RH'), alpha = 0.5) +
+  scale_color_manual(values = c('red', 'black', 'blue')) +
+  ggtitle('Annual Relative Humidity')
+
+# Thaw Depth, TP
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = alt.annual*-1, color = 'ALT'), alpha = 0.5) +
+  geom_line(aes(y = tp.annual*-1, color = 'Thaw Penetration'), alpha = 0.5) +
+  scale_color_manual(values = c('black', 'red')) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual Thaw Depth')
+
+# NDVI
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = ndvi), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual Max NDVI')
 
 ###########################################################################################
