@@ -35,9 +35,16 @@ reco.daily <- flux.daily[!is.na(reco.sum),  -c('date', 'year', 'flux.year',
                                                'block', 'fence', 'plot', 'plot.id',
                                                'treatment', 'deployed', 'nee.sum',
                                                'gpp.sum', 'alt.doy', 'ndvi.doy')]
-train.nee.daily <- sample(1:nrow(nee.daily), 0.8*nrow(nee.daily))
-train.gpp.daily <- sample(1:nrow(gpp.daily), 0.8*nrow(gpp.daily))
-train.reco.daily <- sample(1:nrow(reco.daily), 0.8*nrow(reco.daily))
+# set.seed doesn't seem to apply to sample
+# train.nee.daily <- sample(1:nrow(nee.daily), 0.8*nrow(nee.daily))
+# train.gpp.daily <- sample(1:nrow(gpp.daily), 0.8*nrow(gpp.daily))
+# train.reco.daily <- sample(1:nrow(reco.daily), 0.8*nrow(reco.daily))
+# saveRDS(train.nee.daily, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_daily_80.rds')
+# saveRDS(train.gpp.daily, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_daily_80.rds')
+# saveRDS(train.reco.daily, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_daily_80.rds')
+train.nee.daily <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_daily_80.rds')
+train.gpp.daily <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_daily_80.rds')
+train.reco.daily <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_daily_80.rds')
 
 # NEE 
 nee.daily.tree <- ctree(nee.sum~.,
@@ -46,6 +53,7 @@ nee.daily.tree <- ctree(nee.sum~.,
 nee.daily.tree
 # plot(nee.daily.tree)
 # saveRDS(nee.daily.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_daily_tree.rds')
+nee.daily.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_daily_tree.rds')
 nee.daily.fit <- nee.daily[-train.nee.daily, fit := predict(nee.daily.tree, nee.daily[-train.nee.daily,])]
 ggplot(nee.daily.fit, aes(x = fit, y = nee.sum)) +
   geom_point()
@@ -57,6 +65,7 @@ reco.daily.tree <- ctree(reco.sum~.,
 reco.daily.tree
 # plot(reco.daily.tree)
 # saveRDS(reco.daily.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_daily_tree.rds')
+reco.daily.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_daily_tree.rds')
 reco.daily.fit <- reco.daily[-train.reco.daily, fit := predict(reco.daily.tree, reco.daily[-train.reco.daily,])]
 ggplot(reco.daily.fit, aes(x = fit, y = reco.sum)) +
   geom_point()
@@ -68,6 +77,7 @@ gpp.daily.tree <- ctree(gpp.sum~.,
 gpp.daily.tree
 # plot(gpp.daily.tree)
 # saveRDS(gpp.daily.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_daily_tree.rds')
+gpp.daily.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_daily_tree.rds')
 gpp.daily.fit <- gpp.daily[-train.gpp.daily, fit := predict(gpp.daily.tree, gpp.daily[-train.gpp.daily,])]
 ggplot(gpp.daily.fit, aes(x = fit, y = gpp.sum)) +
   geom_point()
@@ -92,39 +102,61 @@ reco.weekly <- flux.weekly[!is.na(reco.sum),  -c('year', 'flux.year',
                                                  'block', 'fence', 'plot', 'plot.id',
                                                  'treatment', 'nee.sum',
                                                  'gpp.sum', 'alt.doy', 'ndvi.doy')]
-train.nee.weekly <- sample(1:nrow(nee.weekly), 0.8*nrow(nee.weekly))
-train.gpp.weekly <- sample(1:nrow(gpp.weekly), 0.8*nrow(gpp.weekly))
-train.reco.weekly <- sample(1:nrow(reco.weekly), 0.8*nrow(reco.weekly))
+# set.seed doesn't seem to apply to sample
+# train.nee.weekly <- sample(1:nrow(nee.weekly), 0.8*nrow(nee.weekly))
+# train.gpp.weekly <- sample(1:nrow(gpp.weekly), 0.8*nrow(gpp.weekly))
+# train.reco.weekly <- sample(1:nrow(reco.weekly), 0.8*nrow(reco.weekly))
+# saveRDS(train.nee.weekly, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_weekly_80.rds')
+# saveRDS(train.gpp.weekly, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_weekly_80.rds')
+# saveRDS(train.reco.weekly, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_weekly_80.rds')
+train.nee.weekly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_weekly_80.rds')
+train.gpp.weekly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_weekly_80.rds')
+train.reco.weekly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_weekly_80.rds')
 
-# NEE 
+# NEE
+nee.weekly.subset <- nee.weekly[train.nee.weekly]
 nee.weekly.tree <- ctree(nee.sum~.,
-                        data = nee.weekly,
-                        subset = train.nee.weekly) # this produces a huge tree... don't try to plot
+                        data = nee.weekly.subset,
+                        control = ctree_control(alpha =10^-15)) # this produces a huge tree... don't try to plot
 nee.weekly.tree
 # plot(nee.weekly.tree)
 # saveRDS(nee.weekly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_weekly_tree.rds')
+
+# this gives slightly different values every time
+nee.imp <- data.frame(Importance = varimp(nee.weekly.tree)) %>%
+  rownames_to_column(var = 'Variable') %>%
+  arrange(Importance) %>%
+  mutate(Variable = factor(Variable))
+
+ggplot(nee.imp, aes(x = Importance, y = fct_reorder(Variable,
+                                         Importance))) +
+  geom_col()
 nee.weekly.fit <- nee.weekly[-train.nee.weekly, fit := predict(nee.weekly.tree, nee.weekly[-train.nee.weekly,])]
 ggplot(nee.weekly.fit, aes(x = fit, y = nee.sum)) +
   geom_point()
 
 # Reco
+reco.weekly.subset <- reco.weekly[train.reco.weekly]
 reco.weekly.tree <- ctree(reco.sum~.,
-                         data = reco.weekly,
-                         subset = train.reco.weekly) # lowering alpha results in fewer splits
+                         data = reco.weekly.subset,
+                         control = ctree_control(alpha =10^-15)) # lowering alpha results in fewer splits
 reco.weekly.tree
 plot(reco.weekly.tree)
 # saveRDS(reco.weekly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_weekly_tree.rds')
+varimp(reco.weekly.tree)
 reco.weekly.fit <- reco.weekly[-train.reco.weekly, fit := predict(reco.weekly.tree, reco.weekly[-train.reco.weekly,])]
 ggplot(reco.weekly.fit, aes(x = fit, y = reco.sum)) +
   geom_point()
 
 # GPP
+gpp.weekly.subset <- gpp.weekly[train.gpp.weekly]
 gpp.weekly.tree <- ctree(gpp.sum~.,
-                        data = gpp.weekly,
-                        subset = train.gpp.weekly) # this produces a huge tree... don't try to plot
+                        data = gpp.weekly.subset,
+                        control = ctree_control(alpha =10^-15)) # this produces a huge tree... don't try to plot
 gpp.weekly.tree
-# plot(gpp.weekly.tree)
+plot(gpp.weekly.tree)
 # saveRDS(gpp.weekly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_weekly_tree.rds')
+varimp(gpp.weekly.tree)
 gpp.weekly.fit <- gpp.weekly[-train.gpp.weekly, fit := predict(gpp.weekly.tree, gpp.weekly[-train.gpp.weekly,])]
 ggplot(gpp.weekly.fit, aes(x = fit, y = gpp.sum)) +
   geom_point()
