@@ -243,6 +243,21 @@ soil.sensor[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 # Format Plot IDs
 soil.sensor[, plot.id := paste(fence, plot, sep = '_')]
 
+# Gap fill missing vwc and soil temps
+soil.sensor[, ':=' (T_twenty = fifelse(is.na(T_twenty),
+                                          mean(T_twenty, na.rm = TRUE),
+                                          T_twenty),
+                    T_forty  = fifelse(is.na(T_forty),
+                                       mean(T_forty, na.rm = TRUE),
+                                       T_forty),
+                    VWC  = fifelse(is.na(VWC),
+                                       mean(VWC, na.rm = TRUE),
+                                       VWC)),
+                    by = .(year, doy, hourmin, fence, treatment)]
+# remove NaN, -Inf, and Inf introduced by calculations
+soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
 # Neaten
 soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
                                treatment, fence, plot, plot.id, t5 = T_five,
@@ -419,14 +434,17 @@ snow[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 ### plot frame to join environmental data that doesn't have plot information with
 plot.frame <- expand_grid(fence = seq(1, 6),
                           plot = seq(1, 8),
-                          date = parse_date_time(seq(ymd('2008-09-01'), ymd('2020-09-30'), by = 'days'),
+                          date = parse_date_time(seq(ymd('2008-09-01'),
+                                                     ymd('2020-09-30'),
+                                                     by = 'days'),
                                                  orders = c('Y!-m!*-d!')),
                           hourmin = as.numeric(seq(0, 23.5, by = 0.5))) %>%
   mutate(hour = floor(hourmin),
          mins = ifelse(hourmin == floor(hourmin),
                       0,
                       30),
-         ts = parse_date_time(paste(date, paste(hour, mins, sep = ':')), orders = c('Y!-m!*-d! H!:M!')),
+         ts = parse_date_time(paste(date, paste(hour, mins, sep = ':')),
+                              orders = c('Y!-m!*-d! H!:M!')),
          year = year(ts),
          month = month(ts),
          week = week(ts),
@@ -443,9 +461,11 @@ plot.frame <- as.data.table(plot.frame)
 
 ### PAR and Tair
 weather <- weather[date >= ymd('2008-09-01'),]
-weather <- merge(weather, plot.frame, by = c('date', 'hour'), allow.cartesian = TRUE)
+weather <- merge(weather, plot.frame, by = c('date', 'hour'),
+                 allow.cartesian = TRUE)
 flux <- merge(co2, weather,
-              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour', 'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
+              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
+                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
 flux[is.nan(precip),
      precip := NA]
@@ -457,7 +477,8 @@ flux[is.nan(par),
 ### Soil sensors
 flux <- merge(flux, 
               soil.sensor,
-              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour', 'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
+              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
+                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
 
 ### Water Table Depth
