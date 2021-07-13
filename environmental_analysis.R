@@ -34,30 +34,39 @@ weather <- data.table(weather)
 weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', sep = '')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
 weather[, year := year(date)]
 weather[, month := month(date)]
+weather[, season := fifelse(month <= 4 | month >= 10,
+                            'ngs',
+                            'gs')]
 weather[, flux.year := fifelse(month >= 10,
                                year + 1,
                                year)]
 
 # Neaten
-weather <- weather[, .(flux.year, date, Tair, par, precip, rh)]
 weather.daily <- weather[flux.year >= 2009,
                          .(tair.mean = mean(Tair, na.rm = TRUE),
                            tair.min = min(Tair, na.rm = TRUE),
                            tair.max = max(Tair, na.rm = TRUE),
-                           precip = sum(precip, na.rm = TRUE)),
-                         by = .(flux.year, date)]
+                           precip = sum(precip, na.rm = TRUE),
+                           par = mean(par, na.rm = TRUE)),
+                         by = .(flux.year, month, date)]
+weather.seasonal <- weather[flux.year >= 2009,
+                            .(tair.mean = mean(Tair, na.rm = TRUE),
+                              tair.min = min(Tair, na.rm = TRUE),
+                              tair.max = max(Tair, na.rm = TRUE),
+                              precip = sum(precip, na.rm = TRUE),
+                              par = mean(par, na.rm = TRUE)),
+                            by = .(flux.year, season)]
 weather.annual <- weather[flux.year >= 2009,
                    .(tair.mean = mean(Tair, na.rm = TRUE),
                      tair.min = min(Tair, na.rm = TRUE),
-                     tair.max = max(Tair, na.rm = TRUE),
-                     precip = sum(precip, na.rm = TRUE)),
+                     tair.max = max(Tair, na.rm = TRUE)),
                    by = .(flux.year)]
-
 ################################################################################
 
 ### PCA ########################################################################
 # need to finalize which variables to include
 env.annual.plot <- flux.annual %>%
+  filter(flux.year != 2009) %>%
   select(-c(season, matches('rh'), matches('sd'),
             max.tair.spread, min.tair.spread, matches('ndvi'),
             biomass.annual, gdd, fdd, winter.fdd, precip.cum)) %>%
@@ -78,7 +87,10 @@ env.annual.subset <- env.annual %>%
          tp = tp.annual, w.snow.depth = winter.snow.depth, 
          w.t5.min = winter.min.t5.min, w.t10.min = winter.min.t10.min, 
          w.t20.min = winter.min.t20.min, w.t40.min = winter.min.t40.min)
-pca.annual <- prcomp(as.matrix(env.annual.subset))
+# pca.annual <- prcomp(as.matrix(env.annual.subset))
+# saveRDS(pca.annual,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca.rds')
+pca.annual <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca.rds')
 
 # Environmental PCA colored by subsidence
 pca.plot <- autoplot(pca.annual, data = env.annual.plot, colour = 'subsidence.annual',
@@ -170,6 +182,12 @@ tair.contrast <- emmeans()
 
 ggplot(weather.daily, aes(x = flux.year, y = tair.mean, group = flux.year)) +
   geom_boxplot() +
-  
   scale_x_continuous(breaks = seq(2009, 2020))
+
+### Create a table of environmental variables by year
+env.summary <- weather.seasonal[, .(flux.year, season, tair.mean, par, precip)]
+env.summary <- melt(env.summary, 
+                    measure.vars = c('tair.mean', 'par', 'precip'), 
+                    variable.name = 'measurement')
+env.summary <- dcast(env.summary, measurement + season ~ flux.year)  
 ################################################################################
