@@ -193,13 +193,26 @@ weather <- data.table(weather)
 weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', sep = '')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
 weather[, year := year(date)]
 weather[, month := month(date)]
+weather[, flux.year := fifelse(month >= 10,
+                               year + 1,
+                               year)]
+weather[, season := fifelse(month <= 4 | month >= 10,
+                            'ngs',
+                            'gs')]
 weather[, day := mday(date)]
 weather[, hour := floor(hourmin)]
 weather <- weather[order(date, hour)]
 
 # Neaten
-weather <- weather[, .(date, hour, Tair, par, precip, rh)]
-weather <- weather[,
+# weather data to use for environmental summary
+weather.env <- weather[, .(flux.year, season, date, hour, Tair, par, precip, rh)]
+weather.env <- weather.env[flux.year >= 2009][, .(tair.mean = mean(Tair, na.rm = TRUE),
+                                                  precip = sum(precip, na.rm = TRUE),
+                                                  par = mean(par, na.rm = TRUE)),
+                                              by = c('flux.year', 'season')]
+# weather data to use for flux data
+weather.f <- weather[, .(date, hour, Tair, par, precip, rh)]
+weather.f <- weather.f[,
                    .(par = mean(par, na.rm = TRUE),
                      Tair = mean(Tair, na.rm = TRUE),
                      precip = mean(precip, na.rm = TRUE),
@@ -328,25 +341,34 @@ well.assignment[year >= 2019 & fence == 6 & plot == 4, well := 1.17]
 well.assignment[year >= 2019 & fence == 6 & plot == 8, well := 8.17]
 
 # join well assignments with wtd
-wtd <- merge(wtd, well.assignment, by = c('year', 'fence', 'well'), allow.cartesian = TRUE)
+wtd.f <- merge(wtd, well.assignment, by = c('year', 'fence', 'well'), allow.cartesian = TRUE)
 
 # Treatment
-wtd[plot == 2 | plot == 4, treatment := 'Control']
-wtd[plot == 1 | plot == 3, treatment := 'Air Warming']
-wtd[plot == 6 | plot == 8, treatment := 'Soil Warming']
-wtd[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
+wtd.f[plot == 2 | plot == 4, treatment := 'Control']
+wtd.f[plot == 1 | plot == 3, treatment := 'Air Warming']
+wtd.f[plot == 6 | plot == 8, treatment := 'Soil Warming']
+wtd.f[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 
 # Duplicate 2009 data with NA in plot so that it can be joined with 2009 fluxes
 # that don't have plot information
-wtd.2009 <- wtd[year == 2009]
+wtd.2009 <- wtd.f[year == 2009]
 wtd.2009[, plot := NA]
-wtd <- rbind(wtd.2009, wtd)
+wtd.f <- rbind(wtd.2009, wtd.f)
 
 # Format Plot IDs
-wtd[, plot.id := paste(fence, plot, sep = '_')]
+wtd.f[, plot.id := paste(fence, plot, sep = '_')]
 
 # Neaten
-wtd <- wtd[, .(date, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
+# for flux data
+wtd.f <- wtd.f[, .(date, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
+
+# for environmental data
+wtd.env <- wtd[, ':=' (treatment = fifelse(well %in% c(1, 2, 2.5, 1.17, 2.17, 3.17, 4.17),
+                                      'Control',
+                                      'Soil Warming'),
+                       flux.year = year)]
+wtd.env <- wtd.env[, .(wtd.mean = round(mean(WTD, na.rm = TRUE), 2)),
+                   by = .(flux.year, treatment)]
 ###########################################################################################
 
 ### Load Thaw Depth Data ##################################################################
@@ -362,6 +384,9 @@ td <- td[!is.na(as.numeric(plot))]
 td[, date := parse_date_time(date, orders = c('Y!-m!*-d!'))]
 td[, year := year(date)]
 td[, month := month(date)]
+td[, flux.year := fifelse(month >= 10,
+                          year + 1,
+                          year)]
 td[, day := mday(date)]
 td[, TD_Date := dmy(paste(day, month, year, sep = '/'))]
 
@@ -374,15 +399,20 @@ td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil
 # Plot ID
 td[, plot.id := paste(fence, plot, sep = '_')]
 td <- td[order(date, plot.id)]
-td <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
+td.f <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
 
 # ALT
-alt <- td[, .(alt = max(td, na.rm = TRUE),
+alt.f <- td[, .(alt = max(td, na.rm = TRUE),
               alt.date = TD_Date[which(td == max(td, na.rm = TRUE))]),
           by = .(fence, plot.id, treatment, year)]
-alt <- alt[, .(alt = first(alt),
+alt.f <- alt.f[, .(alt = first(alt),
                alt.date = first(alt.date)),
            by = .(fence, plot.id, treatment, year)]
+alt.env <- alt.f[, flux.year := year]
+alt.env[, alt.doy := yday(alt.date)]
+alt.env <- alt.env[, .(alt = round(mean(alt, na.rm = TRUE), 2),
+            alt.doy = round(mean(alt.doy, na.rm = TRUE))),
+        by = .(flux.year, treatment)]
 ###########################################################################################
 
 ### Load Subsidence Data ##################################################################
@@ -415,22 +445,116 @@ ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!')),
 ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
 ###########################################################################################
 
-### Load Snow Depth Data ##################################################################
+### Load Snow Data ########################################################################
 snow <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2020.csv')
 
 snow <- snow[exp == 'CiPEHR', ]
-snow[, exp := NULL]
-snow[, date := NULL]
-snow[, plot := as.integer(plot)]
+snow[, ':=' (exp = NULL,
+                     date = parse_date_time(date, orders = c('m!/d!/Y!')),
+                     plot = as.integer(plot))]
+snow[, month := month(date)]
+snow[, flux.year := fifelse(month >= 10,
+                            year + 1,
+                            year)]
 
 # Treatment
 snow[plot == 2 | plot == 4, treatment := 'Control']
 snow[plot == 1 | plot == 3, treatment := 'Air Warming']
 snow[plot == 6 | plot == 8, treatment := 'Soil Warming']
 snow[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
+
+snow.env <- snow[, .(snow.depth = round(mean(snow.depth, na.rm = TRUE), 2)),
+                                             by = c('flux.year', 'treatment')]
+
+snow.f <- snow[, date := NULL]
+snow.f[, flux.year := NULL]
+snow.f[, month := NULL]
+
+# Load Snow Free Date
+snow.free.2009.2016 <- read.csv('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Snow free/LTER_Data/2016/CiPEHR_dates_snowfree_2010_2016.csv',
+                                na.strings = c('N/A', 'ND')) %>%
+  filter(Plot.Type == 'F') %>%
+  select(flux.year = Year, fence = Fence, plot = Plot, treatment = Treatment,
+         doy.snow.free = DOY.Snow.Free) %>%
+  mutate(treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'))
+
+snow.free.2017 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2017/CiPEHR_DryPEHR/SnowFree/Date Plots Snow Free_2017.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = 2017,
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free.2018 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2018/CiPEHR_DryPEHR/Winter_2017_2018/Date Plots Snow Free_2018.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free.2019 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2019/CiPEHR_DryPEHR/Phenology/SnowFree/Date Plots Snow Free_2019.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free.2020 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2020/CiPEHR_DryPEHR/Phenology/SnowFree/Date Plots Snow Free_2020.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free <- snow.free.2009.2016 %>%
+  rbind.data.frame(snow.free.2017) %>%
+  rbind.data.frame(snow.free.2018) %>%
+  rbind.data.frame(snow.free.2019) %>%
+  rbind.data.frame(snow.free.2020)
+snow.free <- as.data.table(snow.free)
+snow.free <- snow.free[, .(doy.snow.free = round(mean(doy.snow.free, na.rm = TRUE))),
+                       by = c('flux.year', 'treatment')]
+rm(snow.free.2009.2016, snow.free.2017, snow.free.2018, snow.free.2019, 
+   snow.free.2020)
+
+snow.env <- merge(snow.env, snow.free, 
+                  by = c('flux.year', 'treatment'),
+                  all = TRUE)
 ###########################################################################################
 
 ### Merge Datasets ########################################################################
+### Merge with CO2 Data
 ### plot frame to join environmental data that doesn't have plot information with
 plot.frame <- expand_grid(fence = seq(1, 6),
                           plot = seq(1, 8),
@@ -460,10 +584,10 @@ plot.frame <- expand_grid(fence = seq(1, 6),
 plot.frame <- as.data.table(plot.frame)
 
 ### PAR and Tair
-weather <- weather[date >= ymd('2008-09-01'),]
-weather <- merge(weather, plot.frame, by = c('date', 'hour'),
+weather.f <- weather.f[date >= ymd('2008-09-01'),]
+weather.f <- merge(weather.f, plot.frame, by = c('date', 'hour'),
                  allow.cartesian = TRUE)
-flux <- merge(co2, weather,
+flux <- merge(co2, weather.f,
               by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
                      'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
@@ -507,7 +631,7 @@ flux[is.na(wtd), .N]
 
 ### Thaw Depth
 # set the key to allow proper rolling join
-setkey(td, year, fence, treatment, plot.id, date)
+setkey(td.f, year, fence, treatment, plot.id, date)
 setkey(flux, year, fence, treatment, plot.id, date)
 
 # Rolling join of thaw depth and flux
@@ -515,7 +639,7 @@ setkey(flux, year, fence, treatment, plot.id, date)
 # thaw depth and flux. In cases where there are two thaw depths equally distant in time
 # from the flux measurement, it will return both, resulting in a longer data table than 
 # the flux input. 
-flux <- td[flux, roll = 'nearest']
+flux <- td.f[flux, roll = 'nearest']
 
 # Remove duplicate thaw depths for one flux measurement by selecting the earlier thaw
 # depth
@@ -540,7 +664,7 @@ flux <- merge(flux,
 
 ### ALT
 flux <- merge(flux,
-              alt,
+              alt.f,
               by = c('year', 'fence', 'plot.id', 'treatment'),
               all = TRUE)
 
@@ -595,7 +719,7 @@ flux[,
 
 ### Snow
 flux <- merge(flux,
-              snow,
+              snow.f,
               by = c('year','block', 'fence', 'plot', 'treatment'),
               all = TRUE)
 
@@ -647,6 +771,17 @@ flux <- merge(flux,
 # 
 # # one erroneously high value
 # flux <- flux[co2 <= 0.5 | is.na(co2)]
+
+### Merge Environmental Data Only
+# Join all data separated by treatment
+env.treat <- merge(snow.env, alt.env,
+                   by = c('flux.year', 'treatment'),
+                   all = TRUE)
+env.treat <- merge(env.treat, wtd.env,
+                   by = c('flux.year', 'treatment'),
+                   all = TRUE)
+
+# Join all data separated by season
 ###########################################################################################
 
 ### Gap Fill ##############################################################################

@@ -6,6 +6,7 @@
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
+library(readxl)
 library(ggfortify)
 library(viridis)
 library(emmeans)
@@ -61,6 +62,81 @@ weather.annual <- weather[flux.year >= 2009,
                      tair.min = min(Tair, na.rm = TRUE),
                      tair.max = max(Tair, na.rm = TRUE)),
                    by = .(flux.year)]
+
+# Snow free date
+snow.free.2009.2016 <- read.csv('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Snow free/LTER_Data/2016/CiPEHR_dates_snowfree_2010_2016.csv',
+                                na.strings = c('N/A', 'ND')) %>%
+  filter(Plot.Type == 'F') %>%
+  select(flux.year = Year, fence = Fence, plot = Plot, treatment = Treatment,
+         doy.snow.free = DOY.Snow.Free) %>%
+  mutate(treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'))
+
+snow.free.2017 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2017/CiPEHR_DryPEHR/SnowFree/Date Plots Snow Free_2017.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = 2017,
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+  
+snow.free.2018 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2018/CiPEHR_DryPEHR/Winter_2017_2018/Date Plots Snow Free_2018.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free.2019 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2019/CiPEHR_DryPEHR/Phenology/SnowFree/Date Plots Snow Free_2019.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free.2020 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2020/CiPEHR_DryPEHR/Phenology/SnowFree/Date Plots Snow Free_2020.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = year(flux),
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
+snow.free <- snow.free.2009.2016 %>%
+  rbind.data.frame(snow.free.2017) %>%
+  rbind.data.frame(snow.free.2018) %>%
+  rbind.data.frame(snow.free.2019) %>%
+  rbind.data.frame(snow.free.2020)
+rm(snow.free.2009.2016, snow.free.2017, snow.free.2018, snow.free.2019, 
+   snow.free.2020)
 ################################################################################
 
 ### PCA ########################################################################
@@ -185,9 +261,38 @@ ggplot(weather.daily, aes(x = flux.year, y = tair.mean, group = flux.year)) +
   scale_x_continuous(breaks = seq(2009, 2020))
 
 ### Create a table of environmental variables by year
-env.summary <- weather.seasonal[, .(flux.year, season, tair.mean, par, precip)]
+env.summary <- weather.seasonal[, .(flux.year, group = season, tair.mean, par, precip)]
+env.summary[, ':=' (tair.mean = round(tair.mean, 2),
+                    par = round(par, 2),
+                    precip = round(precip, 2))]
 env.summary <- melt(env.summary, 
                     measure.vars = c('tair.mean', 'par', 'precip'), 
                     variable.name = 'measurement')
-env.summary <- dcast(env.summary, measurement + season ~ flux.year)  
+env.summary <- dcast(env.summary, measurement + group ~ flux.year)
+
+# Add snow depth
+snow.depth <- flux.annual %>%
+  mutate(group = treatment,
+         measurement = 'snow.depth') %>%
+  group_by(flux.year, measurement, group) %>%
+  summarise(snow.depth.mean = round(mean(winter.snow.depth, na.rm = TRUE), 2)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = 'flux.year',
+              values_from = 'snow.depth.mean')
+
+env.summary <- rbind(env.summary, snow.depth, fill = TRUE)
+
+# Add snow free date
+snow.free.date <- snow.free %>%
+  mutate(group = treatment,
+         measurement = 'snow.free.date') %>%
+  group_by(flux.year, measurement, group) %>%
+  summarise(doy.snow.free = round(mean(doy.snow.free, na.rm = TRUE))) %>%
+  ungroup() %>%
+  pivot_wider(names_from = 'flux.year',
+              values_from = 'doy.snow.free')
+
+env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
+
+
 ################################################################################
