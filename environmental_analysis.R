@@ -226,6 +226,83 @@ autoplot(pca.annual, data = env.annual.plot, colour = 'gpp.sum',
 autoplot(pca.annual, data = env.annual.plot, colour = 'reco.sum',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis()
+
+### The following are just exploratory
+### PCA without permafrost thaw related factors
+# pca.annual.env <- prcomp(as.matrix(select(env.annual.subset, -c(subsidence, alt, tp))))
+# saveRDS(pca.annual.env,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_no_thaw.rds')
+pca.annual.env <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_no_thaw.rds')
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'plot.id',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis(discrete = TRUE)
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'treatment',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_manual(breaks = c('Control', 'Air Warming', 'Soil Warming', 'Air + Soil Warming'),
+                     values = c("#0099cc", '#009900', "#990000", '#330000'))
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'flux.year',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis(discrete = TRUE)
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'nee.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'gpp.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
+
+autoplot(pca.annual.env, data = env.annual.plot, colour = 'reco.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
+
+### PCA without permafrost thaw related factors (control only to get interannual variation)
+env.annual.control <- env.annual.plot %>%
+  filter(treatment == 'Control') %>%
+  select(-c(flux.year, block, fence, plot, plot.id, treatment, matches('sum')))
+env.annual.subset.control <- env.annual.control %>%
+  select(tair.max = max.tair.max, tair.mean, tair.spread.mean = mean.tair.spread, 
+         t5.max = max.t5.max, t5.mean, 
+         t10.max = max.t10.max, t10.mean, 
+         t20.max = max.t20.max, t20.mean, 
+         t40.max = max.t40.max, t40.mean, 
+         vwc.max = max.vwc.max, vwc.mean, vwc.min = min.vwc.min,
+         gwc.max = max.gwc.max, gwc.mean, gwc.min = min.gwc.min, 
+         wtd.mean, w.snow.depth = winter.snow.depth, 
+         w.t5.min = winter.min.t5.min, w.t10.min = winter.min.t10.min, 
+         w.t20.min = winter.min.t20.min, w.t40.min = winter.min.t40.min)
+# pca.annual.control <- prcomp(as.matrix(env.annual.subset.control))
+# saveRDS(pca.annual.control,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_control.rds')
+pca.annual.control <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_control.rds')
+
+autoplot(pca.annual.control, data = env.annual.plot %>%
+           filter(treatment == 'Control'), colour = 'plot.id',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis(discrete = TRUE)
+
+autoplot(pca.annual.control, data = env.annual.plot %>%
+           filter(treatment == 'Control'), colour = 'flux.year',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis(discrete = TRUE)
+
+autoplot(pca.annual.control, data = env.annual.plot %>%
+           filter(treatment == 'Control'), colour = 'nee.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
+
+autoplot(pca.annual.control, data = env.annual.plot %>%
+           filter(treatment == 'Control'), colour = 'gpp.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
+
+autoplot(pca.annual.control, data = env.annual.plot %>%
+           filter(treatment == 'Control'), colour = 'reco.sum',
+         loadings = TRUE, loadings.label = TRUE) +
+  scale_color_viridis()
 ################################################################################
 
 ### Annual Variability #########################################################
@@ -251,14 +328,26 @@ tair.min.lm <- lm(tair.min ~ flux.year,
 summary(tair.min.lm)
 
 # Unusual years
-tair.anova <- lm(tair.mean ~ as.factor(flux.year), 
-              data = weather.daily)
-summary(tair.anova)
-tair.contrast <- emmeans()
+# mean air temp
+tair.mean.q <- quantile(weather.annual$tair.mean, probs = c(0.25, 0.75))
+tair.mean.outliers.cold <- subset(weather.annual, 
+                             tair.mean < tair.mean.q[1])$flux.year
+tair.mean.outliers.warm <- subset(weather.annual, 
+                                  tair.mean > tair.mean.q[2])$flux.year
 
-ggplot(weather.daily, aes(x = flux.year, y = tair.mean, group = flux.year)) +
-  geom_boxplot() +
-  scale_x_continuous(breaks = seq(2009, 2020))
+# min air temp
+tair.min.q <- quantile(weather.annual$tair.min, probs = c(0.25, 0.75))
+tair.min.outliers.cold <- subset(weather.annual, 
+                                  tair.min < tair.min.q[1])$flux.year
+tair.min.outliers.warm <- subset(weather.annual, 
+                                  tair.min > tair.min.q[2])$flux.year
+
+# max air temp
+tair.max.q <- quantile(weather.annual$tair.max, probs = c(0.25, 0.75))
+tair.max.outliers.cold <- subset(weather.annual, 
+                                 tair.max < tair.max.q[1])$flux.year
+tair.max.outliers.warm <- subset(weather.annual, 
+                                 tair.max > tair.max.q[2])$flux.year
 
 ### Create a table of environmental variables by year
 env.summary <- weather.seasonal[, .(flux.year, group = season, tair.mean, par, precip)]
