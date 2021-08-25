@@ -60,8 +60,12 @@ weather.seasonal <- weather[flux.year >= 2009,
 weather.annual <- weather[flux.year >= 2009,
                    .(tair.mean = mean(Tair, na.rm = TRUE),
                      tair.min = min(Tair, na.rm = TRUE),
-                     tair.max = max(Tair, na.rm = TRUE)),
+                     tair.max = max(Tair, na.rm = TRUE),
+                     precip = sum(precip, na.rm = TRUE)),
                    by = .(flux.year)]
+
+# Snow depth
+snow.depth <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2020.csv')
 
 # Snow free date
 snow.free.2009.2016 <- read.csv('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Snow free/LTER_Data/2016/CiPEHR_dates_snowfree_2010_2016.csv',
@@ -328,11 +332,59 @@ tair.min.lm <- lm(tair.min ~ flux.year,
 summary(tair.min.lm)
 
 # Unusual years
+# Z-scores
+weather.annual <- weather.annual %>%
+  mutate(tair.mean.z = (tair.mean - mean(tair.mean))/sd(tair.mean),
+         tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
+         tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
+         precip.z = (precip - mean(precip))/sd(precip))
+
+annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip, color = tair.min)) +
+  geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
+             size = 0.1) +
+  geom_vline(xintercept = mean(weather.annual$tair.mean),
+             size = 0.1) + # don't use the linetype in previous line, because it will add a vertical line
+  geom_hline(aes(yintercept = mean(weather.annual$precip) + sd(weather.annual$precip),
+                 linetype = '1 SD'),
+             size = 0.1) +
+  geom_vline(xintercept = mean(weather.annual$tair.mean) + sd(weather.annual$tair.mean),
+             size = 0.1,
+             linetype = 'dashed') +
+  geom_hline(yintercept = mean(weather.annual$precip) - sd(weather.annual$precip),
+             size = 0.1,
+             linetype = 'dashed') +
+  geom_vline(xintercept = mean(weather.annual$tair.mean) - sd(weather.annual$tair.mean),
+             size = 0.1,
+             linetype = 'dashed') +
+  geom_point() +
+  geom_text(aes(label = flux.year), 
+            color = 'black', 
+            size = 3,
+            position = position_nudge(x = 0, y = 12)) +
+  scale_color_viridis(name = expression(# atop('Min Temperature', ~(degree*C))
+    'Min Temp' ~ (degree*C))) +
+  scale_linetype_manual(name = NULL,
+                        breaks = c('Mean', '1 SD'),
+                        values = c('solid', 'dashed')) +
+  scale_x_continuous(name = expression('Mean Temp' ~ (degree*C))) +
+  scale_y_continuous(name = expression('Precip (mm)')) +
+  theme_bw()
+annual.temp.precip
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/annual_temp_precip.jpg',
+#        annual.temp.precip,
+#        height = 4,
+#        width = 5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/annual_temp_precip.pdf',
+#        annual.temp.precip,
+#        height = 4,
+#        width = 5)
+
+### Coldest and Warmest 3 years
 # mean air temp
 tair.mean.q <- quantile(weather.annual$tair.mean, probs = c(0.25, 0.75))
-tair.mean.outliers.cold <- subset(weather.annual, 
-                             tair.mean < tair.mean.q[1])$flux.year
-tair.mean.outliers.warm <- subset(weather.annual, 
+tair.mean.cold <- subset(weather.annual, 
+                             tair.mean < 3*sd(tair.mean))$flux.year
+tair.mean.warm <- subset(weather.annual, 
                                   tair.mean > tair.mean.q[2])$flux.year
 
 # min air temp
@@ -348,6 +400,116 @@ tair.max.outliers.cold <- subset(weather.annual,
                                  tair.max < tair.max.q[1])$flux.year
 tair.max.outliers.warm <- subset(weather.annual, 
                                  tair.max > tair.max.q[2])$flux.year
+
+### Unusual Years with Seasonal Information
+snow.depth.control <- snow.depth %>%
+  filter(exp == 'CiPEHR' & treatment == 'c') %>%
+  mutate(flux.year = year,
+         snow.free = yday(parse_date_time(date, orders = c('m!/d!/Y!')))) %>%
+  group_by(flux.year) %>%
+  summarise(snow.depth = mean(snow.depth, na.rm = TRUE),
+            snow.free.date = mean(snow.free, na.rm = TRUE))
+
+weather.seasonal.wide <- weather.seasonal %>%
+  select(-c(tair.min, tair.max)) %>%
+  pivot_wider(names_from = 'season', 
+              values_from = c(tair.mean:par),
+              names_sep = '.') %>%
+  select(-precip.ngs) %>%
+  full_join(snow.depth.control, by = 'flux.year') %>%
+  mutate(across(tair.mean.ngs:snow.free.date, 
+                ~(.x - mean(.x))/sd(.x),
+                .names = '{col}.z'))
+
+weather.seasonal.control.z <- weather.seasonal.wide %>%
+  select(flux.year, contains('z')) %>%
+  pivot_longer(tair.mean.ngs.z:snow.free.date.z, names_to = 'measurement', values_to = 'z.score') %>%
+  mutate(flux.year = factor(flux.year),
+         measurement = factor(str_sub(measurement, 1, -3),
+                              levels = c('tair.mean.ngs',
+                                         'snow.depth',
+                                         'par.ngs',
+                                         'snow.free.date',
+                                         'tair.mean.gs',
+                                         'precip.gs',
+                                         'par.gs')),
+         season = factor(case_when(str_detect(measurement, 'ngs') ~ 'NGS',
+                            str_detect(measurement, 'depth') ~ 'NGS',
+                            str_detect(measurement, 'gs') ~ 'GS'),
+                         levels = c('NGS',
+                                    'GS')),
+         measurement.type = factor(case_when(str_detect(measurement, 'tair') ~ 'Air Temp',
+                                             str_detect(measurement, 'snow.depth') | str_detect(measurement, 'precip') ~ 'Precip/Snow Depth',
+                                             str_detect(measurement, 'par') ~ 'PAR',
+                                             str_detect(measurement, 'date') ~ 'Snow Free Date'),
+                                   levels = c('Air Temp',
+                                              'Precip/Snow Depth',
+                                              'PAR',
+                                              'Snow Free Date')))
+
+weather.seasonal.control <- weather.seasonal.wide %>%
+  select(-contains('z')) %>%
+  pivot_longer(tair.mean.ngs:snow.free.date, names_to = 'measurement', values_to = 'value') %>%
+  mutate(flux.year = factor(flux.year),
+         measurement = factor(measurement,
+                              levels = c('tair.mean.ngs',
+                                         'snow.depth',
+                                         'par.ngs',
+                                         'snow.free.date',
+                                         'tair.mean.gs',
+                                         'precip.gs',
+                                         'par.gs')),
+         season = factor(case_when(str_detect(measurement, 'ngs') ~ 'NGS',
+                                   str_detect(measurement, 'depth') ~ 'NGS',
+                                   str_detect(measurement, 'gs') ~ 'GS'),
+                         levels = c('NGS',
+                                    'GS')),
+         measurement.type = factor(case_when(str_detect(measurement, 'tair') ~ 'Air Temp',
+                                             str_detect(measurement, 'snow.depth') | str_detect(measurement, 'precip') ~ 'Precip/Snow Depth',
+                                             str_detect(measurement, 'par') ~ 'PAR',
+                                             str_detect(measurement, 'date') ~ 'Snow Free Date'),
+                                   levels = c('Air Temp',
+                                              'Precip/Snow Depth',
+                                              'PAR',
+                                              'Snow Free Date'))) %>%
+  full_join(weather.seasonal.control.z, by = c('flux.year', 'measurement', 'measurement.type', 'season'))
+rm(weather.seasonal.control.z)
+
+weather.seasonal.plot <- ggplot(weather.seasonal.control, 
+       aes(x = flux.year, 
+           y = z.score, 
+           # color = measurement.type, 
+           fill = measurement.type,
+           group = measurement,
+           alpha = season),
+       color = NULL) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  geom_col(position = position_dodge(width = 0.6), width = 0.4) +
+  # scale_color_manual(values = c('#990000',
+  #                               '#006666',
+  #                               '#CC9900',
+  #                               '#66CC00')) +
+  scale_fill_manual(name = 'Measurement',
+                    values = c('#990000',
+                               '#006666',
+                               '#CC9900',
+                               '#66CC00')) +
+  scale_alpha_manual(name = 'Season',
+                     values = c(0.4, 1),
+                     na.translate = FALSE) +
+  scale_y_continuous(name = 'Normalized Value (Z-Score)') +
+  facet_grid(measurement.type ~ .) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+weather.seasonal.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_weather.jpg',
+#        weather.seasonal.plot,
+#        height = 6.5,
+#        width = 6.5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_weather.pdf',
+#        weather.seasonal.plot,
+#        height = 6.5,
+#        width = 6.5)
 
 ### Create a table of environmental variables by year
 env.summary <- weather.seasonal[, .(flux.year, group = season, tair.mean, par, precip)]
