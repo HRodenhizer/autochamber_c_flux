@@ -422,7 +422,7 @@ sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subside
 sub <- sub[exp == 'CiPEHR']
 sub[, ':='(exp = NULL,
            plot = as.numeric(plot),
-           subsidence = subsidence *100)]
+           subsidence = subsidence * 100)]
 sub <- sub[, .(year, fence, plot, treatment, subsidence)]
 ###########################################################################################
 
@@ -607,7 +607,7 @@ flux <- merge(flux,
 
 ### Water Table Depth
 # set the key to allow proper rolling join
-setkey(wtd, fence, treatment, plot.id, date)
+setkey(wtd.f, fence, treatment, plot.id, date)
 setkey(flux, fence, treatment, plot.id, date)
 
 # Rolling join of water table depth and flux
@@ -615,7 +615,7 @@ setkey(flux, fence, treatment, plot.id, date)
 # wtd and flux. In cases where there are two thaw depths equally distant in time
 # from the flux measurement, it will return both, resulting in a longer data table than 
 # the flux input. 
-flux <- wtd[flux, roll = 'nearest']
+flux <- wtd.f[flux, roll = 'nearest']
 
 # Remove duplicate wtd measurements for one flux measurement by selecting the earlier thaw
 # depth
@@ -1533,7 +1533,7 @@ flux.annual <- flux.weekly[season == 1,
                                             sqrt(sum(rh.sd, na.rm = TRUE)/.N)),
                             precip.sum = sum(precip, na.rm = TRUE),
                             precip.cum = last(precip.cum),
-                            subsidence.annual = first(subsidence.annual),
+                            subsidence.annual = last(subsidence.annual),
                             alt.annual = first(alt.annual),
                             alt.doy = first(alt.doy),
                             tp.annual = first(tp.annual),
