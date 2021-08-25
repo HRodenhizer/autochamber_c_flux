@@ -8,6 +8,7 @@ library(data.table)
 library(lubridate)
 library(readxl)
 library(ggfortify)
+library(ggpubr)
 library(viridis)
 library(emmeans)
 library(tidyverse)
@@ -546,4 +547,104 @@ snow.free.date <- snow.free %>%
 env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
 
+################################################################################
+
+### Impact of Subsidence on Soil Moisture ######################################
+# Need to add in models!
+flux.annual <- flux.annual %>%
+  mutate(treatment = factor(treatment,
+                            levels = c('Control',
+                                       'Air Warming',
+                                       'Soil Warming',
+                                       'Air + Soil Warming')),
+         subsidence = subsidence.annual*-1,
+         wtd.mean = wtd.mean*-1) %>%
+  select(-subsidence.annual)
+
+# WTD
+wtd.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = wtd.mean, color = flux.year, shape = treatment)) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+wtd.sd.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = wtd.sd, color = flux.year, shape = treatment)) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD SD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+# VWC
+vwc.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = vwc.mean, color = flux.year, shape = treatment)) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'VWC (%)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+vwc.sd.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = vwc.sd, color = flux.year, shape = treatment)) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'VWC SD (%)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+# GWC
+gwc.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = gwc.mean, color = flux.year, shape = treatment)) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'GWC (%)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+gwc.sd.plot <- ggplot(flux.annual,
+       aes(x = subsidence, y = gwc.sd, color = flux.year, shape = treatment)) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'GWC SD (%)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+### Combine into a single plot
+wtd.plot
+wtd.sd.plot
+vwc.plot
+vwc.sd.plot
+gwc.plot
+gwc.sd.plot
+sub.moisture.plot <- ggarrange(wtd.plot,
+                               wtd.sd.plot,
+                               vwc.plot,
+                               vwc.sd.plot,
+                               gwc.plot,
+                               gwc.sd.plot,
+                               ncol = 2,
+                               nrow = 3,
+                               common.legend = TRUE,
+                               legend = 'right',
+                               labels = LETTERS[1:6])
+sub.moisture.plot
 ################################################################################
