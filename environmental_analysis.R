@@ -3,6 +3,10 @@
 ###                             code by HGR 7/2020                           ###
 ################################################################################
 
+### To Do: 
+# Check if change to include 2009 values messes up PCA
+# Calculate Microtopography for each plot in each year
+
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
@@ -15,10 +19,8 @@ library(tidyverse)
 ################################################################################
 
 ### Load Data ##################################################################
-flux.monthly <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv") %>%
-  filter(flux.year >= 2010)
+flux.monthly <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
 flux.annual <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
-  filter(flux.year >= 2010) %>%
   mutate(flux.year = as.factor(flux.year))
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/',
                         pattern = 'csv$',
@@ -551,7 +553,7 @@ env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
 ### Impact of Subsidence on Soil Moisture ######################################
 # Need to add in models!
-flux.annual <- flux.annual %>%
+sub.moisture <- flux.annual %>%
   mutate(treatment = factor(treatment,
                             levels = c('Control',
                                        'Air Warming',
@@ -559,13 +561,24 @@ flux.annual <- flux.annual %>%
                                        'Air + Soil Warming')),
          subsidence = subsidence.annual*-1,
          wtd.mean = wtd.mean*-1) %>%
-  select(-subsidence.annual)
+  select(flux.year, plot.id, treatment, subsidence, wtd.mean, wtd.sd, wtd.n, 
+         vwc.mean, vwc.sd, gwc.mean, gwc.sd)
 
 # WTD
-wtd.plot <- ggplot(flux.annual,
-       aes(x = subsidence, y = wtd.mean, color = flux.year, shape = treatment)) +
+wtd.lm <- lm(wtd.mean ~ subsidence, data = subset(sub.moisture, !is.na(wtd.sd)))
+step(wtd.lm)
+summary(wtd.lm)
+r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(summary(wtd.lm)$r.squared, 2))
+
+wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = subsidence, y = wtd.mean)) +
   geom_hline(yintercept = 0, size = 0.1) +
-  geom_point() +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'lm', color = 'black') +
+  geom_text(aes(x = -10, y = 15, 
+                label = r2.label),
+            parse = TRUE,
+            hjust = 'inward') +
   scale_color_viridis(discrete = TRUE,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
@@ -573,9 +586,11 @@ wtd.plot <- ggplot(flux.annual,
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
-wtd.sd.plot <- ggplot(flux.annual,
-       aes(x = subsidence, y = wtd.sd, color = flux.year, shape = treatment)) +
-  geom_point() +
+# there is high variability in wtd when magnitude of subsidence is similar to 
+# pre-subsidence wtd
+wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = subsidence, y = wtd.sd)) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
   scale_color_viridis(discrete = TRUE,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
@@ -584,8 +599,36 @@ wtd.sd.plot <- ggplot(flux.annual,
   theme_bw() +
   theme(legend.title = element_blank())
 
+# there is high variability in wtd when magnitude of subsidence is similar to 
+# pre-subsidence wtd (using 2010, because precipitation was closer to average 
+# and subsidence was still very nearly 0)
+# that can't explain all of it, though
+# will try looking at microtopography to see if plots in certain landscape positions
+# have higher or lower variability
+test <- sub.moisture %>%
+  filter(flux.year == 2010) %>%
+  select(plot.id, wtd.mean.2010 = wtd.mean, wtd.sd.2010 = wtd.sd) %>%
+  mutate(wtd.1sd.upr = (wtd.mean.2010 - wtd.sd.2010*3)*-1,
+         wtd.1sd.lwr = (wtd.mean.2010 + wtd.sd.2010*3)*-1) %>%
+  full_join(sub.moisture, by = 'plot.id') %>%
+  mutate(sub.wtd.mag = case_when(subsidence > wtd.1sd.lwr & subsidence < wtd.1sd.upr ~ 0,
+                                 subsidence < wtd.1sd.lwr | subsidence > wtd.1sd.upr ~ subsidence - wtd.1sd.lwr))
+ggplot(subset(test, !is.na(wtd.sd)),
+       aes(x = subsidence, y = wtd.sd)) +
+  geom_point(aes(color = sub.wtd.mag, shape = treatment)) +
+  geom_text(data = subset(sub.moisture, wtd.sd > 10), 
+            aes(label = plot.id),
+            nudge_y = 0.25,
+            size = 3) +
+  scale_color_viridis(direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD SD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
 # VWC
-vwc.plot <- ggplot(flux.annual,
+vwc.plot <- ggplot(sub.moisture,
        aes(x = subsidence, y = vwc.mean, color = flux.year, shape = treatment)) +
   geom_point() +
   scale_color_viridis(discrete = TRUE,
@@ -595,7 +638,7 @@ vwc.plot <- ggplot(flux.annual,
   scale_y_continuous(name = 'VWC (%)') +
   theme_bw() +
   theme(legend.title = element_blank())
-vwc.sd.plot <- ggplot(flux.annual,
+vwc.sd.plot <- ggplot(sub.moisture,
        aes(x = subsidence, y = vwc.sd, color = flux.year, shape = treatment)) +
   geom_point() +
   scale_color_viridis(discrete = TRUE,
@@ -607,7 +650,7 @@ vwc.sd.plot <- ggplot(flux.annual,
   theme(legend.title = element_blank())
 
 # GWC
-gwc.plot <- ggplot(flux.annual,
+gwc.plot <- ggplot(sub.moisture,
        aes(x = subsidence, y = gwc.mean, color = flux.year, shape = treatment)) +
   geom_point() +
   scale_color_viridis(discrete = TRUE,
@@ -617,7 +660,7 @@ gwc.plot <- ggplot(flux.annual,
   scale_y_continuous(name = 'GWC (%)') +
   theme_bw() +
   theme(legend.title = element_blank())
-gwc.sd.plot <- ggplot(flux.annual,
+gwc.sd.plot <- ggplot(sub.moisture,
        aes(x = subsidence, y = gwc.sd, color = flux.year, shape = treatment)) +
   geom_point() +
   scale_color_viridis(discrete = TRUE,
