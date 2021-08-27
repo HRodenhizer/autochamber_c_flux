@@ -3,10 +3,6 @@
 ###                             code by HGR 7/2020                           ###
 ################################################################################
 
-### To Do: 
-# Check if change to include 2009 values messes up PCA
-# Calculate Microtopography for each plot in each year
-
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
@@ -15,6 +11,8 @@ library(ggfortify)
 library(ggpubr)
 library(viridis)
 library(emmeans)
+library(raster)
+library(sf)
 library(tidyverse)
 ################################################################################
 
@@ -153,7 +151,8 @@ env.annual.plot <- flux.annual %>%
   select(-c(season, matches('rh'), matches('sd'),
             max.tair.spread, min.tair.spread, matches('ndvi'),
             biomass.annual, gdd, fdd, winter.fdd, precip.cum)) %>%
-  mutate(subsidence = -1*subsidence.annual) %>%
+  mutate(subsidence = -1*subsidence.annual,
+         wtd.mean = -1*wtd.mean) %>%
   na.omit()
 env.annual <- env.annual.plot %>%
   select(-c(flux.year, block, fence, plot, plot.id, treatment, matches('sum')))
@@ -551,6 +550,81 @@ env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
 ################################################################################
 
+### Calculate Microtopography ##################################################
+# For all plots in all years
+elev <- list(brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/AElevStack_filled_unclipped.tif'),
+             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/BElevStack_filled_unclipped.tif'),
+             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/CElevStack_filled_unclipped.tif'))
+elev.clipped <- list(brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/AElevStack_filled_clipped.tif'),
+                     brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/BElevStack_filled_clipped.tif'),
+                     brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/CElevStack_filled_clipped.tif'))
+plots <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp') %>%
+  filter(exp == 'CiPEHR')
+
+# need to clip the 2009-2016 unclipped data
+for (i in 1:length(elev.clipped)) {
+  
+  for (j in 1:8) { # 2009 - 2016
+    elev[[i]][[j]] <- mask(elev[[i]][[j]], elev.clipped[[i]][[j]])
+  }
+  
+}
+
+weights <- list()
+elev.med <- list()
+mtopo <- list()
+for (i in 1:length(elev)) {
+  
+  # neighborhood window weights
+  weights[[i]] <- focalWeight(elev[[i]], 5, type = 'circle')
+  weights[[i]][which(weights[[1]] > 0)] <- 1
+  
+  # prepare output data format
+  elev.med[[i]] <- list()
+  mtopo[[i]] <- list()
+  
+  for (j in 1:nlayers(elev[[i]])) {
+    
+    elev.med[[i]][[j]] <- focal(elev[[i]][[j]], 
+                                weights[[i]], 
+                                fun = median,
+                                na.rm = TRUE)
+    
+    mtopo[[i]][[j]] <- elev[[i]][[j]] - elev.med[[i]][[j]]
+    
+  }
+  
+  elev.med[[i]] <- brick(elev.med[[i]])
+  mtopo[[i]] <- brick(mtopo[[i]])
+  
+}
+
+# extract microtopography values at all plots in all years
+new.names <- c(paste0('layer.', seq(1, 12)))
+names(new.names) <- paste0('mtopo.', seq(2009, 2020))
+mtopo.df <- data.frame()
+for (i in 1:length(mtopo)) {
+  mtopo.extract <- raster::extract(mtopo[[i]], plots, df = TRUE) %>%
+    filter(!(rowSums(is.na(.)) == ncol(.) - 1)) %>%
+    rename(new.names)
+  
+  mtopo.df <- rbind.data.frame(mtopo.df, mtopo.extract)
+}
+
+plot.mtopo <- plots %>%
+  cbind.data.frame(mtopo.df) %>%
+  pivot_longer(names(new.names), names_to = 'flux.year', values_to = 'mtopo') %>%
+  mutate(flux.year = as.factor(as.numeric(str_extract(flux.year, '[:digit:]+'))),
+         plot.id = paste(fence, plot, sep = '_')) %>%
+  select(flux.year, plot.id, mtopo)
+
+flux.annual <- flux.annual %>%
+  left_join(plot.mtopo, by = c('flux.year', 'plot.id'))
+
+ggplot(flux.annual, aes(x = subsidence.annual, y = mtopo)) +
+  geom_point()
+################################################################################
+
 ### Impact of Subsidence on Soil Moisture ######################################
 # Need to add in models!
 sub.moisture <- flux.annual %>%
@@ -561,7 +635,7 @@ sub.moisture <- flux.annual %>%
                                        'Air + Soil Warming')),
          subsidence = subsidence.annual*-1,
          wtd.mean = wtd.mean*-1) %>%
-  select(flux.year, plot.id, treatment, subsidence, wtd.mean, wtd.sd, wtd.n, 
+  select(flux.year, plot.id, treatment, subsidence, mtopo, wtd.mean, wtd.sd, wtd.n, 
          vwc.mean, vwc.sd, gwc.mean, gwc.sd)
 
 # WTD
@@ -603,8 +677,7 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
 # pre-subsidence wtd (using 2010, because precipitation was closer to average 
 # and subsidence was still very nearly 0)
 # that can't explain all of it, though
-# will try looking at microtopography to see if plots in certain landscape positions
-# have higher or lower variability
+# microtopography doesn't seem to explain any more of it
 test <- sub.moisture %>%
   filter(flux.year == 2010) %>%
   select(plot.id, wtd.mean.2010 = wtd.mean, wtd.sd.2010 = wtd.sd) %>%
@@ -623,6 +696,20 @@ ggplot(subset(test, !is.na(wtd.sd)),
   scale_color_viridis(direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD SD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+ggplot(subset(test, !is.na(wtd.sd)),
+       aes(x = mtopo, y = wtd.sd)) +
+  geom_point(aes(color = subsidence, shape = treatment)) +
+  geom_text(data = subset(sub.moisture, wtd.sd > 10), 
+            aes(label = plot.id),
+            nudge_y = 0.25,
+            size = 3) +
+  scale_color_viridis(direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Microtopography (cm)') +
   scale_y_continuous(name = 'WTD SD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
