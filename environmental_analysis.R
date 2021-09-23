@@ -636,21 +636,35 @@ sub.moisture <- flux.annual %>%
          subsidence = subsidence.annual*-1,
          wtd.mean = wtd.mean*-1) %>%
   select(flux.year, plot.id, treatment, subsidence, mtopo, wtd.mean, wtd.sd, wtd.n, 
-         vwc.mean, vwc.sd, gwc.mean, gwc.sd)
+         vwc.mean, vwc.sd, gwc.mean, gwc.sd) %>%
+  full_join(weather.annual %>%
+              select(flux.year, precip.z) %>%
+              mutate(flux.year = factor(flux.year)),
+            by = 'flux.year') %>%
+  mutate(precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
+                                  precip.z > -0.75 ~ 'average',
+                                  precip.z <= -0.75 ~ 'dry'),
+                               levels = c('dry', 'average', 'wet')),
+         sub.group = factor(case_when(subsidence < 15 ~ 'Low Subsidence',
+                               subsidence < 30 ~ 'Moderate Subsidence',
+                               subsidence < 45 ~ 'High Subsidence',
+                               subsidence >= 45 ~ 'Very High Subsidence'),
+                            levels = c('Low Subsidence', 'Moderate Subsidence', 
+                                       'High Subsidence', 'Very High Subsidence')))
 
 # WTD
 wtd.lm <- lm(wtd.mean ~ subsidence, data = subset(sub.moisture, !is.na(wtd.sd)))
 step(wtd.lm)
 summary(wtd.lm)
-r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(summary(wtd.lm)$r.squared, 2))
+wtd.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(summary(wtd.lm)$r.squared, 2))
 
 wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.mean)) +
   geom_hline(yintercept = 0, size = 0.1) +
   geom_point(aes(color = flux.year, shape = treatment)) +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(aes(x = -10, y = 15, 
-                label = r2.label),
+  geom_text(aes(x = 100, y = -35, 
+                label = wtd.r2.label),
             parse = TRUE,
             hjust = 'inward') +
   scale_color_viridis(discrete = TRUE,
@@ -715,9 +729,18 @@ ggplot(subset(test, !is.na(wtd.sd)),
   theme(legend.title = element_blank())
 
 # VWC
-vwc.plot <- ggplot(sub.moisture,
-       aes(x = subsidence, y = vwc.mean, color = flux.year, shape = treatment)) +
-  geom_point() +
+vwc.lm <- lm(vwc.mean ~ subsidence, data = subset(sub.moisture, !is.na(vwc.sd)))
+step(vwc.lm)
+summary(vwc.lm)
+vwc.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(summary(vwc.lm)$r.squared, 2))
+
+vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'lm', color = 'black') +
+  geom_text(aes(x = 100, y = 32, 
+                label = vwc.r2.label),
+            parse = TRUE,
+            hjust = 'inward') +
   scale_color_viridis(discrete = TRUE,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
@@ -777,4 +800,53 @@ sub.moisture.plot <- ggarrange(wtd.plot,
                                legend = 'right',
                                labels = LETTERS[1:6])
 sub.moisture.plot
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.jpg',
+#        sub.moisture.plot,
+#        height = 7,
+#        width = 6.5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
+#        sub.moisture.plot,
+#        height = 7,
+#        width = 6.5)
+
+# Plot relationship between WTD and subsidence by wet vs. dry vs. avg years
+ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = subsidence, y = wtd.mean)) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'lm', color = 'black') +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  facet_grid(. ~ precip.group) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+# precipitation total impacts wtd less in highly subsided plots
+# basically, highly subsided plots are wet all the time, while less
+# subsided plots are dry when it's dry and wet when it's wet
+wtd.precip <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = precip.z, y = wtd.mean)) +
+  geom_hline(yintercept = 0, size = 0.1) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'lm', color = 'black') +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Precip Z-score') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  facet_grid(. ~ sub.group) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_precip_sub.jpg',
+#        wtd.precip,
+#        height = 5,
+#        width = 6.5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_precip_sub.pdf',
+#        wtd.precip,
+#        height = 5,
+#        width = 6.5)
 ################################################################################
