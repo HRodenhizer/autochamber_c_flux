@@ -11,6 +11,7 @@ library(ggfortify)
 library(ggpubr)
 library(viridis)
 library(emmeans)
+library(mgcv)
 library(raster)
 library(sf)
 library(tidyverse)
@@ -645,12 +646,12 @@ sub.moisture <- flux.annual %>%
                                   precip.z > -0.75 ~ 'average',
                                   precip.z <= -0.75 ~ 'dry'),
                                levels = c('dry', 'average', 'wet')),
-         sub.group = factor(case_when(subsidence < 15 ~ 'Low Subsidence',
-                               subsidence < 30 ~ 'Moderate Subsidence',
-                               subsidence < 45 ~ 'High Subsidence',
-                               subsidence >= 45 ~ 'Very High Subsidence'),
-                            levels = c('Low Subsidence', 'Moderate Subsidence', 
-                                       'High Subsidence', 'Very High Subsidence')))
+         sub.group = factor(case_when(subsidence < 15 ~ '<15 cm Subsidence',
+                               subsidence < 30 ~ '15-30 cm Subsidence',
+                               subsidence < 45 ~ '30-45 cm Subsidence',
+                               subsidence >= 45 ~ '>=45 cm Subsidence'),
+                            levels = c('<15 cm Subsidence', '15-30 cm Subsidence', 
+                                       '30-45 cm Subsidence', '>=45 cm Subsidence')))
 
 # WTD
 wtd.lm <- lm(wtd.mean ~ subsidence, data = subset(sub.moisture, !is.na(wtd.sd)))
@@ -676,9 +677,12 @@ wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   theme(legend.title = element_blank())
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd
+wtd.sd.gam <- gam(wtd.sd ~ s(subsidence, bs = "cs"),
+            data = sub.moisture)
 wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.sd)) +
   geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
   scale_color_viridis(discrete = TRUE,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
@@ -686,7 +690,7 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   scale_y_continuous(name = 'WTD SD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
-
+wtd.sd.plot
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd (using 2010, because precipitation was closer to average 
 # and subsidence was still very nearly 0)
@@ -804,8 +808,9 @@ sub.moisture.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.jpg',
 #        sub.moisture.plot,
 #        height = 7,
-#        width = 6.5)
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
+#        width = 6.5,
+#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
 #        sub.moisture.plot,
 #        height = 7,
 #        width = 6.5)
@@ -840,7 +845,9 @@ wtd.precip <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   scale_y_continuous(name = 'WTD (cm)') +
   facet_grid(. ~ sub.group) +
   theme_bw() +
-  theme(legend.title = element_blank())
+  theme(legend.title = element_blank(),
+        strip.text = element_text(size = 7))
+wtd.precip
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_precip_sub.jpg',
 #        wtd.precip,
 #        height = 5,
