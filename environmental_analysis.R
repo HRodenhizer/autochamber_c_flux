@@ -10,7 +10,10 @@ library(readxl)
 library(ggfortify)
 library(ggpubr)
 library(viridis)
+library(lme4)
+library(lmerTest)
 library(emmeans)
+library(MuMIn)
 library(mgcv)
 library(raster)
 library(sf)
@@ -144,6 +147,34 @@ snow.free <- snow.free.2009.2016 %>%
 rm(snow.free.2009.2016, snow.free.2017, snow.free.2018, snow.free.2019, 
    snow.free.2020)
 ################################################################################
+
+######################## DEFINE FUNCTIONS TO EXTRACT AND GRAPH CI #########################
+#Extract the coefficients for the fixed effects from your model, make a dataframe with them called model
+extract_ci <- function(x) {coefs<-fixef(x) 
+modeldf<-as.data.frame(coefs)
+#calculate confidence intervals; merge fixed effects and ci into one dataframe
+ci <- confint(x,method="boot",boot.type="norm",level=0.95,nsim=1000)
+modelci<-merge(ci,modeldf,by="row.names",all.x=F)
+#rename colnames so that they make sense and remove symbols
+colnames(modelci)<-c("term","min","max","coefs")
+return (modelci)}
+
+# graph CI
+graph_ci <- function(ci,figtitle,model) {ggplot(ci,aes(x=names,y=coefs))+
+    geom_errorbar(aes(ymin=min,ymax=max),width=0,size=1)+
+    geom_point(aes(size=2))+
+    labs (title = paste(figtitle, ", AIC:", round(AIC(model),2), sep =" ") , x = "Fixed effect", y = "Effect size and 95% CI") +
+    guides(size=F,shape=F)+
+    theme_bw()+
+    theme(axis.text.x=element_text(size=18),
+          axis.title.x=element_text(size=26),
+          axis.title.y=element_text(size=26,vjust=1),
+          axis.text.y=element_text(size=22),
+          panel.grid.minor=element_blank(),
+          panel.grid.major.x=element_blank())+
+    geom_hline(yintercept=0)+
+    coord_flip() } 
+#################################################################################
 
 ### PCA ########################################################################
 # need to finalize which variables to include
@@ -636,13 +667,14 @@ sub.moisture <- flux.annual %>%
                                        'Air + Soil Warming')),
          subsidence = subsidence.annual*-1,
          wtd.mean = wtd.mean*-1) %>%
-  select(flux.year, plot.id, treatment, subsidence, mtopo, wtd.mean, wtd.sd, wtd.n, 
+  select(flux.year, fence, plot, plot.id, treatment, subsidence, mtopo, wtd.mean, wtd.sd, wtd.n, 
          vwc.mean, vwc.sd, gwc.mean, gwc.sd) %>%
   full_join(weather.annual %>%
-              select(flux.year, precip.z) %>%
+              select(flux.year, precip, precip.z) %>%
               mutate(flux.year = factor(flux.year)),
             by = 'flux.year') %>%
-  mutate(precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
+  mutate(precip = precip/10, # convert to cm
+         precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
                                   precip.z > -0.75 ~ 'average',
                                   precip.z <= -0.75 ~ 'dry'),
                                levels = c('dry', 'average', 'wet')),
@@ -651,19 +683,107 @@ sub.moisture <- flux.annual %>%
                                subsidence < 45 ~ '30-45 cm Subsidence',
                                subsidence >= 45 ~ '>=45 cm Subsidence'),
                             levels = c('<15 cm Subsidence', '15-30 cm Subsidence', 
-                                       '30-45 cm Subsidence', '>=45 cm Subsidence')))
+                                       '30-45 cm Subsidence', '>=45 cm Subsidence')),
+         time = factor(as.numeric(flux.year)),
+         fence = as.factor(fence),
+         block.f = as.factor(ifelse(fence == 1 | fence == 2,
+                                    1,
+                                    ifelse(fence == 3 | fence == 4,
+                                           2,
+                                           3))),
+         fence.f = as.factor(ifelse(fence == 1 | fence == 3 | fence == 5,
+                                    1,
+                                    2)),
+         treatment.f = as.factor(ifelse(treatment == 'Control',
+                                        1,
+                                        ifelse(treatment == 'Air Warming',
+                                               2,
+                                               ifelse(treatment == 'Soil Warming',
+                                                      3,
+                                                      4)))),
+         fencegroup = factor(block.f:fence.f),
+         wholeplot = factor(block.f:fence.f:treatment.f))
 
 # WTD
-wtd.lm <- lm(wtd.mean ~ subsidence, data = subset(sub.moisture, !is.na(wtd.sd)))
-step(wtd.lm)
-summary(wtd.lm)
-wtd.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(summary(wtd.lm)$r.squared, 2))
+## Model wtd with subsidence
+model1 <- lmer(wtd.mean ~ 1 +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model1)
 
+model2 <- lmer(wtd.mean ~ subsidence +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model2)
+
+model3 <- lmer(wtd.mean ~ subsidence + I(subsidence^2) +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model3)
+
+AIC(model1, model2, model3)
+
+ranova(model3)
+
+# check model residuals of model3
+# look at residuals
+model3.resid <- resid(model3)
+model3.fitted <- fitted(model3)
+model3.sqrt <- sqrt(abs(resid(model3)))
+
+# graph
+par(mfrow=c(2,2), mar = c(4,4,3,2))
+plot(model3.fitted, model3.resid, main='resid, model3')
+plot(model3.fitted, model3.sqrt, main='sqrt resid, model3')
+qqnorm(model3.resid, main = 'model3')
+qqline(model3.resid)
+par(mfrow=c(1,1))
+
+hist(sub.moisture$wtd.mean)
+
+# re-run with REML = TRUE
+wtd.model <- lmer(wtd.mean ~ subsidence + I(subsidence^2) +
+                       (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+                     data = sub.moisture,
+                     control=lmerControl(check.conv.singular="warning"))
+summary(wtd.model)
+
+# calculate confidence intervals to look at fixed effects
+wtd.model.ci <- extract_ci(wtd.model)
+# write.csv(wtd.model.ci, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_coefficients.csv', row.names = FALSE)
+wtd.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_coefficients.csv')
+
+wtd.model.r2 <- r.squaredGLMM(wtd.model)
+wtd.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(wtd.model.r2[1], 2))
+
+# # make confidence interval data frame for graphing
+# wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
+# 
+# myStats <- function(model){
+#   out <- predict( model, newdata=wtd.model.fit, re.form=~0 )
+#   return(out)
+# }
+# 
+# bootObj <- bootMer(wtd.model, FUN=myStats, nsim = 1000)
+# wtd.model.fit <- cbind(wtd.model.fit, predict(wtd.model, newdata=wtd.model.fit, re.form=~0 )) %>%
+#   cbind(confint( bootObj,  level=0.95 ))
+# colnames(wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
+# # write.csv(wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv', row.names = FALSE)
+wtd.model.fit <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv')
+
+# sub.moisture <- sub.moisture %>%
+#   mutate(wtd.fit = ifelse(!is.na(wtd.mean),
+#                              predict(wtd.model),
+#                              NA))
+         
 wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.mean)) +
   geom_hline(yintercept = 0, size = 0.1) +
   geom_point(aes(color = flux.year, shape = treatment)) +
-  geom_smooth(method = 'lm', color = 'black') +
+  geom_line(data = wtd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
   geom_text(aes(x = 100, y = -35, 
                 label = wtd.r2.label),
             parse = TRUE,
@@ -675,10 +795,60 @@ wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
+wtd.plot
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd
-wtd.sd.gam <- gam(wtd.sd ~ s(subsidence, bs = "cs"),
-            data = sub.moisture)
+
+## Model wtd.sd with precipitation and subsidence
+model1 <- lmer(wtd.sd ~ 1 +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model1)
+
+model2 <- lmer(wtd.sd ~ subsidence +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model2)
+
+model3 <- lmer(wtd.sd ~ subsidence + I(subsidence^2) +
+                 (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+               data = sub.moisture,
+               control=lmerControl(check.conv.singular="warning"))
+summary(model3)
+
+AIC(model1, model2, model3)
+
+# check model residuals of model3
+# look at residuals
+model2.resid <- resid(model2)
+model2.fitted <- fitted(model2)
+model2.sqrt <- sqrt(abs(resid(model2)))
+
+# graph
+par(mfrow=c(2,2), mar = c(4,4,3,2))
+plot(model2.fitted, model2.resid, main='resid, model3')
+plot(model2.fitted, model2.sqrt, main='sqrt resid, model3')
+qqnorm(model2.resid, main = 'model3')
+qqline(model2.resid)
+par(mfrow=c(1,1))
+
+hist(sub.moisture$wtd.sd)
+
+
+# re-run with REML = TRUE
+wtd.sd.model <- lmer(wtd.sd ~ subsidence +
+                       (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+                     data = sub.moisture,
+                     control=lmerControl(check.conv.singular="warning"))
+summary(wtd.sd.model)
+
+sub.moisture <- sub.moisture %>%
+  mutate(wtd.sd.fit = ifelse(!is.na(wtd.sd),
+                             predict(wtd.sd.model),
+                             NA))
+
 wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.sd)) +
   geom_point(aes(color = flux.year, shape = treatment)) +
@@ -691,6 +861,48 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   theme_bw() +
   theme(legend.title = element_blank())
 wtd.sd.plot
+
+# test if the relationship is actually linear and due to subsidence or precipitation
+ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = subsidence, y = wtd.sd)) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_line(data = test, aes(x = subsidence, y = fit), inherit.aes = FALSE, color = 'black') +
+  # geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD SD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  facet_wrap(~plot.id, ncol = 8)
+
+ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = precip, y = wtd.sd)) +
+  geom_point(aes(color = subsidence, shape = treatment)) +
+  geom_line(data = test, aes(x = precip, y = fit), inherit.aes = FALSE, color = 'black') +
+  # geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Precipitation (cm)') +
+  scale_y_continuous(name = 'WTD SD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  facet_wrap(~plot.id, ncol = 8)
+
+ggplot(subset(sub.moisture, !is.na(wtd.sd)),
+       aes(x = precip, y = subsidence)) +
+  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_smooth(method = 'glm', color = 'black') +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Precip Z-score') +
+  scale_y_continuous(name = 'Subsidence (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  facet_wrap(~plot.id, ncol = 8)
+
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd (using 2010, because precipitation was closer to average 
 # and subsidence was still very nearly 0)
