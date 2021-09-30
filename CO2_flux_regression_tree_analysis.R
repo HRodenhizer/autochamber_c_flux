@@ -15,12 +15,158 @@ library(tidyverse)
 # flux.weekly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_weekly_neat.csv")
 flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv") %>%
   filter(flux.year >= 2010)
-flux.annual <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
+flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
   filter(flux.year >= 2010)
+#############################################################################################################################
+
+### Get a feel for the possible relationships ###############################################################################
+flux.monthly %>%
+  select( -c('year', 'flux.year', 'season', 'month', 'block', 'fence',
+             'plot', 'plot.id', 'treatment', 'alt.doy', 'ndvi.doy')) %>%
+  GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
+flux.seasonal %>%
+  select( c('nee.sum', contains('tair'))) %>%
+  GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
 #############################################################################################################################
 
 ### Gradient Boosted Regression Tree ########################################################################################
 set.seed(21591)
+
+### Seasonal
+nee.seasonal <- flux.seasonal[!is.na(nee.sum), c('nee.sum', 
+                                                 'gdd', 'mean.tair.max', 
+                                                 'tair.mean', 'mean.tair.min', 
+                                                 't5.mean', 't5.sd', 
+                                                 't10.mean', 't10.sd',
+                                                 't20.mean', 't20.sd', 
+                                                 't40.mean', 't40.sd', 
+                                                 'vwc.mean', 'vwc.sd', 
+                                                 'gwc.mean', 'gwc.sd',
+                                                 'wtd.mean', 'wtd.sd', 
+                                                 'rh.mean', 'rh.sd',
+                                                 'precip.sum', 
+                                                 'subsidence.annual',
+                                                 'alt.annual', 'alt.doy', 
+                                                 'biomass.annual', 
+                                                 'ndvi', 'ndvi.doy',
+                                                 'winter.snow.depth', 
+                                                 'winter.fdd', 
+                                                 'winter.tair.mean', 
+                                                 'winter.mean.tair.min',
+                                                 'winter.tair.sd', 
+                                                 'winter.min.t5.min',
+                                                 'winter.t5.mean',
+                                                 'winter.min.t10.min',
+                                                 'winter.t10.mean',
+                                                 'winter.min.t20.min',
+                                                 'winter.t20.mean',
+                                                 'winter.min.t40.min',
+                                                 'winter.t40.mean')]
+gpp.seasonal <- flux.seasonal[!is.na(gpp.sum),  c('gpp.sum', 
+                                                  'gdd', 'mean.tair.max', 
+                                                  'tair.mean', 'mean.tair.min', 
+                                                  't5.mean', 't5.sd', 
+                                                  't10.mean', 't10.sd',
+                                                  't20.mean', 't20.sd', 
+                                                  't40.mean', 't40.sd', 
+                                                  'vwc.mean', 'vwc.sd', 
+                                                  'gwc.mean', 'gwc.sd',
+                                                  'wtd.mean', 'wtd.sd', 
+                                                  'rh.mean', 'rh.sd',
+                                                  'precip.sum', 
+                                                  'subsidence.annual',
+                                                  'alt.annual', 'alt.doy', 
+                                                  'biomass.annual', 
+                                                  'ndvi', 'ndvi.doy',
+                                                  'winter.snow.depth', 
+                                                  'winter.fdd', 
+                                                  'winter.tair.mean', 
+                                                  'winter.mean.tair.min',
+                                                  'winter.tair.sd', 
+                                                  'winter.min.t5.min',
+                                                  'winter.t5.mean',
+                                                  'winter.min.t10.min',
+                                                  'winter.t10.mean',
+                                                  'winter.min.t20.min',
+                                                  'winter.t20.mean',
+                                                  'winter.min.t40.min',
+                                                  'winter.t40.mean')]
+reco.seasonal <- flux.seasonal[!is.na(reco.sum),  c('reco.sum', 
+                                                    'gdd', 'mean.tair.max', 
+                                                    'tair.mean', 'mean.tair.min', 
+                                                    't5.mean', 't5.sd', 
+                                                    't10.mean', 't10.sd',
+                                                    't20.mean', 't20.sd', 
+                                                    't40.mean', 't40.sd', 
+                                                    'vwc.mean', 'vwc.sd', 
+                                                    'gwc.mean', 'gwc.sd',
+                                                    'wtd.mean', 'wtd.sd', 
+                                                    'rh.mean', 'rh.sd',
+                                                    'precip.sum', 
+                                                    'subsidence.annual',
+                                                    'alt.annual', 'alt.doy', 
+                                                    'biomass.annual', 
+                                                    'ndvi', 'ndvi.doy',
+                                                    'winter.snow.depth', 
+                                                    'winter.fdd', 
+                                                    'winter.tair.mean', 
+                                                    'winter.mean.tair.min',
+                                                    'winter.tair.sd', 
+                                                    'winter.min.t5.min',
+                                                    'winter.t5.mean',
+                                                    'winter.min.t10.min',
+                                                    'winter.t10.mean',
+                                                    'winter.min.t20.min',
+                                                    'winter.t20.mean',
+                                                    'winter.min.t40.min',
+                                                    'winter.t40.mean')]
+# set.seed doesn't seem to apply to sample
+# train.nee.seasonal <- sample(1:nrow(nee.seasonal), 0.8*nrow(nee.seasonal))
+# train.gpp.seasonal <- sample(1:nrow(gpp.seasonal), 0.8*nrow(gpp.seasonal))
+# train.reco.seasonal <- sample(1:nrow(reco.seasonal), 0.8*nrow(reco.seasonal))
+# saveRDS(train.nee.seasonal, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_seasonal_80.rds')
+# saveRDS(train.gpp.seasonal, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_seasonal_80.rds')
+# saveRDS(train.reco.seasonal, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_seasonal_80.rds')
+train.nee.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_nee_seasonal_80.rds')
+train.gpp.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_gpp_seasonal_80.rds')
+train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/train_reco_seasonal_80.rds')
+
+### NEE
+# nee.seasonal.tree <- ctree(nee.sum~.,
+#                         data = nee.seasonal,
+#                         subset = train.nee.seasonal)
+# saveRDS(nee.seasonal.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_tree.rds')
+nee.seasonal.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_tree.rds')
+nee.seasonal.tree
+plot(nee.seasonal.tree)
+nee.seasonal.fit <- nee.seasonal[-train.nee.seasonal, fit := predict(nee.seasonal.tree, nee.seasonal[-train.nee.seasonal,])]
+ggplot(nee.seasonal.fit, aes(x = fit, y = nee.sum)) +
+  geom_point()
+
+### Reco
+# reco.seasonal.tree <- ctree(reco.sum~.,
+#                         data = reco.seasonal,
+#                         subset = train.reco.seasonal)
+# saveRDS(reco.seasonal.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_tree.rds')
+reco.seasonal.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_tree.rds')
+reco.seasonal.tree
+plot(reco.seasonal.tree)
+reco.seasonal.fit <- reco.seasonal[-train.reco.seasonal, fit := predict(reco.seasonal.tree, reco.seasonal[-train.reco.seasonal,])]
+ggplot(reco.seasonal.fit, aes(x = fit, y = reco.sum)) +
+  geom_point()
+
+### GPP
+# gpp.seasonal.tree <- ctree(gpp.sum~.,
+#                         data = gpp.seasonal,
+#                         subset = train.gpp.seasonal)
+# saveRDS(gpp.seasonal.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_tree.rds')
+gpp.seasonal.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_tree.rds')
+gpp.seasonal.tree
+plot(gpp.seasonal.tree)
+gpp.seasonal.fit <- gpp.seasonal[-train.gpp.seasonal, fit := predict(gpp.seasonal.tree, gpp.seasonal[-train.gpp.seasonal,])]
+ggplot(gpp.seasonal.fit, aes(x = fit, y = gpp.sum)) +
+  geom_point()
+
 
 ### Monthly
 nee.monthly <- flux.monthly[!is.na(nee.sum), -c('year', 'flux.year',
