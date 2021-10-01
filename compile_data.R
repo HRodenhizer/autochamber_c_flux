@@ -2057,3 +2057,43 @@ ggplot(flux.annual, aes(x = flux.year)) +
   ggtitle('Annual Snow Depth')
 
 ###########################################################################################
+
+### Merge WTD, precip, subsidence, td for soil hydrology investigation ####################
+### Join TD to WTD
+# set the key to allow proper rolling join
+wtd.f <- wtd.f[!(str_detect(plot.id, 'NA'))]
+wtd.f <- wtd.f[ , WTD_Date := NULL]
+setkey(wtd.f, fence, treatment, plot.id, date)
+setkey(td.f, fence, treatment, plot.id, date)
+
+# Rolling join of water table depth and flux
+# This joins by matching treatment and plot id and finding the closest date match between
+# wtd and td. In cases where there are two thaw depths equally distant in time
+# from the wtd measurement, it will return both, resulting in a longer data table than 
+# the wtd input. 
+hydrology <- td.f[wtd.f, roll = 'nearest']
+
+
+# Calculate rolling precipitation sum
+# Try both 1 week and 2 week
+precip.f <- weather.f[, .(date, hour, precip)]
+precip.f <- precip.f[date >= as_date('2009-01-01')]
+precip.f <- precip.f[, .(precip = sum(precip, na.rm = TRUE)), by = 'date']
+precip.f[, ':=' (precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE),
+                 precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE),
+                 precip = NULL)]
+
+# Join precip to hydrology
+hydrology <- merge(hydrology, precip.f, by = 'date',
+                   all.x = TRUE, all.y = FALSE)
+
+# Join subsidence to hydrology
+hydrology[, plot := as.numeric(str_sub(plot.id, start = 3))]
+hydrology <- merge(hydrology, sub, by = c('year', 'fence', 'plot', 'treatment'),
+                   all.x = TRUE)
+
+# # save data
+# write.csv(hydrology,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hydrology.csv',
+#           row.names = FALSE)
+###########################################################################################
