@@ -21,6 +21,7 @@ library(tidyverse)
 ################################################################################
 
 ### Load Data ##################################################################
+flux.daily <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv")
 flux.monthly <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
 flux.annual <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
   mutate(flux.year = as.factor(flux.year))
@@ -670,8 +671,7 @@ ggplot(subset(flux.annual, flux.year == 2020), aes(x = subsidence.annual, y = mt
   facet_grid(block~.)
 ################################################################################
 
-### Impact of Subsidence on Soil Moisture ######################################
-# Need to add in models!
+### Impact of Subsidence on Soil Moisture (Interannual) ########################
 sub.moisture <- flux.annual %>%
   mutate(treatment = factor(treatment,
                             levels = c('Control',
@@ -1444,4 +1444,261 @@ wtd.precip
 #        wtd.precip,
 #        height = 5,
 #        width = 6.5)
+################################################################################
+
+### Impact of Subsidence on Soil Moisture (Spatial) ############################
+### Model WTD by (2 week?) precip, subsidence, and TD
+hydrology <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hydrology.csv')
+
+hydrology <- hydrology %>%
+  separate(plot.id, into = c('fence2', 'plot'), remove = FALSE) %>%
+  mutate(block = case_when(fence <= 2 ~ 'a',
+                           fence <= 4 ~ 'b',
+                           fence <= 6 ~ 'c'),
+         block.f = factor(case_when(block == 'a' ~ 1,
+                                    block == 'b' ~ 2,
+                                    block == 'c' ~ 3)),
+         fence.f = factor(fence),
+         treatment.f = as.factor(ifelse(treatment == 'Control',
+                                        1,
+                                        ifelse(treatment == 'Air Warming',
+                                               2,
+                                               ifelse(treatment == 'Soil Warming',
+                                                      3,
+                                                      4)))),
+         fencegroup = factor(block.f:fence.f),
+         wholeplot = factor(block.f:fence.f:treatment.f),
+         time = factor(date),
+         precip.1w = ifelse(is.na(precip.1w) & date >= as_date('2020-10-01') & date <= as_date('2020-10-04'),
+                            0,
+                            precip.1w),
+         precip.2w = ifelse(is.na(precip.2w) & date >= as_date('2020-10-01') & date <= as_date('2020-10-04'),
+                            0,
+                            precip.2w),
+         subsidence = subsidence*-1) %>%
+  select(year, date, block, fence, plot, plot.id, treatment, wtd, precip.1w, 
+         precip.2w, subsidence, td, td.date = TD_Date, block.f, fencegroup, 
+         wholeplot, time)
+
+### variable selection
+# # choose between 1 week or 2 week precipitation sums
+# model1 <- lmer(wtd ~ 1 +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model1)
+# model2 <- lmer(wtd ~ precip.1w +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model2)
+# model3 <- lmer(wtd ~ precip.2w +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model3)
+# AIC(model1, model2, model3)
+# 
+# # 2 week precip is better
+# model1 <- lmer(wtd ~ precip.2w +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model1)
+# model2 <- lmer(wtd ~ precip.2w + subsidence +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model2)
+# model3 <- lmer(wtd ~ precip.2w*subsidence +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model3)
+# AIC(model1, model2, model3)
+# 
+# # include interaction between precip and subsidence
+# model1 <- lmer(wtd ~ precip.2w*subsidence +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model1)
+# model2 <- lmer(wtd ~ precip.2w*subsidence + td +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model2)
+# model3 <- lmer(wtd ~ precip.2w*subsidence*td +
+#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                data = hydrology,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model3)
+# AIC(model1, model2, model3)
+# 
+# # test if random effects are necessary
+# ranova(model3)
+# 
+# # check model residuals of model3
+# # look at residuals
+# model3.resid <- resid(model3)
+# model3.fitted <- fitted(model3)
+# model3.sqrt <- sqrt(abs(resid(model3)))
+# 
+# # graph
+# par(mfrow=c(2,2), mar = c(4,4,3,2))
+# plot(model3.fitted, model3.resid, main='resid, model3')
+# plot(model3.fitted, model3.sqrt, main='sqrt resid, model3')
+# qqnorm(model3.resid, main = 'model3')
+# qqline(model3.resid)
+# par(mfrow=c(1,1))
+# 
+# hist(sub.moisture$wtd.mean)
+
+# # re-run with REML = TRUE
+# all.wtd.model <- lmer(wtd ~ precip.2w*subsidence*td +
+#                     (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+#                   data = hydrology,
+#                   control=lmerControl(check.conv.singular="warning"))
+# summary(all.wtd.model)
+# saveRDS(all.wtd.model,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_model.rds')
+all.wtd.model <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_model.rds')
+summary(all.wtd.model)
+
+# # calculate confidence intervals to look at fixed effects
+# all.wtd.model.ci <- extract_ci(all.wtd.model)
+# # write.csv(all.wtd.model.ci, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_coefficients.csv', row.names = FALSE)
+all.wtd.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_coefficients.csv')
+
+all.wtd.model.r2 <- r.squaredGLMM(all.wtd.model)
+wtd.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(all.wtd.model.r2[1], 2))
+
+# # make confidence interval data frame for graphing
+# all.wtd.model.fit <- expand.grid(subsidence = seq(round(min(hydrology$subsidence)), round(max(hydrology$subsidence)), by = 5),
+#                                  precip.2w = seq(round(min(hydrology$precip.2w)), round(max(hydrology$precip.2w)), by = 5),
+#                                  td = seq(round(min(hydrology$td)), round(max(hydrology$td)), by = 5))
+# 
+# myStats <- function(model){
+#   out <- predict( model, newdata=all.wtd.model.fit, re.form=~0 )
+#   return(out)
+# }
+# 
+# bootObj <- bootMer(all.wtd.model, FUN=myStats, nsim = 1000)
+# all.wtd.model.fit <- cbind(all.wtd.model.fit, predict(all.wtd.model, newdata=all.wtd.model.fit, re.form=~0 )) %>%
+#   cbind(confint( bootObj,  level=0.95 ))
+# colnames(all.wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
+# # write.csv(all.wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_model_fit.csv', row.names = FALSE)
+all.wtd.model.fit <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/all_wtd_model_fit.csv')
+
+hydrology <- hydrology %>%
+  mutate(wtd.fit = ifelse(!is.na(wtd),
+                          predict(all.wtd.model),
+                          NA))
+         
+ggplot(hydrology, aes(x = precip.2w, y = wtd)) +
+  geom_point(aes(color = factor(year))) +
+  geom_line(aes(y = wtd.fit)) +
+  facet_wrap(~plot.id, ncol = 8) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Precipitation (cm)') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+ggplot(hydrology, aes(x = subsidence, y = wtd)) +
+  geom_point(aes(color = factor(year))) +
+  geom_line(aes(y = wtd.fit)) +
+  facet_wrap(~plot.id, ncol = 8) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+ggplot(hydrology, aes(x = td, y = wtd)) +
+  geom_point(aes(color = factor(year))) +
+  geom_line(aes(y = wtd.fit)) +
+  facet_wrap(~plot.id, ncol = 8) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = 'Thaw Depth (cm)') +
+  scale_y_continuous(name = 'WTD (cm)') +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+### Create spatial WTD data
+### Load WTD
+wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/wtd/WTD_2020_compiled.csv")
+ww.locations <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/water_wells.shp')
+
+### Format WTD
+# Remove rows without water table depth
+wtd <- wtd[!is.na(WTD)]
+wtd <- wtd[exp == 'CiPEHR', ]
+wtd[, well := as.numeric(well)]
+
+# Format time variables
+wtd[, date := parse_date_time(date, orders = c('Y!/m!*/d!'))]
+wtd[, year := year(date)]
+wtd[, month := month(date)]
+wtd[, day := mday(date)]
+wtd[, wtd.date := ymd(paste(year, month, day, sep = '/'))]
+
+# Format location data
+ww.locations <- ww.locations %>%
+  separate(Name, into = c('fence', 'well'), remove = FALSE, extra = 'merge') %>%
+  mutate(fence = as.integer(str_sub(fence, start = 3)),
+         well = as.numeric(well)) %>%
+  filter(!is.na(well)) %>%
+  select(fence, well) %>%
+  st_zm()
+
+# Join wtd and well locations
+wtd <- left_join(wtd, ww.locations, by = c('fence', 'well')) %>%
+  st_as_sf(crs = st_crs(ww.locations))
+
+# Krige wtd surfaces
+# use elevation as template for kriging
+elev <- list(brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/AElevStack_filled_clipped.tif'),
+             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/BElevStack_filled_clipped.tif'),
+             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/CElevStack_filled_clipped.tif'))
+
+
+### Format TD data
+td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv")
+
+# Remove rows without plot data or thaw depth data
+td <- td[!is.na(plot)]
+td <- td[!is.na(td)]
+# Remove DryPEHR Data
+td <- td[!is.na(as.numeric(plot))]
+
+# Date
+td[, date := parse_date_time(date, orders = c('Y!-m!*-d!'))]
+td[, year := year(date)]
+td[, month := month(date)]
+td[, flux.year := fifelse(month >= 10,
+                          year + 1,
+                          year)]
+td[, day := mday(date)]
+td[, TD_Date := dmy(paste(day, month, year, sep = '/'))]
+
+# Treatment
+td[ww == 'c' & sw == 'c', treatment := 'Control']
+td[ww == 'c' & (sw == 's' | sw == 'sw'), treatment := 'Air Warming']
+td[(ww == 'w' | ww == 'ww') & sw == 'c', treatment := 'Soil Warming']
+td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil Warming']
+
+# Plot ID
+td[, plot.id := paste(fence, plot, sep = '_')]
+td <- td[order(date, plot.id)]
+td.f <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
+
+# Krige td surfaces
+
 ################################################################################
