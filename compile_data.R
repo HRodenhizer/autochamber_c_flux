@@ -280,7 +280,7 @@ soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
 
 ### WTD Data ##############################################################################
 ### Load WTD
-wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/WTD/Compiled/WTD_2020_compiled.csv")
+wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/wtd/WTD_2020_compiled.csv")
 
 ### Format WTD
 # Remove rows without water table depth
