@@ -1700,5 +1700,50 @@ td <- td[order(date, plot.id)]
 td.f <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
 
 # Krige td surfaces
+td.sf <- td %>%
+  left_join(plots, by = c('fence', 'plot')) %>%
+  st_as_sf(crs = crs(plots))
+
+# create spatial objects containing the points for each block (once for sf objects, once for sp)
+td.list <- list()
+for(i in 1:length(unique(td.sf$block))) { # iterate over each block
+  td.list[[i]] <- list()
+  td.subset <- td %>%
+    subset(block == as.character(unique(td.sf$block)[[i]]))
+  for (j in 1:length(unique(td.subset$date))) { # iterate over each date
+    print(paste('I: ', i, ', J: ', j))
+    name <- paste(as.character(unique(td.sf$block)[[i]]), 
+                  as.character(unique(td.subset$date)[[j]]), 
+                  sep = '') # create a unique name for each block's output
+    tmp <- td.sf %>%
+      filter(block == as.character(unique(td.sf$block)[[i]]) & 
+               date == unique(td.subset$date)[[j]]) %>% # select only the data from block i, date j
+      st_zm(drop = TRUE, what = "ZM") %>% # get rid of Z and M geometries to convert to sp
+      as('Spatial') # convert to sp
+    td.list[[i]][[j]] <- tmp
+    assign(name, td.list[[i]][[j]]) # name the sp object
+    }
+  rm(i, j, td.subset, name, tmp)
+}
+
+### start here ###
+
+##############################Calculate and fit variograms##############################
+#a2018
+a2018.vgm <- variogram(Elevation~Easting+Northing, a2018sp, alpha = c(0:1)*90)
+vgm.anis = vgm(0.025, "Exp", 5, 0, anis =  c(90, 0.8))
+a2018.fit <- fit.variogram(a2018.vgm, model = vgm.anis)
+plot(a2018.vgm, a2018.fit)
+
+A2018grid <- A2017raster %>%
+  as('SpatialPixelsDataFrame')
+
+a2018k <-  krige(Elevation~1, a2018sp, A2018grid, a2018.fit)
+
+ggplot(a2018) +
+  geom_tile(data = as.data.frame(a2018k), aes(x,y, fill = var1.pred), inherit.aes = FALSE) +
+  geom_sf(aes(colour = Elevation)) +
+  scale_colour_viridis("Elevation") +
+  ggtitle('a2018')
 
 ################################################################################
