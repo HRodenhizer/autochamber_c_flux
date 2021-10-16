@@ -17,6 +17,10 @@ library(MuMIn)
 library(mgcv)
 library(raster)
 library(sf)
+library(gstat)
+library(stars)
+library(automap)
+library(ggnewscale)
 library(tidyverse)
 ################################################################################
 
@@ -1647,7 +1651,15 @@ wtd[, date := parse_date_time(date, orders = c('Y!/m!*/d!'))]
 wtd[, year := year(date)]
 wtd[, month := month(date)]
 wtd[, day := mday(date)]
+wtd[, wtd := WTD]
+wtd[, WTD := NULL]
 wtd[, wtd.date := ymd(paste(year, month, day, sep = '/'))]
+
+# well 2-3.17 mislabeled as 2-2.17 for a few measurements in 2020
+wtd[fence == 2 & well == 2.17 & year == 2020,
+    well := 3.17]
+# duplicate measurement at 5-1 2020-06-21 - I think 10 cm is right
+wtd <- wtd[!(fence == 5 & well == 1 & date == as_date('2020-06-21') & wtd == 1)]
 
 # Format location data
 ww.locations <- ww.locations %>%
@@ -1659,14 +1671,107 @@ ww.locations <- ww.locations %>%
   st_zm()
 
 # Join wtd and well locations
-wtd <- left_join(wtd, ww.locations, by = c('fence', 'well')) %>%
+wtd.sf <- left_join(wtd, ww.locations, by = c('fence', 'well')) %>%
   st_as_sf(crs = st_crs(ww.locations))
 
+# get subsidence surface data ready for kriging
+sub <- list(brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Subsidence_Clipped/ALT_Sub_Ratio_Corrected/subsidence_stacks/ASubStack2009-2020.tif'),
+            brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Subsidence_Clipped/ALT_Sub_Ratio_Corrected/subsidence_stacks/BSubStack2009-2020.tif'),
+            brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Subsidence_Clipped/ALT_Sub_Ratio_Corrected/subsidence_stacks/CSubStack2009-2020.tif'))
+
+sub.grids <- list()
+for (i in 1:length(sub)) {
+  sub.grids[[i]] <- list()
+  for (j in 1:nlayers(sub[[i]])) {
+    sub.grids[[i]][[j]] <- sub[[i]][[j]] %>%
+      as.data.frame(xy = TRUE) %>%
+      st_as_sf(coords = c('x', 'y'), crs = 6397) %>%
+      st_rasterize()
+    names(sub.grids[[i]][[j]]) <- 'subsidence' # rename so that model can find the subsidence values
+  }
+}
+
+# split wtd into list and add subsidence data for kriging
+# create spatial objects containing the points for each block, year, and date
+wtd.list <- list()
+for(block.n in 1:length(unique(wtd.sf$block))) { # iterate over each block
+  
+  # create list for output
+  wtd.list[[block.n]] <- list()
+  
+  # create subset of data by block
+  wtd.subset.1 <- wtd.sf %>%
+    subset(block == as.character(unique(wtd.sf$block)[[block.n]]))
+  
+  for (year.n in 1:length(unique(wtd.subset.1$year))) {
+    
+    # create list for output
+    wtd.list[[block.n]][[year.n]] <- list()
+    
+    # create subset of data by year
+    wtd.subset.2 <- wtd.subset.1 %>%
+      subset(year == unique(wtd.subset.1$year)[[year.n]])
+    
+    for (date.n in 1:length(unique(wtd.subset.2$date))) { # iterate over each date
+      
+      # create subset of data by date
+      wtd.subset.3 <- wtd.subset.2 %>%
+        subset(date == unique(wtd.subset.2$date)[[date.n]]) %>% # select only the data from block block.n, date year.n
+        st_zm(drop = TRUE, what = "ZM") # get rid of Z and M geometries to convert to sp
+      
+      # add subsidence data
+      sub.extract <- raster::extract(sub[[block.n]][[year.n]], wtd.subset.3, df = TRUE) %>%
+        as.data.frame() %>%
+        rename(subsidence = 2) %>%
+        select(2)
+      wtd.subset.3 <- wtd.subset.3 %>%
+        cbind.data.frame(sub.extract) %>%
+        st_as_sf(crs = 6397) %>%
+        filter(!is.na(subsidence))
+      
+      name <- paste(as.character(unique(wtd.subset.3$block)), 
+                    as.character(unique(wtd.subset.3$year)),
+                    as.character(unique(wtd.subset.3$date)),
+                    sep = '.') # create a unique name for each block's output
+      
+      wtd.list[[block.n]][[year.n]][[date.n]] <- wtd.subset.3
+      names(wtd.list[[block.n]][[year.n]])[[date.n]] <- name # name the output list element
+    }
+  }
+  rm(block.n, year.n, wtd.subset.1, wtd.subset.2, wtd.subset.3, name)
+}
+
+
 # Krige wtd surfaces
-# use elevation as template for kriging
-elev <- list(brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/AElevStack_filled_clipped.tif'),
-             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/BElevStack_filled_clipped.tif'),
-             brick('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Kriged_Surfaces/Elevation_Variance/ALT_Sub_Ratio_Corrected/Elevation_Stacks/CElevStack_filled_clipped.tif'))
+### run loop to krige all surfaces using autoKrige
+wtd.surface <- list()
+for (block.n in 1:length(wtd.list)) {
+  
+  wtd.surface[[block.n]] <- list()
+  
+  for (year.n in 1:length(wtd.list[[block.n]])) {
+    
+    wtd.surface[[block.n]][[year.n]] <- list()
+    
+    for (date.n in 1:length(wtd.list[[block.n]][[year.n]])) {
+      
+      print(paste0('block = ', block.n, ', year = ', year.n, ', date = ', date.n))
+      
+      input <- as(wtd.list[[block.n]][[year.n]][[date.n]], 'Spatial')
+      newdata <- as(sub.grids[[block.n]][[year.n]], 'Spatial')
+      krige.output <- autoKrige(wtd ~ subsidence, input, newdata)
+      krige.surface <- crop(raster(krige.output[[1]]),
+                       sub[[block.n]])
+      wtd.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
+      
+    }
+  }
+  rm(input, newdata, krige.output, krige.surface, block.n, year.n, date.n)
+}
+
+# # save data
+# saveRDS(wtd.surface,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/wtd_surfaces.rds')
 
 
 ### Format TD data
@@ -1675,75 +1780,221 @@ td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPE
 # Remove rows without plot data or thaw depth data
 td <- td[!is.na(plot)]
 td <- td[!is.na(td)]
-# Remove DryPEHR Data
-td <- td[!is.na(as.numeric(plot))]
+# # Remove DryPEHR Data
+# td <- td[!is.na(as.numeric(plot))]
 
 # Date
-td[, date := parse_date_time(date, orders = c('Y!-m!*-d!'))]
+td[, date := as_date(parse_date_time(date, orders = c('Y!-m!*-d!')))]
 td[, year := year(date)]
-td[, month := month(date)]
-td[, flux.year := fifelse(month >= 10,
-                          year + 1,
-                          year)]
-td[, day := mday(date)]
-td[, TD_Date := dmy(paste(day, month, year, sep = '/'))]
+td[, block := tolower(block)]
+td[, plot := tolower(plot)]
+td <- unique(td)
 
-# Treatment
-td[ww == 'c' & sw == 'c', treatment := 'Control']
-td[ww == 'c' & (sw == 's' | sw == 'sw'), treatment := 'Air Warming']
-td[(ww == 'w' | ww == 'ww') & sw == 'c', treatment := 'Soil Warming']
-td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil Warming']
+# incorrect date recorded for one measurement in 2019
+# two values recorded for 2019-08-02, but first should be ~2019-07-28
+td[date == as_date('2019-08-02'),
+   fix.date := c(rep(1, 16), rep(2, 16))]
+td[fix.date == 1,
+   date := as_date('2019-07-28')]
+td[, fix.date := NULL]
+
+# add subsidence to help with kriging
+sub.df <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
+             header = TRUE,
+             stringsAsFactors = FALSE) %>%
+  select(year, fence, plot, subsidence)
+sub.df <- unique(sub.df)
+td <- merge(td, sub.df,
+              by = c('year', 'fence', 'plot'))
 
 # Plot ID
-td[, plot.id := paste(fence, plot, sep = '_')]
-td <- td[order(date, plot.id)]
-td.f <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
+td <- td[order(date, block, fence, plot)]
+td <- td[,.(year, date, block, fence, plot, td, subsidence)]
 
 # Krige td surfaces
+plots.all <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
 td.sf <- td %>%
-  left_join(plots, by = c('fence', 'plot')) %>%
-  st_as_sf(crs = crs(plots))
+  left_join(plots.all, by = c('fence', 'plot')) %>%
+  st_as_sf(crs = 6397)
 
-# create spatial objects containing the points for each block (once for sf objects, once for sp)
+# create spatial objects containing the points for each block, year, and date
 td.list <- list()
 for(i in 1:length(unique(td.sf$block))) { # iterate over each block
+  
+  # create list for output
   td.list[[i]] <- list()
-  td.subset <- td %>%
+  
+  # create subset of data by block
+  td.subset.1 <- td.sf %>%
     subset(block == as.character(unique(td.sf$block)[[i]]))
-  for (j in 1:length(unique(td.subset$date))) { # iterate over each date
-    print(paste('I: ', i, ', J: ', j))
-    name <- paste(as.character(unique(td.sf$block)[[i]]), 
-                  as.character(unique(td.subset$date)[[j]]), 
-                  sep = '') # create a unique name for each block's output
-    tmp <- td.sf %>%
-      filter(block == as.character(unique(td.sf$block)[[i]]) & 
-               date == unique(td.subset$date)[[j]]) %>% # select only the data from block i, date j
-      st_zm(drop = TRUE, what = "ZM") %>% # get rid of Z and M geometries to convert to sp
-      as('Spatial') # convert to sp
-    td.list[[i]][[j]] <- tmp
-    assign(name, td.list[[i]][[j]]) # name the sp object
+  
+  for (j in 1:length(unique(td.subset.1$year))) {
+    
+    # create list for output
+    td.list[[i]][[j]] <- list()
+    
+    # create subset of data by year
+    td.subset.2 <- td.subset.1 %>%
+      subset(year == unique(td.subset.1$year)[[j]])
+    
+    for (k in 1:length(unique(td.subset.2$date))) { # iterate over each date
+      
+      # create subset of data by date
+      td.subset.3 <- td.subset.2 %>%
+        subset(date == unique(td.subset.2$date)[[k]]) %>% # select only the data from block i, date j
+        st_zm(drop = TRUE, what = "ZM") # get rid of Z and M geometries to convert to sp
+      
+      name <- paste(as.character(unique(td.subset.3$block)), 
+                    as.character(unique(td.subset.3$year)),
+                    as.character(unique(td.subset.3$date)),
+                    sep = '.') # create a unique name for each block's output
+     
+      td.list[[i]][[j]][[k]] <- td.subset.3
+      names(td.list[[i]][[j]])[[k]] <- name # name the output list element
     }
-  rm(i, j, td.subset, name, tmp)
+  }
+  rm(i, j, td.subset.1, td.subset.2, td.subset.3, name)
 }
 
-### start here ###
+### run loop to krige all surfaces using autoKrige
+td.surface <- list()
+for (block.n in 1:length(td.list)) {
+  
+  td.surface[[block.n]] <- list()
+  
+  for (year.n in 1:length(td.list[[block.n]])) {
+    
+    td.surface[[block.n]][[year.n]] <- list()
+    
+    for (date.n in 1:length(td.list[[block.n]][[year.n]])) {
+      
+      print(paste0('block = ', block.n, ', year = ', year.n, ', date = ', date.n))
+      
+      input <- as(td.list[[block.n]][[year.n]][[date.n]], 'Spatial')
+      newdata <- as(sub.grids[[block.n]][[year.n]], 'Spatial')
+      krige.output <- autoKrige(td ~ subsidence, input, newdata)
+      krige.surface <- crop(raster(krige.output[[1]]),
+                       sub[[block.n]])
+      td.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
+      
+    }
+  }
+  rm(input, newdata, krige.output, krige.surface, block.n, year.n, date.n)
+}
 
-##############################Calculate and fit variograms##############################
-#a2018
-a2018.vgm <- variogram(Elevation~Easting+Northing, a2018sp, alpha = c(0:1)*90)
-vgm.anis = vgm(0.025, "Exp", 5, 0, anis =  c(90, 0.8))
-a2018.fit <- fit.variogram(a2018.vgm, model = vgm.anis)
-plot(a2018.vgm, a2018.fit)
+# # save data
+# saveRDS(td.surface,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/td_surfaces.rds')
 
-A2018grid <- A2017raster %>%
-  as('SpatialPixelsDataFrame')
 
-a2018k <-  krige(Elevation~1, a2018sp, A2018grid, a2018.fit)
+### Select days for high and low precip in previous week 
+# (preferrably in last couple of years near end of growing season)
+ggplot(flux.daily[flux.year == 2017 & month %in% c(7, 8, 9)], 
+       aes(x = date, y = precip)) +
+  geom_line()
+ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8, 9)], 
+       aes(x = date, y = precip)) +
+  geom_line()
+ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)], 
+       aes(x = date, y = precip)) +
+  geom_line()
+ggplot(flux.daily[flux.year == 2019 & month %in% c(7, 8, 9)], 
+       aes(x = date, y = precip)) +
+  geom_line()
+ggplot(flux.daily[flux.year == 2020 & month %in% c(7, 8, 9)], 
+       aes(x = date, y = precip)) +
+  geom_line()
+ggplot(flux.daily[flux.year == 2020 & month == 8], 
+       aes(x = date, y = precip)) +
+  geom_line()
 
-ggplot(a2018) +
-  geom_tile(data = as.data.frame(a2018k), aes(x,y, fill = var1.pred), inherit.aes = FALSE) +
-  geom_sf(aes(colour = Elevation)) +
-  scale_colour_viridis("Elevation") +
-  ggtitle('a2018')
+### Possible dates
+# week ending 2020-08-10 for wet
+# wtd on 2020-08-11 and td on ...?
+# week ending 2020-08-23 for dry, but that's really soon after a wet period
+# wtd on 2020-08-24 and td on ...?
+### OR ###
+# week ending on 2018-07-31 for dry
+# wtd on 2018-07-30, td on 2020-07-27
+# week ending on 2018-08-08 for wet
+# wtd on 2018-08-08, td on 2020-08-10
 
-################################################################################
+# Join elevation (annual), and wtd and td data from selected dates into brick
+hydro.brick.dry <- list()
+hydro.brick.wet <- list()
+for (block.n in 1:length(elev.clipped)) {
+  hydro.brick.dry[[block.n]] <- brick(elev.clipped[[block.n]][[10]],
+                                      wtd.surface[[block.n]][[10]][[which(unique(subset(wtd.sf, year == 2018)$date) == as_date('2018-07-30'))]],
+                                      td.surface[[block.n]][[10]][[which(unique(subset(td.sf, year == 2018)$date) == as_date('2018-07-27'))]])
+  hydro.brick.wet[[block.n]] <- brick(elev.clipped[[block.n]][[10]],
+                                      wtd.surface[[block.n]][[10]][[which(unique(subset(wtd.sf, year == 2018)$date) == as_date('2018-08-08'))]],
+                                      td.surface[[block.n]][[10]][[which(unique(subset(td.sf, year == 2018)$date) == as_date('2018-08-10'))]])
+}
+
+plot(hydro.brick.dry[[1]])
+plot(hydro.brick.dry[[2]])
+plot(hydro.brick.dry[[3]])
+plot(hydro.brick.wet[[1]])
+plot(hydro.brick.wet[[2]])
+plot(hydro.brick.wet[[3]])
+
+
+### Create virtual transect across each fence
+transects <- data.frame(fence = seq(1, 6),
+                        x = c(537944, 537958, 538006, 538016, 538125, 538137),
+                        y = c(1100970, 1100981, 1101103, 1101116, 1101028, 1101035))
+transects <- transects %>%
+  rbind.data.frame(transects %>%
+                     mutate(x = 20*sin(-0.588) + x,
+                            y = 20*cos(0.588) + y)) %>% # to create 20 m long transects at approximately the right angle
+  arrange(fence, x)
+
+linestring <- list()
+for (fence.n in 1:6) {
+  transect.subset <- transects %>%
+    filter(fence == fence.n) %>%
+    select(-fence) %>%
+    as.matrix()
+  linestring[[fence.n]] <- st_linestring(transect.subset)
+}
+
+transects <- data.frame(fence = seq(1, 6),
+                        geometry = st_sfc(linestring)) %>%
+  st_as_sf(crs = 6397)
+
+# Block A
+ggplot(filter(transects, fence <= 2)) +
+  geom_tile(data = as.data.frame(hydro.brick.dry[[1]][[1]], xy = TRUE),
+            aes(x, y, fill = AElevStack_filled_clipped.10),
+            inherit.aes = FALSE) +
+  scale_fill_viridis(na.value = 'transparent') +
+  geom_sf(color = 'black') +
+  geom_sf(data = td.list[[1]][[1]][[1]],
+          inherit.aes = FALSE,
+          color = 'black') +
+  coord_sf(datum = st_crs(transects))
+
+# Block B
+ggplot(filter(transects, fence > 2 & fence <= 4)) +
+  geom_tile(data = as.data.frame(hydro.brick.dry[[2]][[1]], xy = TRUE),
+            aes(x, y, fill = BElevStack_filled_clipped.10),
+            inherit.aes = FALSE) +
+  scale_fill_viridis(na.value = 'transparent') +
+  geom_sf(color = 'black') +
+  geom_sf(data = td.list[[2]][[1]][[1]],
+          inherit.aes = FALSE,
+          color = 'black') +
+  coord_sf(datum = st_crs(transects))
+
+# Block C
+ggplot(filter(transects, fence > 4)) +
+  geom_tile(data = as.data.frame(hydro.brick.dry[[3]][[1]], xy = TRUE),
+            aes(x, y, fill = CElevStack_filled_clipped.10),
+            inherit.aes = FALSE) +
+  scale_fill_viridis(na.value = 'transparent') +
+  geom_sf(color = 'black') +
+  geom_sf(data = td.list[[3]][[1]][[1]],
+          inherit.aes = FALSE,
+          color = 'black') +
+  coord_sf(datum = st_crs(transects))
+
