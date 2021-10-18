@@ -1926,10 +1926,14 @@ for (block.n in 1:length(elev.clipped)) {
   hydro.brick.dry[[block.n]] <- brick(elev.clipped[[block.n]][[10]],
                                       wtd.surface[[block.n]][[10]][[which(unique(subset(wtd.sf, year == 2018)$date) == as_date('2018-07-30'))]],
                                       td.surface[[block.n]][[10]][[which(unique(subset(td.sf, year == 2018)$date) == as_date('2018-07-27'))]])
+  hydro.brick.dry[[block.n]]@data@names <- c('elevation', 'wtd', 'td')
   hydro.brick.wet[[block.n]] <- brick(elev.clipped[[block.n]][[10]],
                                       wtd.surface[[block.n]][[10]][[which(unique(subset(wtd.sf, year == 2018)$date) == as_date('2018-08-08'))]],
                                       td.surface[[block.n]][[10]][[which(unique(subset(td.sf, year == 2018)$date) == as_date('2018-08-10'))]])
+  hydro.brick.wet[[block.n]]@data@names <- c('elevation', 'wtd', 'td')
 }
+names(hydro.brick.dry) <- c('elevation', 'wtd', 'td')
+names(hydro.brick.wet) <- c('elevation', 'wtd', 'td')
 
 plot(hydro.brick.dry[[1]])
 plot(hydro.brick.dry[[2]])
@@ -1941,12 +1945,12 @@ plot(hydro.brick.wet[[3]])
 
 ### Create virtual transect across each fence
 transects <- data.frame(fence = seq(1, 6),
-                        x = c(537944, 537958, 538006, 538016, 538125, 538137),
-                        y = c(1100970, 1100981, 1101103, 1101116, 1101028, 1101035))
+                        x = c(537946, 537957.5, 538007.25, 538017.5, 538127, 538138.5),
+                        y = c(1100970, 1100977.5, 1101101.75, 1101113.5, 1101026, 1101033.5))
 transects <- transects %>%
   rbind.data.frame(transects %>%
-                     mutate(x = 20*sin(-0.588) + x,
-                            y = 20*cos(0.588) + y)) %>% # to create 20 m long transects at approximately the right angle
+                     mutate(x = 22*sin(-0.588) + x,
+                            y = 22*cos(0.588) + y)) %>% # to create 20 m long transects at approximately the right angle
   arrange(fence, x)
 
 linestring <- list()
@@ -1962,39 +1966,229 @@ transects <- data.frame(fence = seq(1, 6),
                         geometry = st_sfc(linestring)) %>%
   st_as_sf(crs = 6397)
 
+# calculate 11 points along each transect (every 2 meters)
+transect.points <- transects %>%
+  st_line_sample(n = 11) %>%
+  st_as_sf(crs = 6397) %>%
+  mutate(fence = seq(1, 6)) %>%
+  st_cast(to = 'POINT')
+
+# Add in fence locations
+fences <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/Fences.shp')
+
+fence.intersection <- st_intersection(transects, fences)
+fence.dist <- st_distance(fence.intersection, transect.points[seq(1, 6)*11,]) %>%
+  diag() %>%
+  as.data.frame() %>%
+  mutate(fence = seq(1, 6)) %>%
+  select(fence, fence.dist = 1) %>%
+  mutate(fence.dist = as.numeric(fence.dist))
+
 # Block A
 ggplot(filter(transects, fence <= 2)) +
   geom_tile(data = as.data.frame(hydro.brick.dry[[1]][[1]], xy = TRUE),
-            aes(x, y, fill = AElevStack_filled_clipped.10),
+            aes(x, y, fill = elevation),
             inherit.aes = FALSE) +
   scale_fill_viridis(na.value = 'transparent') +
   geom_sf(color = 'black') +
   geom_sf(data = td.list[[1]][[1]][[1]],
           inherit.aes = FALSE,
           color = 'black') +
+  geom_sf(data = filter(transect.points, fence %in% c(1, 2)),
+          inherit.aes = FALSE,
+          color = 'red') +
+  geom_sf(data = slice(fence.intersection, 1:2),
+          inherit.aes = FALSE,
+          color = 'blue') +
   coord_sf(datum = st_crs(transects))
 
 # Block B
 ggplot(filter(transects, fence > 2 & fence <= 4)) +
   geom_tile(data = as.data.frame(hydro.brick.dry[[2]][[1]], xy = TRUE),
-            aes(x, y, fill = BElevStack_filled_clipped.10),
+            aes(x, y, fill = elevation),
             inherit.aes = FALSE) +
   scale_fill_viridis(na.value = 'transparent') +
   geom_sf(color = 'black') +
   geom_sf(data = td.list[[2]][[1]][[1]],
           inherit.aes = FALSE,
           color = 'black') +
+  geom_sf(data = filter(transect.points, fence %in% c(3, 4)),
+          inherit.aes = FALSE,
+          color = 'red') +
+  geom_sf(data = slice(fence.intersection, 3:4),
+          inherit.aes = FALSE,
+          color = 'blue') +
   coord_sf(datum = st_crs(transects))
 
 # Block C
 ggplot(filter(transects, fence > 4)) +
   geom_tile(data = as.data.frame(hydro.brick.dry[[3]][[1]], xy = TRUE),
-            aes(x, y, fill = CElevStack_filled_clipped.10),
+            aes(x, y, fill = elevation),
             inherit.aes = FALSE) +
   scale_fill_viridis(na.value = 'transparent') +
   geom_sf(color = 'black') +
   geom_sf(data = td.list[[3]][[1]][[1]],
           inherit.aes = FALSE,
           color = 'black') +
+  geom_sf(data = filter(transect.points, fence %in% c(5, 6)),
+          inherit.aes = FALSE,
+          color = 'red') +
+  geom_sf(data = slice(fence.intersection, 5:6),
+          inherit.aes = FALSE,
+          color = 'blue') +
   coord_sf(datum = st_crs(transects))
 
+### Extract raster elevation, td, wtd along transects
+transect.extract <- data.frame()
+for (i in 1:3) {
+  
+  tmp <- raster::extract(hydro.brick.dry[[i]], filter(transect.points, fence %in% c(i*2 - 1, i*2)),
+                          layer = 1, nl = 3) %>%
+    as.data.frame() %>%
+    cbind.data.frame(filter(transect.points, fence %in% c(i*2 - 1, i*2))) %>%
+    mutate(distance = rep(seq(10, 0)*2, 2),
+           condition = 'Dry') %>%
+    group_by(fence) %>%
+    mutate(elev.norm = elevation - max(elevation),
+           wtd.norm = elev.norm - wtd*0.01,
+           td.norm = elev.norm - td*0.01) %>%
+    st_as_sf(crs = 6397)
+  
+  transect.extract <- rbind(transect.extract, tmp)
+  
+  tmp <- raster::extract(hydro.brick.wet[[i]], filter(transect.points, fence %in% c(i*2 - 1, i*2)),
+                         layer = 1, nl = 3) %>%
+    as.data.frame() %>%
+    cbind.data.frame(filter(transect.points, fence %in% c(i*2 - 1, i*2))) %>%
+    mutate(distance = rep(seq(10, 0)*2, 2),
+           condition = 'Wet') %>%
+    group_by(fence) %>%
+    mutate(elev.norm = elevation - max(elevation),
+           wtd.norm = elev.norm - wtd*0.01,
+           td.norm = elev.norm - td*0.01) %>%
+    st_as_sf(crs = 6397)
+  
+  transect.extract <- rbind(transect.extract, tmp)
+  
+}
+
+transect.extract.diff <- transect.extract %>%
+  st_drop_geometry() %>%
+  select(fence, distance, condition, wtd) %>%
+  mutate(wtd = wtd*0.01) %>%
+  pivot_wider(id_cols = c(fence, distance), 
+              names_from = condition, 
+              values_from = c(wtd),
+              names_sep = '.') %>%
+  mutate(wtd.diff = Dry-Wet,
+         condition = 'Difference') %>%
+  select(fence, distance, condition, wtd.diff)
+
+transect.extract <- transect.extract %>%
+  mutate(condition = ifelse(condition == 'Wet',
+                            'Wet Conditions',
+                            'Dry Conditions'))
+
+
+### Plot transects
+# colors needed
+names <- c('Unsaturated Active Layer', 'Saturated Active Layer', 'Permafrost')
+color <- c('Permafrost' = '#666666', 
+           'Unsaturated Active Layer' = '#996633', 
+           'Saturated Active Layer' = '#006699')
+treatment.labels <- data.frame(fence = 6,
+                               condition = 'Dry Conditions',
+                               arrow.1.start = 14,
+                               arrow.1.end = 13,
+                               arrow.2.start = 14.75,
+                               arrow.2.end = 15.75,
+                               label.1 = 'Control',
+                               label.2 = 'Soil\nWarming')
+
+transect.plot <- ggplot(transect.extract,
+       aes(x = distance)) +
+  geom_ribbon(aes(ymin = wtd.norm, ymax = elev.norm, fill = 'Unsaturated Active Layer'),
+              linetype = 1,
+              size = 0.5,
+              colour = 'black') +
+  geom_ribbon(aes(ymin = td.norm, ymax = wtd.norm, fill = 'Saturated Active Layer'),
+              linetype = 1,
+              size = 0.25,
+              colour = 'black') +
+  geom_ribbon(aes(ymin = -Inf, ymax = td.norm, fill = 'Permafrost'),
+              linetype = 1,
+              size = 0.5,
+              colour = 'black') +
+  geom_line(aes(y = elev.norm), linetype = 'dashed', size = 0.5) +
+  geom_vline(data = fence.dist, 
+             aes(xintercept = fence.dist),
+             linetype = 'dotted') +
+  geom_segment(data = treatment.labels,
+               aes(x = arrow.1.start, xend = arrow.1.end,
+                   y = -1.9, yend = -1.9),
+               arrow = arrow(length = unit(0.1, 'lines'))) +
+  geom_segment(data = treatment.labels,
+               aes(x = arrow.2.start, xend = arrow.2.end,
+                   y = -1.9, yend = -1.9),
+               arrow = arrow(length = unit(0.1, 'lines'))) +
+  geom_text(data = treatment.labels,
+            aes(x = arrow.1.end, y = -1.9, label = label.1),
+            hjust = 'right',
+            nudge_x = -0.25,
+            size = 2) +
+  geom_text(data = treatment.labels,
+            aes(x = arrow.2.end, y = -1.9, label = label.2),
+            hjust = 'left',
+            nudge_x = 0.25,
+            size = 2) +
+  scale_fill_manual(name = '',
+                    values = color,
+                    breaks = names) +
+  scale_x_continuous(name = 'Distance (m)',
+                     breaks = seq(0, 20, by = 5),
+                     expand = c(0,0)) +
+  scale_y_continuous(name = 'Normalized Elevation (m)') +
+  facet_grid(fence ~ condition) +
+  theme_bw() +
+  theme(# legend.justification=c(0,0),
+        # legend.position=c(0,0),
+        legend.position = 'bottom',
+        legend.title = element_blank(),
+        strip.text.y = element_blank(),
+        panel.spacing.x = unit(0.75, 'lines'))
+transect.plot
+
+# plot difference in wtd between wet and dry conditions
+transect.diff.plot <- ggplot(transect.extract.diff,
+       aes(x = distance, y = wtd.diff)) +
+  geom_line(size = 0.25) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = 'gray') +
+  geom_vline(data = fence.dist, 
+             aes(xintercept = fence.dist),
+             linetype = 'dotted') +
+  scale_y_continuous(name = expression(Delta ~ 'WTD (m)'),
+                     limits = c(0, 0.4)) +
+  scale_x_continuous(name = 'Distance (m)',
+                     breaks = seq(0, 20, by = 5),
+                     expand = c(0, 0)) +
+  facet_grid(fence ~ condition) +
+  theme_bw()
+transect.diff.plot
+
+wtd.transect.plot <- ggarrange(transect.plot, transect.diff.plot,
+          ncol = 2,
+          widths = c(1.75, 1),
+          common.legend = TRUE,
+          legend = 'bottom')
+wtd.transect.plot
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.jpg',
+#        wtd.transect.plot,
+#        height = 7,
+#        width = 6.5,
+#        bg = 'white')
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.pdf',
+#        wtd.transect.plot,
+#        height = 7,
+#        width = 6.5,
+#        bg = 'white')
