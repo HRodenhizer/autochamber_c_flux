@@ -12,11 +12,11 @@ library(tidyverse)
 
 ### Load Data ###############################################################################################################
 # flux.daily <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_neat.csv")
-# flux.weekly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_weekly_neat.csv")
-flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv") %>%
-  filter(flux.year >= 2010)
-flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
-  filter(flux.year >= 2010)
+flux.weekly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_weekly_neat.csv")
+flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
+flux.monthly <- flux.monthly[flux.year >= 2010]
+flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv")
+flux.seasonal <- flux.seasonal[flux.year >= 2010]
 #############################################################################################################################
 
 ### Get a feel for the possible relationships ###############################################################################
@@ -33,93 +33,42 @@ flux.seasonal %>%
 set.seed(21591)
 
 ### Seasonal
-nee.seasonal <- flux.seasonal[!is.na(nee.sum), c('nee.sum', 
-                                                 'gdd', 'mean.tair.max', 
-                                                 'tair.mean', 'mean.tair.min', 
-                                                 't5.mean', 't5.sd', 
-                                                 't10.mean', 't10.sd',
-                                                 't20.mean', 't20.sd', 
-                                                 't40.mean', 't40.sd', 
-                                                 'vwc.mean', 'vwc.sd', 
-                                                 'gwc.mean', 'gwc.sd',
-                                                 'wtd.mean', 'wtd.sd', 
-                                                 'rh.mean', 'rh.sd',
-                                                 'precip.sum', 
+nee.seasonal <- flux.seasonal[!is.na(nee.sum), c('nee.sum',
+                                                 'tp.annual',
                                                  'subsidence.annual',
-                                                 'alt.annual', 'alt.doy', 
-                                                 'biomass.annual', 
-                                                 'ndvi', 'ndvi.doy',
-                                                 'winter.snow.depth', 
-                                                 'winter.fdd', 
-                                                 'winter.tair.mean', 
-                                                 'winter.mean.tair.min',
-                                                 'winter.tair.sd', 
-                                                 'winter.min.t5.min',
-                                                 'winter.t5.mean',
+                                                 'alt.annual', 
+                                                 'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                                 'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                                 'wtd.mean',
+                                                 'precip.sum', 'winter.snow.depth',
                                                  'winter.min.t10.min',
-                                                 'winter.t10.mean',
-                                                 'winter.min.t20.min',
-                                                 'winter.t20.mean',
-                                                 'winter.min.t40.min',
-                                                 'winter.t40.mean')]
+                                                 'max.t10.max', 't10.mean',
+                                                 'max.tair.max', 'tair.mean',
+                                                 'biomass.annual')]
 gpp.seasonal <- flux.seasonal[!is.na(gpp.sum),  c('gpp.sum', 
-                                                  'gdd', 'mean.tair.max', 
-                                                  'tair.mean', 'mean.tair.min', 
-                                                  't5.mean', 't5.sd', 
-                                                  't10.mean', 't10.sd',
-                                                  't20.mean', 't20.sd', 
-                                                  't40.mean', 't40.sd', 
-                                                  'vwc.mean', 'vwc.sd', 
-                                                  'gwc.mean', 'gwc.sd',
-                                                  'wtd.mean', 'wtd.sd', 
-                                                  'rh.mean', 'rh.sd',
-                                                  'precip.sum', 
+                                                  'tp.annual',
                                                   'subsidence.annual',
-                                                  'alt.annual', 'alt.doy', 
-                                                  'biomass.annual', 
-                                                  'ndvi', 'ndvi.doy',
-                                                  'winter.snow.depth', 
-                                                  'winter.fdd', 
-                                                  'winter.tair.mean', 
-                                                  'winter.mean.tair.min',
-                                                  'winter.tair.sd', 
-                                                  'winter.min.t5.min',
-                                                  'winter.t5.mean',
+                                                  'alt.annual', 
+                                                  'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                                  'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                                  'wtd.mean',
+                                                  'precip.sum', 'winter.snow.depth',
                                                   'winter.min.t10.min',
-                                                  'winter.t10.mean',
-                                                  'winter.min.t20.min',
-                                                  'winter.t20.mean',
-                                                  'winter.min.t40.min',
-                                                  'winter.t40.mean')]
+                                                  'max.t10.max', 't10.mean',
+                                                  'max.tair.max', 'tair.mean',
+                                                  'biomass.annual')]
 reco.seasonal <- flux.seasonal[!is.na(reco.sum),  c('reco.sum', 
-                                                    'gdd', 'mean.tair.max', 
-                                                    'tair.mean', 'mean.tair.min', 
-                                                    't5.mean', 't5.sd', 
-                                                    't10.mean', 't10.sd',
-                                                    't20.mean', 't20.sd', 
-                                                    't40.mean', 't40.sd', 
-                                                    'vwc.mean', 'vwc.sd', 
-                                                    'gwc.mean', 'gwc.sd',
-                                                    'wtd.mean', 'wtd.sd', 
-                                                    'rh.mean', 'rh.sd',
-                                                    'precip.sum', 
+                                                    'tp.annual',
                                                     'subsidence.annual',
-                                                    'alt.annual', 'alt.doy', 
-                                                    'biomass.annual', 
-                                                    'ndvi', 'ndvi.doy',
-                                                    'winter.snow.depth', 
-                                                    'winter.fdd', 
-                                                    'winter.tair.mean', 
-                                                    'winter.mean.tair.min',
-                                                    'winter.tair.sd', 
-                                                    'winter.min.t5.min',
-                                                    'winter.t5.mean',
+                                                    'alt.annual', 
+                                                    'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                                    'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                                    'wtd.mean',
+                                                    'precip.sum', 'winter.snow.depth',
                                                     'winter.min.t10.min',
-                                                    'winter.t10.mean',
-                                                    'winter.min.t20.min',
-                                                    'winter.t20.mean',
-                                                    'winter.min.t40.min',
-                                                    'winter.t40.mean')]
+                                                    'max.t10.max', 't10.mean',
+                                                    'max.tair.max', 'tair.mean',
+                                                    'biomass.annual')]
 # set.seed doesn't seem to apply to sample
 # train.nee.seasonal <- sample(1:nrow(nee.seasonal), 0.8*nrow(nee.seasonal))
 # train.gpp.seasonal <- sample(1:nrow(gpp.seasonal), 0.8*nrow(gpp.seasonal))
@@ -139,6 +88,16 @@ train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Auto
 nee.seasonal.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_tree.rds')
 nee.seasonal.tree
 plot(nee.seasonal.tree)
+### I can't figure out how to adjust the margins and size like this so am 
+# exporting manually once it looks ok on my screen
+# jpeg('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/nee_seasonal.jpeg',
+#      width = 6.5,
+#      height = 4,
+#      units = 'in',
+#      res = 300)
+# par(oma = c(1,1,1,1))
+# plot(nee.seasonal.tree)
+# dev.off()
 nee.seasonal.fit <- nee.seasonal[-train.nee.seasonal, fit := predict(nee.seasonal.tree, nee.seasonal[-train.nee.seasonal,])]
 ggplot(nee.seasonal.fit, aes(x = fit, y = nee.sum)) +
   geom_point()
@@ -169,21 +128,42 @@ ggplot(gpp.seasonal.fit, aes(x = fit, y = gpp.sum)) +
 
 
 ### Monthly
-nee.monthly <- flux.monthly[!is.na(nee.sum), -c('year', 'flux.year',
-                                            'season', 'month', 'block', 'fence',
-                                            'plot', 'plot.id', 'treatment',
-                                            'reco.sum', 'gpp.sum', 'alt.doy',
-                                            'ndvi.doy')]
-gpp.monthly <- flux.monthly[!is.na(gpp.sum),  -c('year', 'flux.year',
-                                             'season', 'month', 'block',
-                                             'fence', 'plot', 'plot.id',
-                                             'treatment', 'reco.sum', 'nee.sum',
-                                             'alt.doy', 'ndvi.doy')]
-reco.monthly <- flux.monthly[!is.na(reco.sum),  -c('year', 'flux.year',
-                                               'season', 'month', 'block',
-                                               'fence', 'plot', 'plot.id',
-                                               'treatment', 'nee.sum',
-                                               'gpp.sum', 'alt.doy', 'ndvi.doy')]
+nee.monthly <- flux.monthly[!is.na(nee.sum), c('nee.sum',
+                                               'tp.to.date',
+                                               'subsidence.annual',
+                                               'td', 
+                                               'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                               'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                               'wtd.mean', 'wtd.sd',
+                                               'precip', 
+                                               't10.mean',
+                                               'max.vwc.max.2m', 'vwc.mean.2m', 'min.vwc.min.2m',
+                                               'max.gwc.max.2m', 'gwc.mean.2m', 'min.gwc.min.2m',
+                                               'gdd.2m', 'fdd.2m')]
+gpp.monthly <- flux.monthly[!is.na(gpp.sum),  c('gpp.sum',
+                                                'tp.to.date',
+                                                'subsidence.annual',
+                                                'td', 
+                                                'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                                'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                                'wtd.mean', 'wtd.sd',
+                                                'precip', 
+                                                't10.mean',
+                                                'max.vwc.max.2m', 'vwc.mean.2m', 'min.vwc.min.2m',
+                                                'max.gwc.max.2m', 'gwc.mean.2m', 'min.gwc.min.2m',
+                                                'gdd.2m', 'fdd.2m')]
+reco.monthly <- flux.monthly[!is.na(reco.sum),  c('reco.sum',
+                                                  'tp.to.date',
+                                                  'subsidence.annual',
+                                                  'td', 
+                                                  'max.vwc.max', 'vwc.mean', 'min.vwc.min',
+                                                  'max.gwc.max', 'gwc.mean', 'min.gwc.min',
+                                                  'wtd.mean', 'wtd.sd',
+                                                  'precip', 
+                                                  't10.mean',
+                                                  'max.vwc.max.2m', 'vwc.mean.2m', 'min.vwc.min.2m',
+                                                  'max.gwc.max.2m', 'gwc.mean.2m', 'min.gwc.min.2m',
+                                                  'gdd.2m', 'fdd.2m')]
 # set.seed doesn't seem to apply to sample
 # train.nee.monthly <- sample(1:nrow(nee.monthly), 0.8*nrow(nee.monthly))
 # train.gpp.monthly <- sample(1:nrow(gpp.monthly), 0.8*nrow(gpp.monthly))
@@ -198,9 +178,9 @@ train.reco.monthly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autoc
 # NEE
 # Should I remove some of the variables to simplify/focus more on hydrology and active layer?
 # Could remove air temp variables to see what happens.
-# nee.monthly.tree <- ctree(nee.sum~.,
-#                         data = nee.monthly,
-#                         subset = train.nee.monthly)
+nee.monthly.tree <- ctree(nee.sum~.,
+                        data = nee.monthly,
+                        subset = train.nee.monthly)
 # saveRDS(nee.monthly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_tree.rds')
 nee.monthly.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_tree.rds')
 nee.monthly.tree
@@ -212,9 +192,9 @@ ggplot(nee.monthly.fit, aes(x = fit, y = nee.sum)) +
 # Reco
 # Should I remove some of the variables to simplify/focus more on hydrology and active layer?
 # Could remove air temp variables to see what happens.
-# reco.monthly.tree <- ctree(reco.sum~.,
-#                         data = reco.monthly,
-#                         subset = train.reco.monthly)
+reco.monthly.tree <- ctree(reco.sum~.,
+                        data = reco.monthly,
+                        subset = train.reco.monthly)
 # saveRDS(reco.monthly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_tree.rds')
 reco.monthly.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_tree.rds')
 reco.monthly.tree
@@ -226,9 +206,9 @@ ggplot(reco.monthly.fit, aes(x = fit, y = reco.sum)) +
 # GPP
 # Should I remove some of the variables to simplify/focus more on hydrology and active layer?
 # Could remove air temp variables to see what happens.
-# gpp.monthly.tree <- ctree(gpp.sum~.,
-#                         data = gpp.monthly,
-#                         subset = train.gpp.monthly)
+gpp.monthly.tree <- ctree(gpp.sum~.,
+                        data = gpp.monthly,
+                        subset = train.gpp.monthly)
 # saveRDS(gpp.monthly.tree, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_tree.rds')
 gpp.monthly.tree <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_tree.rds')
 gpp.monthly.tree
