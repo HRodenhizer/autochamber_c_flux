@@ -64,13 +64,13 @@ reco.seasonal <- flux.seasonal[!is.na(reco.sum),
                                  'tair.mean', 'tair.sd',
                                  'biomass.annual')]
 
-### Test covariance
-nee.seasonal %>%
-  GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
-reco.seasonal %>%
-  GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
-gpp.seasonal %>%
-  GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
+# ### Test covariance
+# nee.seasonal %>%
+#   GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
+# reco.seasonal %>%
+#   GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
+# gpp.seasonal %>%
+#   GGally::ggpairs( upper=list(continuous='points'), lower=list(continuous='cor') )
 
 # set.seed doesn't seem to apply to sample
 # train.nee.seasonal <- sample(1:nrow(nee.seasonal), 0.8*nrow(nee.seasonal))
@@ -156,7 +156,7 @@ summary(nee.seasonal.lm)
 nee.seasonal.r2 <- summary(nee.seasonal.lm)$r.squared
 nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(nee.seasonal.r2[1], 2))
 
-ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
+nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = -100, y = 200, label = nee.seasonal.r2.label,
@@ -166,6 +166,7 @@ ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   scale_x_continuous(name = expression('Measured NEE (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted NEE (gC m'^-2 ~ ')')) +
   theme_bw()
+nee.seasonal.fit.plot
 # plot(nee.seasonal.gbm, i = 'biomass.annual')
 # pretty.gbm.tree(nee.seasonal.gbm, i.tree = 1)
 
@@ -236,16 +237,17 @@ summary(reco.seasonal.lm)
 reco.seasonal.r2 <- summary(reco.seasonal.lm)$r.squared
 reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(reco.seasonal.r2[1], 2))
 
-ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
+reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = 100, y = 450, label = reco.seasonal.r2.label,
             hjust = 0,
-            vjust = 0,
+            vjust = 1,
             parse = TRUE) +
   scale_x_continuous(name = expression('Measured Reco (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted Reco (gC m'^-2 ~ ')')) +
   theme_bw()
+reco.seasonal.fit.plot
 # plot(reco.seasonal.gbm, i = 'alt.annual')
 # pretty.gbm.tree(reco.seasonal.gbm, i.tree = 1)
 
@@ -270,8 +272,9 @@ ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
 #                 shrinkage = 0.01, 
 #                 interaction.depth = 3)
 # summary(gpp.seasonal.gbm)
-# # saveRDS(gpp.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
+# # saveRDS(gpp.seasonal.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
 gpp.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
+summary(gpp.seasonal.gbm)
 
 # Variable Influence Plot
 gpp.seasonal.influence <- gpp.seasonal.gbm %>%
@@ -281,17 +284,17 @@ gpp.seasonal.influence <- gpp.seasonal.gbm %>%
   mutate(var = case_when(var == 'biomass.annual' ~ 'Biomass', 
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'subsidence.annual' ~ 'Subsidence',
-                         var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'alt.annual' ~ 'ALT', 
-                         var == 'tp.annual' ~ 'Thaw Penetration', 
-                         var == 'tair.sd' ~ 'SD Air Temp', 
+                         var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'tair.mean' ~ 'Mean Air Temp', 
+                         var == 'tair.sd' ~ 'SD Air Temp', 
+                         var == 'tp.annual' ~ 'Thaw Penetration', 
                          var == 'vwc.sd' ~ 'SD VWC', 
                          var == 'wtd.mean' ~ 'Mean WTD', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp',  
                          var == 't10.mean' ~ 'Mean Soil Temp', 
+                         var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'gwc.mean' ~ 'Mean GWC', 
+                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp',  
                          var == 'winter.snow.depth' ~ 'Snow Depth', 
                          var == 'precip.sum' ~ 'Precipitation')) %>%
   mutate(variable = factor(var, levels = .$var),
@@ -320,7 +323,7 @@ summary(gpp.seasonal.lm)
 gpp.seasonal.r2 <- summary(gpp.seasonal.lm)$r.squared
 gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(gpp.seasonal.r2[1], 2))
 
-ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
+gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = 50, y = 550, label = gpp.seasonal.r2.label,
@@ -330,6 +333,7 @@ ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   scale_x_continuous(name = expression('Measured GPP (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted GPP (gC m'^-2 ~ ')')) +
   theme_bw()
+gpp.seasonal.fit.plot
 # plot(gpp.seasonal.gbm, i = 'biomass.annual')
 # pretty.gbm.tree(gpp.seasonal.gbm, i.tree = 1)
 
@@ -461,7 +465,7 @@ summary(nee.monthly.lm)
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
 nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(nee.monthly.r2[1], 2))
 
-ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
+nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = -50, y = 100, label = nee.monthly.r2.label,
@@ -471,6 +475,7 @@ ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   scale_x_continuous(name = expression('Measured NEE (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted NEE (gC m'^-2 ~ ')')) +
   theme_bw()
+nee.monthly.fit.plot
 # plot(nee.monthly.gbm, i = 't10.mean')
 # pretty.gbm.tree(nee.monthly.gbm, i.tree = 1)
 
@@ -544,7 +549,7 @@ summary(reco.monthly.lm)
 reco.monthly.r2 <- summary(reco.monthly.lm)$r.squared
 reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(reco.monthly.r2[1], 2))
 
-ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
+reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = 10, y = 175, label = reco.monthly.r2.label,
@@ -554,6 +559,7 @@ ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   scale_x_continuous(name = expression('Measured Reco (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted Reco (gC m'^-2 ~ ')')) +
   theme_bw()
+reco.monthly.fit.plot
 # plot(reco.monthly.gbm, i = 't10.mean')
 # pretty.gbm.tree(reco.monthly.gbm, i.tree = 1)
 
@@ -574,8 +580,8 @@ ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
 #                        shrinkage = 0.1, 
 #                        interaction.depth = 4)
 # # saveRDS(gpp.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
-reco.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
-summary(reco.monthly.gbm)
+gpp.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
+summary(gpp.monthly.gbm)
 
 # Variable Influence Plot
 gpp.monthly.influence <- gpp.monthly.gbm %>%
@@ -627,7 +633,7 @@ summary(gpp.monthly.lm)
 gpp.monthly.r2 <- summary(gpp.monthly.lm)$r.squared
 gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
 
-ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
+gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
   geom_text(x = 0, y = 250, label = gpp.monthly.r2.label,
@@ -637,6 +643,7 @@ ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   scale_x_continuous(name = expression('Measured GPP (gC m'^-2 ~ ')')) +
   scale_y_continuous(name = expression('Predicted GPP (gC m'^-2 ~ ')')) +
   theme_bw()
+gpp.monthly.fit.plot
 # plot(gpp.monthly.gbm, i = 'max.vwc.max')
 # pretty.gbm.tree(gpp.monthly.gbm, i.tree = 1)
 
@@ -644,23 +651,115 @@ ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
 ### Plot Variable Importance and Model Performance
 variable.influence.seasonal <- nee.seasonal.influence %>%
   rbind.data.frame(reco.seasonal.influence,
-                   gpp.seasonal.influence)
+                   gpp.seasonal.influence) %>%
+  mutate(variable.label = variable,
+         variable = paste0(response, as.character(variable.label)),
+         var = seq(1, n()),
+         timescale = str_to_title(timescale),
+         response = str_to_upper(response))
 
-### Need to get labels onto the plot still!
-ggplot(variable.influence.seasonal, aes(x = rel.inf, y = var)) +
+model.fit.seasonal <- data.frame(response = c('NEE', 'Reco', 'GPP'),
+                                r2.label = c(nee.seasonal.r2.label,
+                                             reco.seasonal.r2.label,
+                                             gpp.seasonal.r2.label))
+
+seasonal.influence.plot <- ggplot(variable.influence.seasonal, 
+       aes(x = rel.inf, 
+           y = reorder(variable, var))) +
   geom_col(fill = 'black') +
   scale_x_continuous(name = 'Relative Influence',
+                     breaks = seq(0, 25, by = 5),
+                     minor_breaks = seq(0, 27, by = 1),
                      expand = expansion(mult = c(0, .05))) +
-  scale_y_discrete(labels = setNames(as.character(variable.influence.seasonal$var), variable.influence.seasonal$variable)) +
-  facet_grid(response ~ timescale) +
+  scale_y_discrete(breaks = variable.influence.seasonal$variable,
+                   labels = as.character(variable.influence.seasonal$variable.label)) +
+  facet_grid(response ~ timescale,
+             scales = 'free') +
   theme_bw() +
   theme(axis.title.y = element_blank())
-
+seasonal.influence.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_seasonal.jpg',
+#        seasonal.influence.plot,
+#        height = 6,
+#        width = 3.5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_seasonal.pdf',
+#        seasonal.influence.plot,
+#        height = 6,
+#        width = 3.5)
 
 
 variable.influence.monthly <- nee.monthly.influence %>%
   rbind.data.frame(reco.monthly.influence,
-                   gpp.monthly.influence)
+                   gpp.monthly.influence) %>%
+  mutate(variable.label = variable,
+         variable = paste0(response, as.character(variable.label)),
+         var = seq(1, n()),
+         timescale = str_to_title(timescale),
+         response = str_to_upper(response))
+
+monthly.grob.dimensions <- data.frame(xmin = 20,
+                                      xmax = 37,
+                                      ymin = 1,
+                                      ymax = 16)
+model.fit.monthly <- data.frame(response = c('NEE', 'Reco', 'GPP')) %>%
+  mutate(grob = c(list(ggplotGrob(nee.monthly.fit.plot)),
+                  list(ggplotGrob(reco.monthly.fit.plot)),
+                  list(ggplotGrob(gpp.monthly.fit.plot))))
+
+### Next time, see if this function approach will work to add scatterplot annotations!
+
+## A function to plot the inset 
+get_inset <- function(df){
+  p <- ggplot(data=df %>% 
+                group_by(category, prize_year) %>% 
+                slice(1),
+              aes(x=prize_share, fill=category)) +
+    geom_bar() + 
+    scale_x_discrete( drop=FALSE) + 
+    scale_fill_manual(values = c("#00BF7D", "#A3A500", "#F8766D","#00B0F6","#E76BF3","#636363")) + 
+    guides(fill=FALSE) +
+    theme_bw(base_size=9) +  ## makes everything smaller
+    theme(panel.background = element_rect(fill="white"),  ## white plot background 
+          axis.title.y = element_blank(),
+          axis.title.x = element_blank(),
+          axis.text.x = element_text(size=rel(0.7)), ## tiny axis text
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.background = element_blank())
+  return(p)
+}
+
+inset_plot <- get_inset(plot_data) 
+### Need to add insets 
+monthly.influence.plot <- ggplot(variable.influence.monthly, 
+                                  aes(x = rel.inf, 
+                                      y = reorder(variable, var))) +
+  geom_col(fill = 'black') +
+  annotation_custom(model.fit.monthly$grob, # this doesn't work!
+                    xmin = monthly.grob.dimensions$xmin,
+                    xmax = monthly.grob.dimensions$xmax,
+                    ymin = monthly.grob.dimensions$ymin,
+                    ymax = monthly.grob.dimensions$ymax) +
+  scale_x_continuous(name = 'Relative Influence',
+                     breaks = seq(0, 35, by = 5),
+                     minor_breaks = seq(0, 38, by = 1),
+                     expand = expansion(mult = c(0, .05))) +
+  scale_y_discrete(breaks = variable.influence.monthly$variable,
+                   labels = as.character(variable.influence.monthly$variable.label)) +
+  facet_grid(response ~ timescale,
+             scales = 'free') +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+monthly.influence.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_monthly.jpg',
+#        monthly.influence.plot,
+#        height = 7,
+#        width = 4)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_monthly.pdf',
+#        monthly.influence.plot,
+#        height = 7,
+#        width = 4)
+
 
 
 
