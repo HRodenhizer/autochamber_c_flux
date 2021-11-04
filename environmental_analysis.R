@@ -1764,6 +1764,7 @@ for (block.n in 1:length(wtd.list)) {
                        sub[[block.n]])
       wtd.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
       
+      names(wtd.surface[[block.n]][[year.n]])[[date.n]] <- names(wtd.list[[block.n]][[year.n]])[[date.n]]
     }
   }
   rm(input, newdata, krige.output, krige.surface, block.n, year.n, date.n)
@@ -1775,7 +1776,8 @@ for (block.n in 1:length(wtd.list)) {
 
 
 ### Format TD data
-td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv")
+td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv",
+            colClasses = list(character = c('date')))
 
 # Remove rows without plot data or thaw depth data
 td <- td[!is.na(plot)]
@@ -1784,19 +1786,20 @@ td <- td[!is.na(td)]
 # td <- td[!is.na(as.numeric(plot))]
 
 # Date
-td[, date := as_date(parse_date_time(date, orders = c('Y!-m!*-d!')))]
+td[, date := as_date(parse_date_time(date, orders = c('Y!-m!-d!', 'm!/d!/y!')))]
 td[, year := year(date)]
 td[, block := tolower(block)]
 td[, plot := tolower(plot)]
 td <- unique(td)
 
-# incorrect date recorded for one measurement in 2019
-# two values recorded for 2019-08-02, but first should be ~2019-07-28
-td[date == as_date('2019-08-02'),
-   fix.date := c(rep(1, 16), rep(2, 16))]
-td[fix.date == 1,
-   date := as_date('2019-07-28')]
-td[, fix.date := NULL]
+# # This section has been fixed in the underlying data, and is no longer necessary
+# # incorrect date recorded for one measurement in 2019
+# # two values recorded for 2019-08-02, but first should be ~2019-07-28
+# td[date == as_date('2019-08-02'),
+#    fix.date := c(rep(1, 16), rep(2, 16))]
+# td[fix.date == 1,
+#    date := as_date('2019-07-28')]
+# td[, fix.date := NULL]
 
 # add subsidence to help with kriging
 sub.df <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
@@ -1877,10 +1880,12 @@ for (block.n in 1:length(td.list)) {
                        sub[[block.n]])
       td.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
       
+      names(td.surface[[block.n]][[year.n]])[[date.n]] <- names(td.list[[block.n]][[year.n]])[[date.n]]
     }
   }
   rm(input, newdata, krige.output, krige.surface, block.n, year.n, date.n)
 }
+
 
 # # save data
 # saveRDS(td.surface,
