@@ -8,6 +8,8 @@ library(gbm)
 library(caret)
 library(partykit)
 library(data.table)
+library(lubridate)
+library(viridis)
 library(ggpubr)
 library(tidyverse)
 #############################################################################################################################
@@ -865,4 +867,321 @@ influence.plot
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
+
+### Explore individual important relationships
+
+################################################################################
+
+### Time Series Analysis #######################################################
+# Add in eddy covariance estimate for winter
+# a function to load and return a file
+loadRData <- function(fileName){
+  load(fileName)
+  get(ls()[ls() != "fileName"])
+}
+
+
+flux.eddy <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv",
+                 skip = 2,
+                 na.strings = c('-9999'),
+                 quote = "\"'")
+flux.eddy <- data.table(flux.eddy)
+co2.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_Carbon_new_30Apr2019.Rdata")
+co2.2018.2019[, u_var := NULL]
+co2.2018.2019[, v_var := NULL]
+co2.2018.2019[, w_var := NULL]
+co2.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_Carbon.Rdata")
+ch4.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_CO2&CH4.Rdata")
+ch4.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_CO2&CH4.Rdata")
+
+# Format ameriflux.eddy data
+flux.eddy[, ts := parse_date_time(TIMESTAMP_START, orders = c('Y!m!*d!H!M!'))]
+flux.eddy[, ts.end := parse_date_time(TIMESTAMP_END, orders = c('Y!m!*d!H!M!'))]
+flux.eddy[, year := year(ts)]
+flux.eddy[, month := month(ts)]
+flux.eddy[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
+flux.eddy[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
+flux.eddy[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
+flux.eddy <- flux.eddy[, .(ts, ts.2, date, date.2, month, year, CO2_measured = FC, NEP = NEE_PI_F, Reco = RECO_PI_F,GEP = GPP_PI_F, CH4_measured = FCH4)]
+flux.eddy[, NEP := NEP*12.0107*1800/1000000] # convert micromoles m-2 s-1 to g m-2 half hr-1
+flux.eddy[, Reco := Reco*12.0107*1800/1000000]
+flux.eddy[, GEP := GEP*-12.0107*1800/1000000] # switch sign and convert units
+flux.eddy[, CH4_measured := CH4_measured/1000] # convert nanomoles m-2 s-1 to micromoles m-2 s-1
+
+
+# Format recent co2 and ch4 data
+# co2
+co2 <- rbind(co2.2018.2019, co2.2019.2020)
+co2[, year := year(ts)]
+co2[, month := month(ts)]
+co2[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
+co2[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
+co2[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
+co2 <- co2[, .(ts, ts.2, date, date.2, month, year, CO2_measured = nee1, NEP, Reco, GEP)]
+
+# ch4
+ch4 <- rbind(ch4.2018.2019, ch4.2019.2020)
+ch4[, year := year(ts)]
+ch4[, month := month(ts)]
+ch4[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
+ch4[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
+ch4[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
+ch4 <- ch4[, .(ts, ts.2, date, date.2, month, year, CH4_measured = ch4_flux_filter)]
+
+# join co2 and ch4
+flux.eddy.recent <- merge(co2, ch4, by = c('ts', 'ts.2', 'date', 'date.2', 'month', 'year'))
+
+# join old and new
+flux.eddy <- rbind(flux.eddy, flux.eddy.recent)
+
+# create flux.eddy year variable
+flux.eddy[, flux.year := ifelse(date.2 < as_date('0000-05-01'),
+                           year - 1,
+                           year)]
+flux.eddy[, c.balance := factor(ifelse(NEP > 0,
+                                  'release',
+                                  'uptake'),
+                           levels = c('release', 'uptake'))]
+flux.eddy[, ch4.balance := factor(ifelse(CH4_measured >= 0,
+                                    'release',
+                                    'uptake'),
+                             levels = c('release', 'uptake'))]
+
+# Winter Sum
+flux.eddy.winter <- flux.eddy[
+  month %in% c(seq(1, 4), seq(10, 12)) & flux.year >= 2010
+][
+  ,
+  year := NULL
+  ]
+flux.eddy.winter <- flux.eddy.winter[
+  , 
+                                     lapply(.SD, sum), 
+                                     by = .(flux.year), 
+                                     .SDcols = !c('ts', 'ts.2', 'date', 'date.2', 'month', 'c.balance', 'ch4.balance')
+  ][
+    ,
+    c('CO2_measured', 'CH4_measured') := NULL]
+rm(ch4, ch4.2018.2019, ch4.2019.2020, co2, co2.2018.2019, co2.2019.2020,
+   flux.eddy, flux.eddy.recent)
+
+# Add winter ec fluxes to growing season chamber fluxes
+flux.seasonal <- flux.seasonal %>%
+  full_join(flux.eddy.winter, by = c('flux.year'))
+
+flux.seasonal <- flux.seasonal %>%
+  mutate(nee.annual = nee.sum - NEP,
+         reco.annual = reco.sum + Reco,
+         gpp.annual = gpp.sum - GEP,
+         treatment = factor(treatment,
+                            levels = c('Control',
+                                       'Air Warming',
+                                       'Soil Warming',
+                                       'Air + Soil Warming'))) %>%
+  group_by(fence, plot) %>%
+  mutate(sub.group = factor(case_when(min(subsidence.annual) > -20 ~ '<20 cm Subsidence',
+                                      min(subsidence.annual) > -40 ~ '20-40 cm Subsidence',
+                                      min(subsidence.annual) > -60 ~ '40-60 cm Subsidence',
+                                      min(subsidence.annual) <= -60 ~ '>=60 cm Subsidence'),
+                   levels = c('<20 cm Subsidence', '20-40 cm Subsidence', 
+                              '40-60 cm Subsidence', '>=60 cm Subsidence')))
+
+### Plot
+### growing season
+# NEE
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.sum, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+# Reco
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.sum, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.sum, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.sum, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+# GPP
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.sum, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.sum, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.sum, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+# annual estimate
+# NEE
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+# Reco
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+# GPP
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_wrap(~ treatment) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
+ggplot(flux.seasonal,
+       aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  scale_color_viridis(name = 'Biomass') +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  facet_grid(fence ~ plot) +
+  theme_bw()
+
 ################################################################################
