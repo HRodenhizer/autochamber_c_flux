@@ -373,6 +373,7 @@ wtd.env <- wtd.env[, .(wtd.mean = round(mean(WTD, na.rm = TRUE), 2)),
 
 ### Load Thaw Depth Data ##################################################################
 td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv")
+td[, V1 := NULL]
 
 # Remove rows without plot data or thaw depth data
 td <- td[!is.na(plot)]
@@ -381,7 +382,7 @@ td <- td[!is.na(td)]
 td <- td[!is.na(as.numeric(plot))]
 
 # Date
-td[, date := parse_date_time(date, orders = c('Y!-m!*-d!'))]
+td[, date := parse_date_time(date, orders = c('Y!-m!*-d!', 'm!-d!-y!'))]
 td[, year := year(date)]
 td[, month := month(date)]
 td[, flux.year := fifelse(month >= 10,
@@ -434,6 +435,27 @@ biomass <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/aut
   group_by(year, fence, plot) %>%
   summarise(biomass = sum(biomass, na.rm = TRUE)) # sum of all species
 biomass <- as.data.table(biomass)
+biomass.frame <- expand_grid(fence = seq(1, 6),
+                             plot = seq(1, 8),
+                             year = seq(2009, 2020)) %>%
+  as.data.table()
+biomass <- merge(biomass, biomass.frame, all = TRUE)
+# biomass.model.subset <- biomass[year >= 2013 & year <= 2017]
+# biomass.models <- lapply()
+biomass[,
+        biomass := fifelse(is.na(biomass) & year >= 2018,
+                           .SD[year == 2017]$biomass,
+                           biomass),
+        by = c('fence', 'plot')]
+biomass[,
+        biomass := fifelse(is.na(biomass) & year >= 2013 & year <= 2017,
+                           zoo::na.approx(biomass),
+                           biomass),
+        by = c('fence', 'plot')]
+ggplot(biomass, aes(x = year)) +
+  geom_line(aes(y = biomass), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual Biomass')
 
 ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv",
                  stringsAsFactors = FALSE)
@@ -597,6 +619,13 @@ flux[is.nan(rh),
      rh := NA]
 flux[is.nan(par),
      par := NA]
+flux[month %in% seq(5, 9) & is.na(precip),
+     .N]/nrow(flux[month %in% seq(5, 9)])
+flux[is.na(rh),
+     .N]/nrow(flux)
+flux[is.na(par),
+     .N]/nrow(flux)
+
 
 ### Soil sensors
 flux <- merge(flux, 
@@ -604,6 +633,19 @@ flux <- merge(flux,
               by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
                      'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
+flux[is.na(t5),
+     .N]/nrow(flux)
+flux[is.na(t10),
+     .N]/nrow(flux)
+flux[is.na(t20),
+     .N]/nrow(flux)
+flux[is.na(t40),
+     .N]/nrow(flux)
+flux[is.na(vwc),
+     .N]/nrow(flux)
+flux[is.na(gwc),
+     .N]/nrow(flux)
+
 
 ### Water Table Depth
 # set the key to allow proper rolling join
@@ -624,10 +666,10 @@ setkey(flux, date, fence, treatment, plot.id, hourmin, hour, ts, year, month, we
 flux <- flux[, first(.SD), by = .(date, fence, treatment, plot.id, hourmin, hour, ts, year, month, week, doy,
                                   plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5, t10, t20, t40, vwc, gwc)]
 
-# If WTD date is more than 1 week from date, remove wtd
+# If WTD date is more than 2 weeks from date, remove wtd
 flux[abs(interval(date, WTD_Date)/ddays(1)) > 14,
      wtd := NA]
-flux[is.na(wtd), .N]
+flux[month %in% seq(5, 9) & is.na(wtd), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Thaw Depth
 # set the key to allow proper rolling join
@@ -651,16 +693,17 @@ flux <- flux[, first(.SD),
                     week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
                     t10, t20, t40, vwc, gwc, WTD_Date, wtd)]
 
-# If TD date is more than 1 week from date, remove td
+# If TD date is more than 2 weeks from date, remove td
 flux[abs(interval(date, TD_Date)/ddays(1)) > 14,
      td := NA]
-flux[is.na(td), .N]
+flux[month %in% seq(5, 9) & is.na(td), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Subsidence
 flux <- merge(flux,
               sub,
               by = c('year', 'fence', 'plot', 'treatment'),
               all = TRUE)
+flux[month %in% seq(5, 9) & is.na(subsidence), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### ALT
 flux <- merge(flux,
@@ -671,12 +714,14 @@ flux <- merge(flux,
 flux <- flux[order(ts, plot.id)]
 flux[, tp := alt - subsidence]
 flux[, tp.to.date := td - subsidence]
+flux[month %in% seq(5, 9) & is.na(alt), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Biomass
 flux <- merge(flux,
               biomass,
               by = c('year', 'fence', 'plot'),
               all = TRUE)
+flux[month %in% seq(5, 9) & is.na(biomass), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### NDVI
 # set the key to allow proper rolling join
@@ -700,10 +745,10 @@ flux <- flux[, first(.SD),
                     week, doy, plot, filled, nee, reco, gpp, r2, t.chamb, par, Tair, t5,
                     t10, t20, t40, vwc, gwc, WTD_Date, wtd, td, biomass)]
 
-# If NDVI date is more than 1 week from date, remove ndvi
+# If NDVI date is more than 2 weeks from date, remove ndvi
 flux[abs(interval(date, ndvi.date)/ddays(1)) > 14,
      ndvi := NA]
-flux[is.na(ndvi), .N]
+flux[month %in% seq(5, 9) & is.na(ndvi), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Add block and season variables
 flux[,
@@ -722,6 +767,7 @@ flux <- merge(flux,
               snow.f,
               by = c('year','block', 'fence', 'plot', 'treatment'),
               all = TRUE)
+flux[month %in% seq(5, 9) & is.na(snow.depth), .N]/nrow(flux[month %in% seq(5, 9)])
 
 # # Plot to make sure things look right
 # # Chamber temps vs. air temps
@@ -786,8 +832,8 @@ env.treat <- merge(env.treat, wtd.env,
 
 ### Gap Fill ##############################################################################
 ### Clean up
-rm(alt, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
-   td, td.2009, weather, well.assignment, wtd, wtd.2009, snow)
+rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
+   td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
 ### Chamber Temps
 # determine period when chambers are deployed
 deployed <- flux[!is.na(nee),
@@ -1540,7 +1586,8 @@ flux.annual <- flux.weekly[season == 1,
                             subsidence.annual = last(subsidence.annual),
                             alt = first(alt.annual),
                             alt.doy = first(alt.doy),
-                            biomass.annual = first(biomass.annual),
+                            tp = first(tp.annual),
+                            biomass.annual = last(biomass.annual),
                             ndvi = max(ndvi, na.rm = TRUE),
                             ndvi.doy = ndvi.doy[which(first(ndvi == max(ndvi, na.rm = TRUE)))],
                             winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
@@ -2038,8 +2085,8 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Thaw Depth, TP
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = alt.annual*-1, color = 'ALT'), alpha = 0.5) +
-  geom_line(aes(y = tp.annual*-1, color = 'Thaw Penetration'), alpha = 0.5) +
+  geom_line(aes(y = alt*-1, color = 'ALT'), alpha = 0.5) +
+  geom_line(aes(y = tp*-1, color = 'Thaw Penetration'), alpha = 0.5) +
   scale_color_manual(values = c('black', 'red')) +
   facet_grid(fence~plot) +
   ggtitle('Annual Thaw Depth')
@@ -2049,6 +2096,12 @@ ggplot(flux.annual, aes(x = flux.year)) +
   geom_line(aes(y = ndvi), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Max NDVI')
+
+# Biomass
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = biomass.annual), alpha = 0.5) +
+  facet_grid(fence~plot) +
+  ggtitle('Annual Biomass')
 
 # Snow Depth
 ggplot(flux.annual, aes(x = flux.year)) +
