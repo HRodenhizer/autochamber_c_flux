@@ -187,7 +187,7 @@ env.annual.plot <- flux.annual %>%
   filter(flux.year != 2009) %>%
   select(-c(season, matches('rh'), matches('sd'),
             max.tair.spread, min.tair.spread, matches('ndvi'),
-            biomass.annual, gdd, fdd, winter.fdd, precip.cum)) %>%
+            biomass.annual, gdd, fdd, winter.fdd, precip.sum)) %>%
   mutate(subsidence = -1*subsidence.annual,
          wtd.mean = -1*wtd.mean) %>%
   na.omit()
@@ -202,8 +202,8 @@ env.annual.subset <- env.annual %>%
          vwc.max = max.vwc.max, vwc.mean, vwc.min = min.vwc.min,
          gwc.max = max.gwc.max, gwc.mean, gwc.min = min.gwc.min, 
          subsidence, # adding or removing subsidence doesn't change much in pca
-         wtd.mean, alt = alt.annual, 
-         tp = tp.annual, w.snow.depth = winter.snow.depth, 
+         wtd.mean, alt = alt, 
+         tp = tp, w.snow.depth = winter.snow.depth, 
          w.t5.min = winter.min.t5.min, w.t10.min = winter.min.t10.min, 
          w.t20.min = winter.min.t20.min, w.t40.min = winter.min.t40.min)
 # pca.annual <- prcomp(as.matrix(env.annual.subset))
@@ -1322,7 +1322,7 @@ gwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = gwc.mean)) +
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'gwc (%)') +
+  scale_y_continuous(name = 'GWC (%)') +
   theme_bw() +
   theme(legend.title = element_blank())
 gwc.plot
@@ -1402,7 +1402,7 @@ sub.moisture.plot
 #        height = 7,
 #        width = 6.5,
 #        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
-# # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
 #        sub.moisture.plot,
 #        height = 7,
 #        width = 6.5)
@@ -2197,3 +2197,4 @@ wtd.transect.plot
 #        height = 7,
 #        width = 6.5,
 #        bg = 'white')
+################################################################################
