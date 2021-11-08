@@ -21,6 +21,7 @@ flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/a
 flux.monthly <- flux.monthly[flux.year >= 2010]
 flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv")
 flux.seasonal <- flux.seasonal[flux.year >= 2010]
+flux.seasonal[, ':=' (tp.annual = tp, alt.annual = alt)]
 #############################################################################################################################
 
 ### Gradient Boosted Regression Tree ########################################################################################
@@ -157,7 +158,7 @@ nee.seasonal.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.seasonal.pred)
 summary(nee.seasonal.lm)
 nee.seasonal.r2 <- summary(nee.seasonal.lm)$r.squared
-nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(nee.seasonal.r2[1], 2))
+nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(nee.seasonal.r2[1], 2))
 
 nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
@@ -238,7 +239,7 @@ reco.seasonal.lm <- lm(reco.pred ~ reco.sum,
                       data = reco.seasonal.pred)
 summary(reco.seasonal.lm)
 reco.seasonal.r2 <- summary(reco.seasonal.lm)$r.squared
-reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(reco.seasonal.r2[1], 2))
+reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(reco.seasonal.r2[1], 2))
 
 reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
@@ -324,7 +325,7 @@ gpp.seasonal.lm <- lm(gpp.pred ~ gpp.sum,
                       data = gpp.seasonal.pred)
 summary(gpp.seasonal.lm)
 gpp.seasonal.r2 <- summary(gpp.seasonal.lm)$r.squared
-gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(gpp.seasonal.r2[1], 2))
+gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(gpp.seasonal.r2[1], 2))
 
 gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
@@ -466,7 +467,7 @@ nee.monthly.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.monthly.pred)
 summary(nee.monthly.lm)
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
-nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(nee.monthly.r2[1], 2))
+nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(nee.monthly.r2[1], 2))
 
 nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
@@ -550,7 +551,7 @@ reco.monthly.lm <- lm(reco.pred ~ reco.sum,
                       data = reco.monthly.pred)
 summary(reco.monthly.lm)
 reco.monthly.r2 <- summary(reco.monthly.lm)$r.squared
-reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(reco.monthly.r2[1], 2))
+reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(reco.monthly.r2[1], 2))
 
 reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
@@ -634,7 +635,7 @@ gpp.monthly.lm <- lm(gpp.pred ~ gpp.sum,
                       data = gpp.monthly.pred)
 summary(gpp.monthly.lm)
 gpp.monthly.r2 <- summary(gpp.monthly.lm)$r.squared
-gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
+gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
 
 gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
@@ -869,7 +870,139 @@ influence.plot
 #        bg = 'white')
 
 ### Explore individual important relationships
+# Are soil temp and air temp mostly responding to seasonal variation?
+ggplot(flux.monthly, aes(x = month, shape = treatment)) +
+  geom_point(aes(y = t10.mean)) +
+  geom_point(aes(y = tair.mean), color = 'blue') +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
 
+# SD VWC and GPP, monthly
+ggplot(flux.monthly, aes(x = vwc.sd, y = gpp.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Mean VWC and GPP, monthly
+ggplot(flux.monthly, aes(x = vwc.mean, y = gpp.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# SD VWC and NEE, monthly
+ggplot(flux.monthly, aes(x = vwc.sd, y = nee.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Mean VWC and NEE, monthly
+ggplot(flux.monthly, aes(x = vwc.mean, y = nee.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# subsidence and Reco, monthly
+ggplot(flux.monthly, aes(x = subsidence.annual*-1, y = reco.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Mean VWC and Reco, monthly
+ggplot(flux.monthly, aes(x = vwc.mean, y = reco.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(limits = c(5, 9)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Biomass and GPP, seasonal
+ggplot(flux.seasonal, aes(x = biomass.annual, y = gpp.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# SD GWC and GPP, seasonal
+ggplot(flux.seasonal, aes(x = gwc.sd, y = gpp.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# subsidence and GPP, seasonal
+ggplot(flux.seasonal, aes(x = subsidence.annual*-1, y = gpp.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Biomass and NEE, seasonal
+ggplot(flux.seasonal, aes(x = biomass.annual, y = nee.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Mean VWC and NEE, seasonal
+ggplot(flux.seasonal, aes(x = vwc.mean, y = nee.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# SD Soil Temp and NEE, seasonal
+ggplot(flux.seasonal, aes(x = t10.sd, y = nee.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# ALT and Reco, seasonal
+ggplot(flux.seasonal, aes(x = alt, y = reco.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# SD Air Temp and Reco, seasonal
+ggplot(flux.seasonal, aes(x = tair.sd, y = reco.sum, 
+                          color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  theme_bw()
 ################################################################################
 
 ### Time Series Analysis #######################################################
@@ -891,8 +1024,10 @@ co2.2018.2019[, u_var := NULL]
 co2.2018.2019[, v_var := NULL]
 co2.2018.2019[, w_var := NULL]
 co2.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_Carbon.Rdata")
+co2.2020.2021 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2020-2021/AK20_Carbon.Rdata")
 ch4.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_CO2&CH4.Rdata")
 ch4.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_CO2&CH4.Rdata")
+ch4.2020.2021 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2020-2021/AK20_CO2&CH4.Rdata")
 
 # Format ameriflux.eddy data
 flux.eddy[, ts := parse_date_time(TIMESTAMP_START, orders = c('Y!m!*d!H!M!'))]
@@ -911,7 +1046,7 @@ flux.eddy[, CH4_measured := CH4_measured/1000] # convert nanomoles m-2 s-1 to mi
 
 # Format recent co2 and ch4 data
 # co2
-co2 <- rbind(co2.2018.2019, co2.2019.2020)
+co2 <- rbind(co2.2018.2019, co2.2019.2020, co2.2020.2021)
 co2[, year := year(ts)]
 co2[, month := month(ts)]
 co2[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
@@ -920,7 +1055,7 @@ co2[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''
 co2 <- co2[, .(ts, ts.2, date, date.2, month, year, CO2_measured = nee1, NEP, Reco, GEP)]
 
 # ch4
-ch4 <- rbind(ch4.2018.2019, ch4.2019.2020)
+ch4 <- rbind(ch4.2018.2019, ch4.2019.2020, ch4.2020.2021)
 ch4[, year := year(ts)]
 ch4[, month := month(ts)]
 ch4[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
