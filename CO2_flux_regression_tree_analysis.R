@@ -7,10 +7,12 @@
 library(gbm)
 library(caret)
 library(partykit)
+library(pdp)
 library(data.table)
 library(lubridate)
 library(viridis)
 library(ggpubr)
+library(ggnewscale)
 library(tidyverse)
 #############################################################################################################################
 
@@ -19,9 +21,19 @@ library(tidyverse)
 flux.weekly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_weekly_neat.csv")
 flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
 flux.monthly <- flux.monthly[flux.year >= 2010]
+flux.monthly[, treatment := factor(treatment,
+                                   levels = c('Control',
+                                              'Air Warming',
+                                              'Soil Warming',
+                                              'Air + Soil Warming'))]
 flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv")
 flux.seasonal <- flux.seasonal[flux.year >= 2010]
 flux.seasonal[, ':=' (tp.annual = tp, alt.annual = alt)]
+flux.seasonal[, treatment := factor(treatment,
+                                    levels = c('Control',
+                                               'Air Warming',
+                                               'Soil Warming',
+                                               'Air + Soil Warming'))]
 #############################################################################################################################
 
 ### Gradient Boosted Regression Tree ########################################################################################
@@ -167,8 +179,8 @@ nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured NEE (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured NEE (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
   theme_bw()
 nee.seasonal.fit.plot
 # plot(nee.seasonal.gbm, i = 'biomass.annual')
@@ -248,8 +260,8 @@ reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured Reco (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted Reco (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured Reco (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted Reco (gC m'^-2*')')) +
   theme_bw()
 reco.seasonal.fit.plot
 # plot(reco.seasonal.gbm, i = 'alt.annual')
@@ -334,8 +346,8 @@ gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured GPP (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted GPP (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured GPP (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted GPP (gC m'^-2*')')) +
   theme_bw()
 gpp.seasonal.fit.plot
 # plot(gpp.seasonal.gbm, i = 'biomass.annual')
@@ -357,7 +369,8 @@ nee.monthly <- flux.monthly[!is.na(nee.sum),
                               'vwc.mean.2m',
                               'gwc.mean.2m',
                               'gdd', 'fdd',
-                              'gdd.2m', 'fdd.2m')]
+                              'gdd.2m',
+                              'biomass.annual')]
 gpp.monthly <- flux.monthly[!is.na(gpp.sum), 
                             c('gpp.sum',
                               'tp.to.date',
@@ -372,7 +385,8 @@ gpp.monthly <- flux.monthly[!is.na(gpp.sum),
                               'vwc.mean.2m',
                               'gwc.mean.2m',
                               'gdd', 'fdd',
-                              'gdd.2m', 'fdd.2m')]
+                              'gdd.2m',
+                              'biomass.annual')]
 reco.monthly <- flux.monthly[!is.na(reco.sum), 
                              c('reco.sum',
                                'tp.to.date',
@@ -387,7 +401,8 @@ reco.monthly <- flux.monthly[!is.na(reco.sum),
                                'vwc.mean.2m',
                                'gwc.mean.2m',
                                'gdd', 'fdd',
-                               'gdd.2m', 'fdd.2m')]
+                               'gdd.2m',
+                               'biomass.annual')]
 # set.seed doesn't seem to apply to sample
 # train.nee.monthly <- sample(1:nrow(nee.monthly), 0.8*nrow(nee.monthly))
 # train.gpp.monthly <- sample(1:nrow(gpp.monthly), 0.8*nrow(gpp.monthly))
@@ -442,11 +457,13 @@ nee.monthly.influence <- nee.monthly.gbm %>%
                          var == 'precip' ~ 'Precipitation', 
                          var == 'fdd' ~ 'FDD',
                          var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
-                         var == 'fdd.2m' ~ '2 Month FDD')) %>%
+                         var == 'biomass.annual' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'nee',
          timescale = 'monthly')
+
+# plot relative influence
 ggplot(nee.monthly.influence, aes(x = rel.inf, y = variable)) +
   geom_col(fill = 'black') +
   scale_x_continuous(name = 'Relative Influence',
@@ -454,6 +471,80 @@ ggplot(nee.monthly.influence, aes(x = rel.inf, y = variable)) +
   theme_bw() +
   theme(axis.title.y = element_blank())
 
+# plot partial dependence plots of top predictors (with real data points underneath?)
+nee.monthly.pd.tair.mean <- nee.monthly.gbm %>%
+  partial(pred.var = "tair.mean", n.trees = nee.monthly.gbm$n.trees,
+          grid.resolution = 10)
+
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = tair.mean)) +
+  geom_point(aes(y = nee.sum, color = month, shape = treatment)) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  new_scale('color') +
+  geom_line(data = nee.monthly.pd.tair.mean, 
+            aes(y = yhat, color = 'Partial Dependence')) +
+  scale_color_manual(breaks = c('Partial Dependence'),
+                     values = c('black')) +
+  scale_x_continuous(name = expression('Mean Air Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
+  theme_bw()
+
+
+nee.monthly.pd.biomass <- nee.monthly.gbm %>%
+  partial(pred.var = "biomass.annual", n.trees = nee.monthly.gbm$n.trees,
+          grid.resolution = 10)
+
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = biomass.annual)) +
+  geom_point(aes(y = nee.sum, color = month, shape = treatment)) +
+  geom_line(data = nee.monthly.pd.biomass, 
+            aes(y = yhat)) +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+nee.monthly.pd.vwc.mean <- nee.monthly.gbm %>%
+  partial(pred.var = "vwc.mean", n.trees = nee.monthly.gbm$n.trees,
+          grid.resolution = 10)
+
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = vwc.mean)) +
+  geom_point(aes(y = nee.sum, color = month, shape = treatment)) +
+  geom_line(data = nee.monthly.pd.vwc.mean, 
+            aes(y = yhat)) +
+  scale_x_continuous(name = expression('Mean VWC (%)')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+nee.monthly.pd.vwc.sd <- nee.monthly.gbm %>%
+  partial(pred.var = "vwc.sd", n.trees = nee.monthly.gbm$n.trees,
+          grid.resolution = 10)
+
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = vwc.sd)) +
+  geom_point(aes(y = nee.sum, color = month, shape = treatment)) +
+  geom_line(data = nee.monthly.pd.vwc.sd, 
+            aes(y = yhat)) +
+  scale_x_continuous(name = expression('SD VWC (%)')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# determine model performance with a linear model on the test data
 nee.monthly.pred <- nee.monthly %>%
   slice(-1*train.nee.monthly) %>%
   mutate(nee.pred = predict(nee.monthly.gbm,
@@ -469,6 +560,7 @@ summary(nee.monthly.lm)
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
 nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(nee.monthly.r2[1], 2))
 
+# plot model performance
 nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
@@ -476,14 +568,12 @@ nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred))
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured NEE (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured NEE (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
   theme_bw()
 nee.monthly.fit.plot
 # plot(nee.monthly.gbm, i = 't10.mean')
 # pretty.gbm.tree(nee.monthly.gbm, i.tree = 1)
-
-
 # ### Reco GBM
 # # figure out good parameters to use
 # gbm.train <- train(reco.sum~.,
@@ -526,7 +616,7 @@ reco.monthly.influence <- reco.monthly.gbm %>%
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 'gdd' ~ 'GDD',
                          var == 'gdd.2m' ~ '2 Month GDD',
-                         var == 'fdd.2m' ~ '2 Month FDD')) %>%
+                         var == 'biomass.annual' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'reco',
@@ -560,8 +650,8 @@ reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pr
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured Reco (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted Reco (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured Reco (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted Reco (gC m'^-2*')')) +
   theme_bw()
 reco.monthly.fit.plot
 # plot(reco.monthly.gbm, i = 't10.mean')
@@ -610,7 +700,7 @@ gpp.monthly.influence <- gpp.monthly.gbm %>%
                          var == 'fdd' ~ 'FDD',
                          var == 'gdd' ~ 'GDD',
                          var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
-                         var == 'fdd.2m' ~ '2 Month FDD')) %>%
+                         var == 'biomass.annual' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'gpp',
@@ -644,8 +734,8 @@ gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred))
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
-  scale_x_continuous(name = expression('Measured GPP (gC m'^-2 ~ ')')) +
-  scale_y_continuous(name = expression('Predicted GPP (gC m'^-2 ~ ')')) +
+  scale_x_continuous(name = expression('Measured GPP (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Predicted GPP (gC m'^-2*')')) +
   theme_bw()
 gpp.monthly.fit.plot
 # plot(gpp.monthly.gbm, i = 'max.vwc.max')
@@ -667,8 +757,8 @@ get_inset <- function(data.df, fit.df){
               vjust = 1,
               parse = TRUE,
               size = 3) +
-    scale_x_continuous(name = expression('Measured (gC m'^-2 ~ ')')) +
-    scale_y_continuous(name = expression('Predicted (gC m'^-2 ~ ')')) +
+    scale_x_continuous(name = expression('Measured (gC m'^-2*')')) +
+    scale_y_continuous(name = expression('Predicted (gC m'^-2*')')) +
     theme_bw() +
     theme(plot.background = element_rect(color = 'black'),
           text = element_text(size = 8))
@@ -730,7 +820,7 @@ model.fit.seasonal <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
          y = c(550, 210, 450))
 
 seasonal.grob.dimensions <- data.frame(xmin = 8,
-                                      xmax = 27,
+                                      xmax = 26,
                                       ymin = 1,
                                       ymax = 12)
 
@@ -754,8 +844,8 @@ model.fit.monthly <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
 
 monthly.grob.dimensions <- data.frame(xmin = 10,
                                       xmax = 38,
-                                      ymin = 1,
-                                      ymax = 14)
+                                      ymin = 1.25,
+                                      ymax = 14.25)
 
 
 ### Create the insets
@@ -829,8 +919,8 @@ monthly.influence.plot <- ggplot(variable.influence.monthly) +
                fill = 'black') + 
   monthly.insets +
   scale_x_continuous(name = 'Relative Influence',
-                     breaks = seq(0, 35, by = 5),
-                     minor_breaks = seq(0, 38, by = 1),
+                     breaks = seq(0, 40, by = 5),
+                     minor_breaks = seq(0, 40, by = 1),
                      expand = expansion(mult = c(0, .05))) +
   scale_y_discrete(breaks = variable.influence.monthly$variable,
                    labels = as.character(variable.influence.monthly$variable.label)) +
@@ -871,137 +961,326 @@ influence.plot
 
 ### Explore individual important relationships
 # Are soil temp and air temp mostly responding to seasonal variation?
-ggplot(flux.monthly, aes(x = month, shape = treatment)) +
-  geom_point(aes(y = t10.mean)) +
-  geom_point(aes(y = tair.mean), color = 'blue') +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+# Soil Temp and GPP, monthly
+ggplot(filter(flux.monthly, !is.na(gpp.sum)), 
+       aes(x = t10.mean, y = gpp.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Mean Soil Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # SD VWC and GPP, monthly
-ggplot(flux.monthly, aes(x = vwc.sd, y = gpp.sum, 
+ggplot(filter(flux.monthly, !is.na(gpp.sum)), 
+       aes(x = vwc.sd, y = gpp.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('SD VWC (%)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Mean VWC and GPP, monthly
-ggplot(flux.monthly, aes(x = vwc.mean, y = gpp.sum, 
+ggplot(filter(flux.monthly, !is.na(gpp.sum)), 
+       aes(x = vwc.mean, y = gpp.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Mean VWC (%)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
-# SD VWC and NEE, monthly
-ggplot(flux.monthly, aes(x = vwc.sd, y = nee.sum, 
+# Air Temp and NEE, monthly
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = tair.mean, y = nee.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Mean Air Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Biomass and NEE, monthly
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = biomass.annual, y = nee.sum, 
+                         color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Mean VWC and NEE, monthly
-ggplot(flux.monthly, aes(x = vwc.mean, y = nee.sum, 
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = vwc.mean, y = nee.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Mean VWC (%)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# SD VWC and NEE, monthly
+ggplot(filter(flux.monthly, !is.na(nee.sum)), 
+       aes(x = vwc.sd, y = nee.sum, 
+           color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('SD VWC (%)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Soil Temp and Reco, monthly
+ggplot(filter(flux.monthly, !is.na(reco.sum)), 
+       aes(x = t10.mean, y = reco.sum, 
+           color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Mean Soil Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Biomass and Reco, monthly
+ggplot(filter(flux.monthly, !is.na(reco.sum)), 
+       aes(x = biomass.annual, y = reco.sum, 
+           color = month)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # subsidence and Reco, monthly
-ggplot(flux.monthly, aes(x = subsidence.annual*-1, y = reco.sum, 
+ggplot(filter(flux.monthly, !is.na(reco.sum)), 
+       aes(x = subsidence.annual*-1, y = reco.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Subsidence (cm)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Mean VWC and Reco, monthly
-ggplot(flux.monthly, aes(x = vwc.mean, y = reco.sum, 
+ggplot(filter(flux.monthly, !is.na(reco.sum)), 
+       aes(x = vwc.mean, y = reco.sum, 
                          color = month)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(limits = c(5, 9)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Mean VWC (%)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Month',
+                      limits = c(5, 9)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Biomass and GPP, seasonal
-ggplot(flux.seasonal, aes(x = biomass.annual, y = gpp.sum, 
+ggplot(filter(flux.seasonal, !is.na(gpp.sum)), 
+       aes(x = biomass.annual, y = gpp.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # SD GWC and GPP, seasonal
-ggplot(flux.seasonal, aes(x = gwc.sd, y = gpp.sum, 
+ggplot(filter(flux.seasonal, !is.na(gpp.sum)), 
+       aes(x = gwc.sd, y = gpp.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('SD GWC (%)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # subsidence and GPP, seasonal
-ggplot(flux.seasonal, aes(x = subsidence.annual*-1, y = gpp.sum, 
+ggplot(filter(flux.seasonal, !is.na(gpp.sum)), 
+       aes(x = subsidence.annual*-1, y = gpp.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Subsidence (cm)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# ALT and GPP, seasonal
+ggplot(filter(flux.seasonal, !is.na(gpp.sum)), 
+       aes(x = alt.annual, y = gpp.sum, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('ALT (cm)')) +
+  scale_y_continuous(name = expression('GPP (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Biomass and NEE, seasonal
-ggplot(flux.seasonal, aes(x = biomass.annual, y = nee.sum, 
+ggplot(filter(flux.seasonal, !is.na(nee.sum)), 
+       aes(x = biomass.annual, y = nee.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Year',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # Mean VWC and NEE, seasonal
-ggplot(flux.seasonal, aes(x = vwc.mean, y = nee.sum, 
+ggplot(filter(flux.seasonal, !is.na(nee.sum)), 
+       aes(x = vwc.mean, y = nee.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('Mean VWC (%)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # SD Soil Temp and NEE, seasonal
-ggplot(flux.seasonal, aes(x = t10.sd, y = nee.sum, 
+ggplot(filter(flux.seasonal, !is.na(nee.sum)), 
+       aes(x = t10.sd, y = nee.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('SD Soil Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Mean Air Temp and NEE, seasonal
+ggplot(filter(flux.seasonal, !is.na(nee.sum)), 
+       aes(x = tair.mean, y = nee.sum, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Mean Air Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('NEE (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # ALT and Reco, seasonal
-ggplot(flux.seasonal, aes(x = alt, y = reco.sum, 
+ggplot(filter(flux.seasonal, !is.na(reco.sum)), 
+       aes(x = alt, y = reco.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('ALT (cm)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 
 # SD Air Temp and Reco, seasonal
-ggplot(flux.seasonal, aes(x = tair.sd, y = reco.sum, 
+ggplot(filter(flux.seasonal, !is.na(reco.sum)), 
+       aes(x = tair.sd, y = reco.sum, 
                           color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(breaks = seq(2010, 2020, by = 2)) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_x_continuous(name = expression('SD Air Temp ('*degree*'C)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Subsidence and Reco, seasonal
+ggplot(filter(flux.seasonal, !is.na(reco.sum)), 
+       aes(x = subsidence.annual*-1, y = reco.sum, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Subsidence (cm)')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
+  theme_bw()
+
+# Biomass and Reco, seasonal
+ggplot(filter(flux.seasonal, !is.na(reco.sum)), 
+       aes(x = biomass.annual, y = reco.sum, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  geom_smooth(method = 'gam', color = 'black') +
+  scale_x_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_y_continuous(name = expression('Reco (gC m'^-2*')')) +
+  scale_color_viridis(name = 'Year',
+                      breaks = seq(2010, 2020, by = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15)) +
   theme_bw()
 ################################################################################
 
