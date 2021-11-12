@@ -7,7 +7,6 @@
 library(gbm)
 library(caret)
 library(partykit)
-library(pdp)
 library(data.table)
 library(lubridate)
 library(viridis)
@@ -17,8 +16,6 @@ library(tidyverse)
 #############################################################################################################################
 
 ### Load Data ###############################################################################################################
-# flux.daily <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_neat.csv")
-flux.weekly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_weekly_neat.csv")
 flux.monthly <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
 flux.monthly <- flux.monthly[flux.year >= 2010]
 flux.monthly[, treatment := factor(treatment,
@@ -34,6 +31,13 @@ flux.seasonal[, treatment := factor(treatment,
                                                'Air Warming',
                                                'Soil Warming',
                                                'Air + Soil Warming'))]
+newgroups <- as.data.table(read.table("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Logistics/LabMeetings/Fall2018/2018_datajam_groupings.csv",
+                                      sep=",", dec=".", header=TRUE))
+newgroups.join <- newgroups[!is.na(as.numeric(plot)), .(ID, fence, plot)]
+newgroups.join[, plot := as.integer(plot)]
+newgroups.join[, ID := factor(str_to_title(ID), levels = c('Shallow Dry', 'Deep Dry', 'Deep Wet'))]
+flux.monthly <- merge(flux.monthly, newgroups.join, by = c('fence', 'plot'), all.x = TRUE)
+flux.seasonal <- merge(flux.seasonal, newgroups.join, by = c('fence', 'plot'), all.x = TRUE)
 #############################################################################################################################
 
 ### Gradient Boosted Regression Tree ########################################################################################
@@ -130,25 +134,27 @@ nee.seasonal.influence <- nee.seasonal.gbm %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
   mutate(var = case_when(var == 'biomass.annual' ~ 'Biomass', 
-                              var == 'vwc.mean' ~ 'Mean VWC', 
-                              var == 't10.sd' ~ 'SD Soil Temp', 
-                              var == 'tair.mean' ~ 'Mean Air Temp', 
-                              var == 'gwc.sd' ~ 'SD GWC', 
-                              var == 'winter.snow.depth' ~ 'Snow Depth', 
-                              var == 'subsidence.annual' ~ 'Subsidence',
-                              var == 'wtd.mean' ~ 'Mean WTD', 
-                              var == 'tair.sd' ~ 'SD Air Temp', 
-                              var == 'vwc.sd' ~ 'SD VWC', 
-                              var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp',  
-                              var == 'tp.annual' ~ 'Thaw Penetration', 
-                              var == 'alt.annual' ~ 'ALT', 
-                              var == 't10.mean' ~ 'Mean Soil Temp', 
-                              var == 'gwc.mean' ~ 'Mean GWC', 
-                              var == 'precip.sum' ~ 'Precipitation')) %>%
+                         var == 'vwc.mean' ~ 'Mean VWC', 
+                         var == 't10.sd' ~ 'SD Soil Temp', 
+                         var == 'tair.mean' ~ 'Mean Air Temp', 
+                         var == 'gwc.sd' ~ 'SD GWC', 
+                         var == 'winter.snow.depth' ~ 'Snow Depth', 
+                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'wtd.mean' ~ 'Mean WTD', 
+                         var == 'tair.sd' ~ 'SD Air Temp', 
+                         var == 'vwc.sd' ~ 'SD VWC', 
+                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp',  
+                         var == 'tp.annual' ~ 'Thaw Penetration', 
+                         var == 'alt.annual' ~ 'ALT', 
+                         var == 't10.mean' ~ 'Mean Soil Temp', 
+                         var == 'gwc.mean' ~ 'Mean GWC', 
+                         var == 'precip.sum' ~ 'Precipitation')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'nee',
          timescale = 'seasonal')
+
+# plot relative influence
 ggplot(nee.seasonal.influence, aes(x = rel.inf, y = variable)) +
   geom_col(fill = 'black') +
   scale_x_continuous(name = 'Relative Influence',
@@ -156,7 +162,162 @@ ggplot(nee.seasonal.influence, aes(x = rel.inf, y = variable)) +
   theme_bw() +
   theme(axis.title.y = element_blank())
 
+# plot partial dependence plots of top predictors (with real data points underneath)
+plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
+  # print(paste('Running predictor.name <- xxx'))
+  predictor.name <- case_when(predictor == 'biomass.annual' ~ expression('Biomass (g m'^-2*')'), 
+                              predictor == 'tair.mean' ~ expression('Mean Air Temp ('*degree*'C)'), 
+                              predictor == 'tair.sd' ~ expression('SD Air Temp ('*degree*'C)'), 
+                              predictor == 'wtd.mean' ~ expression('Mean WTD (cm)'), 
+                              predictor == 'vwc.mean' ~ expression('Mean VWC (%)'), 
+                              predictor == 'vwc.sd' ~ expression('SD VWC (%)'), 
+                              predictor == 'gwc.mean' ~ expression('Mean GWC (%)'), 
+                              predictor == 'gwc.sd' ~ expression('SD GWC(%)'), 
+                              predictor == 't10.mean' ~ expression('Mean Soil Temp ('*degree*'C)'), 
+                              predictor == 't10.sd' ~ expression('SD Soil Temp ('*degree*'C)'), 
+                              predictor == 'winter.min.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'),  
+                              predictor == 'subsidence.annual' ~ expression('Subsidence (cm)'),
+                              predictor == 'tp.annual' ~ expression('Thaw Penetration (cm)'), 
+                              predictor == 'alt.annual' ~ expression('ALT (cm)'), 
+                              predictor == 'winter.snow.depth' ~ expression('Snow Depth (cm)'), 
+                              predictor == 'precip.sum' ~ expression('Precipitation (mm)'))
+  # print(paste('Running response.name <- xxx'))
+  response.name <- case_when(response == 'nee.sum' ~ expression('NEE (gC m'^-2*')'),
+                             response == 'gpp.sum' ~ expression('GPP (gC m'^-2*')'),
+                             response == 'reco.sum' ~ expression('Reco (gC m'^-2*')'))
+  # print(paste('Running color.name <- xxx'))
+  color.name <- case_when(color.var == 'flux.year' ~ 'Year',
+                          color.var == 'month' ~ 'Month')
+  # print(paste('Running color.limits <- xxx'))
+  color.limits <- case_when(color.var == 'flux.year' ~ c(2010, 2020),
+                            color.var == 'month' ~ c(5, 9))
+  # print(paste('Running color.breaks <- xxx'))
+  color.breaks <- if (color.var == 'flux.year') {
+    seq(2010, 2020, by = 2)
+  } else if (color.var == 'month') {
+    seq(5, 9)
+  }
+  # print(paste('Running color.breaks <- xxx'))
+  color.labels <- if (color.var == 'flux.year') {
+    seq(2010, 2020, by = 2)
+  } else if (color.var == 'month') {
+    month.name[seq(5, 9)]
+  }
+  shape.values <- if (shape.var == 'treatment') {
+    c(1, 0, 16, 15)
+  } else if (shape.var == 'ID') {
+    c(1, 16, 15)
+  }
+  # print(paste('Running color.limits <- xxx'))
+  plot <- ggplot(filter(df1, !is.na(response)), 
+         aes_string(x = predictor)) +
+    geom_point(aes_string(y = response, color = color.var, shape = shape.var)) +
+    scale_color_viridis(name = color.name,
+                        limits = color.limits,
+                        breaks = color.breaks) +
+    scale_shape_manual(values = shape.values,
+                       guide = guide_legend(order = 2)) +
+    new_scale('color') +
+    geom_line(data = df2, 
+              aes(y = yhat, color = 'Marginal Effect')) +
+    scale_color_manual(breaks = c('Marginal Effect'),
+                       values = c('black'),
+                       guide = guide_legend(order = 1)) +
+    scale_x_continuous(name = predictor.name) +
+    scale_y_continuous(name = response.name) +
+    theme_bw() +
+    theme(legend.title = element_blank())
+  
+  return(plot)
+}
 
+example.plots.seasonal <- flux.seasonal %>%
+  filter(fence == 4 & plot == 1 | fence == 4 & plot == 6 | fence == 1 & plot == 5)
+
+nee.seasonal.pd.biomass <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "biomass.annual", n.trees = nee.seasonal.gbm$n.trees,
+          grid.resolution = 100)
+nee.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.biomass,
+         predictor = 'biomass.annual', response = 'nee.sum',
+         color.var = 'flux.year', shape.var = 'treatment') +
+  geom_point(data = example.plots.seasonal,
+             aes(x = biomass.annual, y = nee.sum),
+             inherit.aes = FALSE,
+             shape = 1, size = 3) +
+  geom_text(data = example.plots.seasonal,
+            aes(x = biomass.annual, y = nee.sum, label = plot.id),
+            inherit.aes = FALSE, size = 3, nudge_y = -7)# +
+  # geom_text(data = example.plots.seasonal,
+  #           aes(x = biomass.annual, y = nee.sum, label = ID),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+nee.seasonal.plot.1
+
+nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "vwc.mean", n.trees = nee.seasonal.gbm$n.trees,
+          grid.resolution = 100)
+nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
+         predictor = 'vwc.mean', response = 'nee.sum',
+         color.var = 'flux.year', shape.var = 'treatment') +
+  geom_point(data = example.plots.seasonal,
+             aes(x = vwc.mean, y = nee.sum),
+             inherit.aes = FALSE,
+             shape = 1, size = 3) +
+  geom_text(data = example.plots.seasonal,
+            aes(x = vwc.mean, y = nee.sum, label = plot.id),
+            inherit.aes = FALSE, size = 3, nudge_y = -7)# +
+# geom_text(data = example.plots.seasonal,
+#           aes(x = vwc.mean, y = nee.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
+nee.seasonal.plot.2
+
+nee.seasonal.pd.t10.sd <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "t10.sd", n.trees = nee.seasonal.gbm$n.trees,
+          grid.resolution = 100)
+nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.t10.sd,
+         predictor = 't10.sd', response = 'nee.sum',
+         color.var = 'flux.year', shape.var = 'treatment') +
+  geom_point(data = example.plots.seasonal,
+             aes(x = t10.sd, y = nee.sum),
+             inherit.aes = FALSE,
+             shape = 1, size = 3) +
+  geom_text(data = example.plots.seasonal,
+            aes(x = t10.sd, y = nee.sum, label = plot.id),
+            inherit.aes = FALSE, size = 3, nudge_y = -7)# +
+# geom_text(data = example.plots.seasonal,
+#           aes(x = vwc.mean, y = nee.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
+nee.seasonal.plot.3
+
+nee.seasonal.pd.tair.mean <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "tair.mean", n.trees = nee.seasonal.gbm$n.trees,
+          grid.resolution = 100)
+nee.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.tair.mean,
+         predictor = 'tair.mean', response = 'nee.sum',
+         color.var = 'flux.year', shape.var = 'treatment') +
+  geom_point(data = example.plots.seasonal,
+             aes(x = tair.mean, y = nee.sum),
+             inherit.aes = FALSE,
+             shape = 1, size = 3) +
+  geom_text(data = example.plots.seasonal,
+            aes(x = tair.mean, y = nee.sum, label = plot.id),
+            inherit.aes = FALSE, size = 3, nudge_y = -7)# +
+# geom_text(data = example.plots.seasonal,
+#           aes(x = vwc.mean, y = nee.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
+nee.seasonal.plot.4
+
+nee.seasonal.pd.plot <- ggarrange(nee.seasonal.plot.1,
+                                  nee.seasonal.plot.2,
+                                  nee.seasonal.plot.3,
+                                  nee.seasonal.plot.4,
+                                  nrow = 2,
+                                  ncol = 2,
+                                  common.legend = TRUE,
+                                  legend = 'right',
+                                  labels = seq(1, 4))
+nee.seasonal.pd.plot
+
+# determine model performance with a linear model on the test data
 nee.seasonal.pred <- nee.seasonal %>%
   slice(-1*train.nee.seasonal) %>%
   mutate(nee.pred = predict(nee.seasonal.gbm,
