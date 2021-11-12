@@ -54,7 +54,7 @@ load.r2 <- function(filenames) {
                                 24,
                                 hourmin),
                hour = hourmin - 0.5) %>%
-        select(year, fence, plot, doy.old = DOY, doy.new = DOY, hour.old = hour, hour.new = hour, r2 = rsquare, T_chamb = chambT.mean)
+        select(year, fence, plot, doy.old = DOY, doy.new = DOY, hour.old = hour, hour.new = hour, CO2_r2 = rsquare, T_chamb = chambT.mean)
       
     } else if(str_detect(filenames[i], 'Rdata$')) {
       
@@ -80,7 +80,7 @@ load.r2 <- function(filenames) {
                       hour.new = ifelse(year == 2018,
                                         hour(floor_date(timestamp, '30 mins')) + minute(floor_date(timestamp, '30 mins'))/60,
                                         hour.old)) %>%
-               select(year, fence, plot, doy.old, doy.new, hour.old, hour.new, r2 = rsquare, T_chamb = chambT.mean)
+               select(year, fence, plot, doy.old, doy.new, hour.old, hour.new, CO2_r2 = rsquare, T_chamb = chambT.mean)
       )
       
     } else {
@@ -97,7 +97,7 @@ load.r2 <- function(filenames) {
   
 }
 
-filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/ITEX/warmxresp/2020_09_Dataset request/flux_data/co2/flux_slopes/',
+filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/ITEX/warmxresp/2020_09_Dataset request/flux_data/co2/flux_slopes',
                         pattern = 'csv$|Rdata',
                         full.names = TRUE)
 r2 <- load.r2(filenames)
@@ -106,7 +106,12 @@ r2 <- load.r2(filenames)
 # use doy.old because both datasets had incorrect doy in some entries in 2018
 # and correct doy variable could only be made in r2 since flux didn't have a timestamp
 co2 <- merge(co2, r2, by = c('year', 'doy.old', 'hour.old', 'fence', 'plot'), all.x = TRUE)
-rm(r2)
+# ggplot(co2, aes(x = doy, y = T_chamb)) +
+#   geom_point() +
+#   facet_grid(year ~ .) +
+#   scale_y_continuous(limits = c(-50, 50))
+# 
+# rm(r2)
 
 ### Format data
 # Create doy variable with correct (new) dates
@@ -115,7 +120,7 @@ co2[year >= 2012 & !is.na(hour.new), hour := hour.new]
 
 # Filter out modeled data and empty rows
 # co2 <- co2[filled == 1,]
-co2 <- co2[!is.na(Reco_g)]
+# co2 <- co2[!is.na(Reco_g)]
 co2[,.N, by = c('year')] # make sure there are about the equal numbers in all years except 2019, which should have fewer
 
 # Date
@@ -128,14 +133,19 @@ co2[, day := mday(date)]
 co2[, Flux_Date := paste(day, month, year, sep = '/')]
 
 # treatment
-co2[WW == 'C' & SW == 'C', treatment := 'Control']
-co2[WW == 'C' & (SW == 'S' | SW == 'SW'), treatment := 'Air Warming']
-co2[(WW == 'W' | WW == 'WW') & SW == 'C', treatment := 'Soil Warming']
-co2[(WW == 'W' | WW == 'WW') & (SW == 'S' | SW == 'SW'), treatment := 'Air + Soil Warming']
+co2[plot %in% c(2, 4), treatment := 'Control']
+co2[plot %in% c(1, 3), treatment := 'Air Warming']
+co2[plot %in% c(6, 8), treatment := 'Soil Warming']
+co2[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
 
 # Plot ID
 co2[, plot.id := paste(fence, plot, sep = '_')]
 co2 <- co2[order(date, plot.id)]
+
+# ggplot(co2, aes(x = doy, y = T_chamb)) +
+#   geom_point() +
+#   facet_grid(year ~ treatment) +
+#   scale_y_continuous(limits = c(-50, 50))
 
 # 2009-2011 chamber temps
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/ITEX/warmxresp/2020_09_Dataset request/flux_data/co2/chamb_t_2009-2011/',
@@ -147,26 +157,30 @@ chambt <- data.table(chambt)
 chambt <- chambt[!is.na(Tchamb_fill), .(year, doy, hour, fence, plot, Tchamb_fill)]
 
 # treatment
-chambt[plot == 2 | plot == 4, treatment := 'Control']
-chambt[plot == 1 | plot == 3, treatment := 'Air Warming']
-chambt[plot == 6 | plot == 8, treatment := 'Soil Warming']
-chambt[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
+chambt[plot %in% c(2, 4), treatment := 'Control']
+chambt[plot %in% c(1, 3), treatment := 'Air Warming']
+chambt[plot %in% c(6, 8), treatment := 'Soil Warming']
+chambt[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
 
 # Remove Plot information for early 2009 measurements (before plots had been established)
 chambt <- chambt[year == 2009 & doy <= 152, plot := NA]
 
 # summarize any duplicates
-chambt <- chambt[, .(Tchamb_fill = mean(Tchamb_fill, na.rm = TRUE)), by = c('year', 'doy', 'hour', 'fence', 'plot')]
+chambt <- chambt[, .(Tchamb_fill = mean(Tchamb_fill, na.rm = TRUE)), by = c('year', 'doy', 'hour', 'fence', 'plot', 'treatment')]
 
 ### Join flux and chamber temp data ###
 # use doy and hour because the doy and hour variables were correct from the start for 2009-2011
-co2 <- merge(co2, chambt, by = c('year', 'doy', 'hour', 'fence', 'plot'), all.x = TRUE)
+co2 <- merge(co2, chambt, 
+             by = c('year', 'doy', 'hour', 'fence', 'plot', 'treatment'), 
+             all.x = TRUE)
 co2[is.na(T_chamb) & !is.na(Tchamb_fill), T_chamb := Tchamb_fill]
 # Remove ridiculous chamber temperatures
 co2[T_chamb > 50, T_chamb := NA]
 
-# Select columns needed for ITEX format
-co2 <- co2[, .(ts, date, year, month, week, doy, hourmin = hour, fence, plot, plot.id, treatment, filled, nee = NEE_g, reco = Reco_g, gpp = GPP_g, r2, t.chamb = T_chamb)]
+# Select columns
+co2 <- co2[, .(ts, date, year, month, week, doy, hourmin = hour, fence, plot, 
+               plot.id, treatment, filled, nee = NEE_g, reco = Reco_g, 
+               gpp = GPP_g, r2 = CO2_r2, t.chamb = T_chamb)]
 co2[,.N, by = year(date)] # make sure there are about the equal numbers in all years except 2019, which should have fewer
 
 ## add in hour variable to join with par later
@@ -174,6 +188,13 @@ co2[, hour := floor(hourmin)]
 
 # order
 co2 <- co2[order(date, plot.id, treatment, hourmin)]
+
+# ggplot(chambt, aes(x = doy, y = Tchamb_fill)) +
+#   geom_point() +
+#   facet_grid(year ~ treatment)
+# ggplot(co2, aes(x = date, y = t.chamb)) +
+#   geom_point() +
+#   facet_grid(treatment ~ .)
 ###########################################################################################
 
 ### Weather Data ##########################################################################
