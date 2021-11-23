@@ -377,6 +377,10 @@ weather.annual <- weather.annual %>%
          tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
          tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
          precip.z = (precip - mean(precip))/sd(precip))
+mean.temp <- mean(weather.annual$tair.mean)
+mean.temp.gs <- mean(weather.seasonal.wide$tair.mean.gs)
+mean.temp.ngs <- mean(weather.seasonal.wide$tair.mean.ngs)
+mean.precip <- mean(weather.annual$precip)
 
 annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip, color = tair.min)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
