@@ -3,6 +3,11 @@
 ###                          Code by HGR 11/2021                             ###
 ################################################################################
 
+### To Do
+# Try to use several years of data to get plot level models of parameters,
+# because the current method doesn't give very different results for the
+# different plots, whether lacking vegetation or not.
+
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
@@ -250,7 +255,9 @@ filled.2019.monthly <- filled.2019[,
                                    by = .(year, month, fence, plot),
                                    .SDcols = c('a', 'GPmax', 'R', 
                                                'chambT')]
-filled.2019.monthly <- filled.2019.monthly[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+filled.2019.monthly <- filled.2019.monthly[, 
+                                           lapply(.SD, 
+                                                  function(x) replace(x, list = is.nan(x), values = NA))]
 
 # filled.2019.monthly <- merge(filled.2019.monthly,
 #                              m.a,
@@ -300,11 +307,12 @@ ggplot(filled.2019.monthly, aes(x=chambT, y = R)) +
   geom_point(aes(y=r.filled, colour="Modeled Parameters")) +
   scale_color_manual(values = c("red", "black"))
 
+# Is this step causing the unreasonable NEE values?
 # Adjust modeled parameters with unreasonable values
 # figure out median parameter values at low temperatures where modeled parameters are bad
-a.low <- filled.2019.monthly[a == min(a, na.rm = TRUE)]$a
-gpmax.low <- filled.2019.monthly[GPmax == min(GPmax, na.rm = TRUE)]$a
-r.low <- filled.2019.monthly[R == max(R, na.rm = TRUE)]$a
+a.low <- min(filled.2019.monthly[a > 0]$a, na.rm = TRUE)
+gpmax.low <- min(filled.2019.monthly[GPmax > 0]$GPmax, na.rm = TRUE)
+r.low <- max(filled.2019.monthly[R < 0]$R, na.rm = TRUE)
 
 filled.2019.monthly[a.filled < a.low,
                     a.filled := a.low]
@@ -383,7 +391,7 @@ filled.2019[is.na(R), .N]
 filled.2019[, 
             nee.filled := (a*PAR*GPmax)/((a*PAR) + GPmax) + R]
 filled.2019[is.na(nee.filled), .N]
-
+filled.2019[nee.filled < -400, .N]
 
 
 # # need to fix ridiculous nee values!
