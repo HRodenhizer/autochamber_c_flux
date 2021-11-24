@@ -3,6 +3,10 @@
 ###                                                code by HGR 2/2020                                                     ###
 #############################################################################################################################
 
+### To Do
+# Add 2020 data
+# Use tair and t.chamb.filled in summaries
+
 ### Load Libraries ##########################################################################################################
 library(lubridate)
 library(berryFunctions)
@@ -853,8 +857,8 @@ env.treat <- merge(env.treat, wtd.env,
 
 ### Gap Fill ##############################################################################
 ### Clean up
-rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
-   td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
+# rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
+#    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
 ### Chamber Temps
 # determine period when chambers are deployed
 deployed <- flux[!is.na(nee),
@@ -871,33 +875,59 @@ ggplot(flux, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
   geom_point() +
   facet_grid(.~treatment)
 
-tchamb.m <- lm(t.chamb ~ Tair + treatment, data = flux)
-summary(tchamb.m)
+# model chambT using Tair on a plot by plot basis
+model.t.chamb.lm <- function(df) {
+  fit <- lm(t.chamb ~ Tair, data=df)
+  return(list(t.chamb.intercept=coef(fit)[1], 
+              t.chamb.slope=coef(fit)[2],
+              t.chamb.r2 = summary(fit)$r.squared))
+}
 
-flux[treatment == 'Control',
-     t.chamb.m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
-flux[treatment == 'Air Warming',
-     t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
-flux[treatment == 'Air + Soil Warming',
-     t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
-flux[treatment == 'Soil Warming',
-     t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
+m.t.chamb <- flux[, 
+                 model.t.chamb.lm(.SD),
+                 by=c('fence', 'plot')]
+# m.chambT[plot %in% c(2, 4),
+#          treatment := 'Control']
+# m.chambT[plot %in% c(1, 3),
+#          treatment := 'Air Warming']
+# m.chambT[plot %in% c(6, 8),
+#          treatment := 'Soil Warming']
+# m.chambT[plot %in% c(5, 7),
+#          treatment := 'Air + Soil Warming']
+# m.chambT[,
+#          mean(chambT.slope),
+#          by = 'treatment']
+
+# test out modeled chamber temps on all data
+flux <- merge(flux, m.t.chamb, by = c('fence', 'plot'))
+flux[,
+       t.chamb.m := t.chamb.intercept + t.chamb.slope*Tair]
+# tchamb.m <- lm(t.chamb ~ Tair + treatment, data = flux)
+# summary(tchamb.m)
+# 
+# flux[treatment == 'Control',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
+# flux[treatment == 'Air Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
+# flux[treatment == 'Air + Soil Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
+# flux[treatment == 'Soil Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
 
 # ggplot(flux, aes(x = Tair, y = t.chamb.m, colour = year), alpha = 0.2) +
 #   geom_point() +
 #   facet_grid(.~treatment)
 
-flux[is.na(t.chamb) & deployed == 1, t.chamb := t.chamb.m]
-flux[, tair := ifelse(!is.na(t.chamb),
-                          t.chamb,
-                          Tair)]
-flux[is.na(tair), .N, by = 'year']
-flux[, ':=' (t.chamb = NULL,
-             Tair = NULL)]
+flux[!is.na(t.chamb), t.chamb.filled := t.chamb]
+flux[is.na(t.chamb) & deployed == 1, t.chamb.filled := t.chamb.m]
+flux[is.na(t.chamb.filled & deployed == 1), .N, by = 'year']
+flux[, ':=' (tair = Tair)]
+flux[, ':=' (Tair = NULL,
+             t.chamb.m = NULL)]
 # ggplot(flux, aes(x = tair, y = t.chamb, colour = year), alpha = 0.2) +
 #   geom_point() +
 #   facet_grid(.~treatment)
-rm(deployed, tchamb.m)
+rm(deployed, m.t.chamb)
 
 ### Probably won't gap fill anything else
 flux[is.na(par), .N, by = 'year']
@@ -916,6 +946,9 @@ flux[is.na(subsidence), .N, by = 'year']
 flux[is.na(alt), .N, by = 'year']
 flux[is.na(tp), .N, by = 'year']
 flux[is.na(tp.to.date), .N, by = 'year'] # missing a lot - but not during growing season
+
+# # save output
+# saveRDS(flux, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
 
 ### Could maybe assign deep soil temps to neighboring plots of same treatment?
 ###########################################################################################
