@@ -239,7 +239,7 @@ nee.seasonal.pred <- nee.seasonal %>%
   slice(-1*train.nee.seasonal) %>%
   mutate(nee.pred = predict(nee.seasonal.gbm,
                             newdata = nee.seasonal[-train.nee.seasonal,],
-                            n.trees = 100),
+                            n.trees = nee.seasonal.gbm$n.trees),
          nee.resid = nee.pred - nee.sum,
          response = 'nee',
          timescale = 'seasonal')
@@ -248,7 +248,9 @@ nee.seasonal.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.seasonal.pred)
 summary(nee.seasonal.lm)
 nee.seasonal.r2 <- summary(nee.seasonal.lm)$r.squared
-nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(nee.seasonal.r2[1], 2))
+nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+                                ' ~ ', 
+                                round(nee.seasonal.r2[1], 2))
 
 nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
@@ -427,7 +429,7 @@ reco.seasonal.pred <- reco.seasonal %>%
   slice(-1*train.reco.seasonal) %>%
   mutate(reco.pred = predict(reco.seasonal.gbm,
                             newdata = reco.seasonal[-train.reco.seasonal,],
-                            n.trees = 100),
+                            n.trees = reco.seasonal.gbm$n.trees),
          reco.resid = reco.pred - reco.sum,
          response = 'reco',
          timescale = 'seasonal')
@@ -437,7 +439,9 @@ reco.seasonal.lm <- lm(reco.pred ~ reco.sum,
                       data = reco.seasonal.pred)
 summary(reco.seasonal.lm)
 reco.seasonal.r2 <- summary(reco.seasonal.lm)$r.squared
-reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(reco.seasonal.r2[1], 2))
+reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+                                 ' ~ ', 
+                                 round(reco.seasonal.r2[1], 2))
 
 reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
@@ -609,7 +613,7 @@ gpp.seasonal.pred <- gpp.seasonal %>%
   slice(-1*train.gpp.seasonal) %>%
   mutate(gpp.pred = predict(gpp.seasonal.gbm,
                              newdata = gpp.seasonal[-train.gpp.seasonal,],
-                             n.trees = 100),
+                             n.trees = gpp.seasonal.gbm$n.trees),
          gpp.resid = gpp.pred - gpp.sum,
          response = 'gpp',
          timescale = 'seasonal')
@@ -618,7 +622,9 @@ gpp.seasonal.lm <- lm(gpp.pred ~ gpp.sum,
                       data = gpp.seasonal.pred)
 summary(gpp.seasonal.lm)
 gpp.seasonal.r2 <- summary(gpp.seasonal.lm)$r.squared
-gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(gpp.seasonal.r2[1], 2))
+gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+                                ' ~ ', 
+                                round(gpp.seasonal.r2[1], 2))
 
 gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
@@ -855,7 +861,7 @@ nee.monthly.pred <- nee.monthly %>%
   slice(-1*train.nee.monthly) %>%
   mutate(nee.pred = predict(nee.monthly.gbm,
                             newdata = nee.monthly[-train.nee.monthly,],
-                            n.trees = 100),
+                            n.trees = nee.monthly.gbm$n.trees),
          nee.resid = nee.pred - nee.sum,
          response = 'nee',
          timescale = 'monthly')
@@ -864,7 +870,9 @@ nee.monthly.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.monthly.pred)
 summary(nee.monthly.lm)
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
-nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(nee.monthly.r2[1], 2))
+nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+                               ' ~ ', 
+                               round(nee.monthly.r2[1], 2))
 
 # plot model performance
 nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
@@ -1041,7 +1049,7 @@ reco.monthly.pred <- reco.monthly %>%
   slice(-1*train.reco.monthly) %>%
   mutate(reco.pred = predict(reco.monthly.gbm,
                             newdata = reco.monthly[-train.reco.monthly,],
-                            n.trees = 100),
+                            n.trees = reco.monthly.gbm$n.trees),
          reco.resid = reco.pred - reco.sum,
          response = 'reco',
          timescale = 'monthly')
@@ -1240,7 +1248,7 @@ gpp.monthly.pred <- gpp.monthly %>%
   slice(-1*train.gpp.monthly) %>%
   mutate(gpp.pred = predict(gpp.monthly.gbm,
                              newdata = gpp.monthly[-train.gpp.monthly,],
-                             n.trees = 100),
+                             n.trees = gpp.monthly.gbm$n.trees),
          gpp.resid = gpp.pred - gpp.sum,
          response = 'gpp',
          timescale = 'monthly')
@@ -1431,7 +1439,7 @@ model.fit.seasonal <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
                    nee.seasonal.r2.label,
                    reco.seasonal.r2.label),
          x = c(5, -200, 100),
-         y = c(595, 160, 575))
+         y = c(760, 245, 600))
 
 seasonal.grob.dimensions <- data.frame(xmin = 9,
                                       xmax = 24.5,
@@ -1454,7 +1462,7 @@ model.fit.monthly <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
                    nee.monthly.r2.label,
                    reco.monthly.r2.label),
          x = c(0, -55, 15),
-         y = c(280, 120, 195))
+         y = c(295, 128, 210))
 
 monthly.grob.dimensions <- data.frame(xmin = 10,
                                       xmax = 39.25,
@@ -1720,6 +1728,8 @@ monthly.pdp
 ################################################################################
 
 ### Time Series Analysis #######################################################
+flux.seasonal.filled <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv')
+
 # Add in eddy covariance estimate for winter
 # a function to load and return a file
 loadRData <- function(fileName){
@@ -1815,10 +1825,10 @@ rm(ch4, ch4.2018.2019, ch4.2019.2020, co2, co2.2018.2019, co2.2019.2020,
    flux.eddy, flux.eddy.recent)
 
 # Add winter ec fluxes to growing season chamber fluxes
-flux.seasonal <- flux.seasonal %>%
+flux.seasonal.filled <- flux.seasonal.filled %>%
   full_join(flux.eddy.winter, by = c('flux.year'))
 
-flux.seasonal <- flux.seasonal %>%
+flux.seasonal.filled <- flux.seasonal.filled %>%
   mutate(nee.annual = nee.sum - NEP,
          reco.annual = reco.sum + Reco,
          gpp.annual = gpp.sum - GEP,
@@ -1834,35 +1844,13 @@ flux.seasonal <- flux.seasonal %>%
                                       min(subsidence.annual) <= -60 ~ '>=60 cm Subsidence'),
                    levels = c('<20 cm Subsidence', '20-40 cm Subsidence', 
                               '40-60 cm Subsidence', '>=60 cm Subsidence')))
-
-### Test out gap filling missing plots in 2019
-ggplot(flux.seasonal,
-       aes(x = biomass.annual, y = nee.sum, color = subsidence.annual)) +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
-ggplot(flux.seasonal,
-       aes(x = biomass.annual, y = nee.sum, color = subsidence.annual)) +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
-flux.seasonal.gapfill <- flux.seasonal %>%
-  mutate()
+flux.seasonal.filled <- as.data.table(flux.seasonal.filled)
 
 ### Plot
 ### growing season
 # NEE
-ggplot(flux.seasonal,
+# 2019 not filled
+ggplot(flux.seasonal.filled[filled.gbm == 0],
        aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1873,13 +1861,31 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment, ncol = 4) +
   theme_bw() +
   theme(axis.title.x = element_blank())
+# 2019 filled
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
+  facet_wrap(~ treatment, ncol = 4) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
 
-nee.trajectory <- ggplot(flux.seasonal,
-       aes(x = flux.year, y = nee.sum, color = biomass.annual)) +
+nee.trajectory <- ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = nee.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
   facet_grid('NEE' ~ treatment) +
@@ -1888,12 +1894,15 @@ nee.trajectory <- ggplot(flux.seasonal,
         axis.text.x = element_text(angle = 90))
 nee.trajectory
 
-ggplot(flux.seasonal,
-       aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
   facet_grid(fence ~ plot) +
@@ -1901,24 +1910,30 @@ ggplot(flux.seasonal,
   theme(axis.title.x = element_blank())
 
 # Reco
-ggplot(flux.seasonal,
-       aes(x = flux.year, y = reco.sum, color = subsidence.annual)) +
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Reco (gC m'^-2*')')) +
   facet_wrap(~ treatment) +
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-reco.trajectory <- ggplot(flux.seasonal,
-       aes(x = flux.year, y = reco.sum, color = biomass.annual)) +
+reco.trajectory <- ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = reco.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Reco (gC m'^-2*')')) +
   facet_grid('Reco' ~ treatment) +
@@ -1928,12 +1943,15 @@ reco.trajectory <- ggplot(flux.seasonal,
         axis.text.x = element_text(angle = 90))
 reco.trajectory
 
-ggplot(flux.seasonal,
-       aes(x = flux.year, y = reco.sum, color = subsidence.annual)) +
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Reco (gC m'^-2*')')) +
   facet_grid(fence ~ plot) +
@@ -1941,24 +1959,30 @@ ggplot(flux.seasonal,
   theme(axis.title.x = element_blank())
 
 # GPP
-ggplot(flux.seasonal,
-       aes(x = flux.year, y = gpp.sum, color = subsidence.annual)) +
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS GPP (gC m'^-2*')')) +
   facet_wrap(~ treatment) +
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-gpp.trajectory <- ggplot(flux.seasonal,
-       aes(x = flux.year, y = gpp.sum, color = biomass.annual)) +
+gpp.trajectory <- ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = gpp.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS GPP (gC m'^-2*')')) +
   facet_grid('GPP' ~ treatment) +
@@ -1968,12 +1992,15 @@ gpp.trajectory <- ggplot(flux.seasonal,
         axis.text.x = element_text(angle = 90))
 gpp.trajectory
 
-ggplot(flux.seasonal,
-       aes(x = flux.year, y = gpp.sum, color = subsidence.annual)) +
+ggplot(flux.seasonal.filled,
+       aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS GPP (gC m'^-2*')')) +
   facet_grid(fence ~ plot) +
@@ -2013,7 +2040,7 @@ flux.trajectory
 
 # annual estimate
 # NEE
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2022,7 +2049,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2031,7 +2058,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2040,7 +2067,7 @@ ggplot(flux.seasonal,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2050,7 +2077,7 @@ ggplot(flux.seasonal,
   theme_bw()
 
 # Reco
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2059,7 +2086,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2068,7 +2095,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2077,7 +2104,7 @@ ggplot(flux.seasonal,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2087,7 +2114,7 @@ ggplot(flux.seasonal,
   theme_bw()
 
 # GPP
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2096,7 +2123,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
   # geom_hline(yintercept = 0) +
   geom_point() +
@@ -2105,7 +2132,7 @@ ggplot(flux.seasonal,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
   geom_point() +
   # geom_hline(yintercept = 0) +
@@ -2114,7 +2141,7 @@ ggplot(flux.seasonal,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal,
+ggplot(flux.seasonal.filled,
        aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
   geom_point() +
   # geom_hline(yintercept = 0) +
