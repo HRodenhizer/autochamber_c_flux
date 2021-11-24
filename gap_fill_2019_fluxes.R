@@ -7,6 +7,7 @@
 # Model Reco in 2019 plots that don't have measurements
 # Merge modeled 2019 plots with measured plots
 # Try using data from flux_filled files to facilitate merge with 2019 measured data?
+# This will be annoying because column names don't quite line up between years
 
 
 ### Load Libraries #############################################################
@@ -14,6 +15,7 @@ library(data.table)
 library(lubridate)
 library(tidyverse)
 library(viridis)
+library(gbm)
 ################################################################################
 
 ### Load Data ##################################################################
@@ -24,46 +26,76 @@ loadRData <- function(fileName){
   get(ls()[ls() != "fileName"])
 }
 
-data.2014 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2014/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_2014.Rdata')
-data.2015 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2015/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_missing_weird_filled_2014_2015.Rdata')
-data.2016 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2016/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_missing_filled_2015_2016.Rdata')
-data.2017 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2017/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2017.Rdata')
-data.2018 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2018/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2018.Rdata')
-data.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2019/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2019.Rdata')
-data.2020 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2020/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2020.Rdata')
+# data.2014 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2014/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_2014.Rdata')
+# data.2015 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2015/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_missing_weird_filled_2014_2015.Rdata')
+# data.2016 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2016/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_missing_filled_2015_2016.Rdata')
+# data.2017 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2017/data_Processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2017.Rdata')
+# data.2018 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2018/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2018.Rdata')
+# data.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2019/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2019.Rdata')
+# data.2020 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/data/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2020/data_processing/NEE_PAR_coefs_cip_dryp_predicted_refit_2020.Rdata')
+param.2016 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2016/Processed/Filled_Fluxes_2015params_2016_DUALdowel.Rdata')
+param.2017 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2017/Data_Processing/Filled_Fluxes_2017_DUALdowel_refit.Rdata')
+param.2018 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2018/Data_processing/Filled_Fluxes_2018_DUALdowel_20181031.Rdata')
+param.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2019/Data_processing/Filled_Fluxes_2019_DUALdowel.Rdata')
+param.2020 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2020/Data_processing/Filled_Fluxes_2020_DUALdowel.Rdata')
 
-data.2019[,
-          half.hour := fifelse(half.hour == 0,
-                               23.5,
-                               half.hour - 0.5)]
-data.2020[, timestamp1 := parse_date_time(paste(date, timestamp1), orders = c('Y!-m!-d! H!:M!:S!'))]
+param.2016.2020 <- rbind(param.2016[, .(date, year, month, DOY, half.hour, 
+                                        fence, plot, treatment,
+                                        tair = Tair,
+                                        nee = NEE.g.halfhour,
+                                        reco = Reco.g.halfhour,
+                                        gpp = GPP.g.halfhour, 
+                                        PAR, a, GPmax, R)],
+                         param.2017[, .(date, year, month, DOY = DOY.x, half.hour, 
+                                        fence, plot, treatment,
+                                        tair = Tair,
+                                        nee = NEE.g.halfhour,
+                                        reco = Reco.g.halfhour,
+                                        gpp = GPP.g.halfhour, 
+                                        PAR, a, GPmax, R)])
 
-data <- rbind(data.2014, data.2015, data.2016, data.2017, data.2018, data.2019, data.2020,
-              use.names = TRUE, fill = TRUE)
-data[is.na(timestamp), timestamp := timestamp1]
-data[, year := year(timestamp)]
-data <- data[!is.na(flux.umol)]
-# data <- data[plot %in% seq(1, 8)]
-data[plot %in% c(2, 4), treatment := 'Control']
-data[plot %in% c(1, 3), treatment := 'Air Warming']
-data[plot %in% c(6, 8), treatment := 'Soil Warming']
-data[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
-data[plot == 9, treatment := 'Drying']
-data[plot == 10, treatment := 'Warming']
-data[plot == 11, treatment := 'Drying + Warming']
+# data.2019[,
+#           half.hour := fifelse(half.hour == 0,
+#                                23.5,
+#                                half.hour - 0.5)]
+# data.2020[, timestamp1 := parse_date_time(paste(date, timestamp1), orders = c('Y!-m!-d! H!:M!:S!'))]
+# 
+# data <- rbind(data.2014, data.2015, data.2016, data.2017, data.2018, data.2019, data.2020,
+#               use.names = TRUE, fill = TRUE)
+# data[is.na(timestamp), timestamp := timestamp1]
+# data[, year := year(timestamp)]
+# data <- data[!is.na(flux.umol)]
+# # data <- data[plot %in% seq(1, 8)]
+# data[plot %in% c(2, 4), treatment := 'Control']
+# data[plot %in% c(1, 3), treatment := 'Air Warming']
+# data[plot %in% c(6, 8), treatment := 'Soil Warming']
+# data[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
+# data[plot == 9, treatment := 'Drying']
+# data[plot == 10, treatment := 'Warming']
+# data[plot == 11, treatment := 'Drying + Warming']
 
 # load 2019 hobo data
 hobo.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Weather data (HOBO)/2019/Processed/HOBO_2018-10-01_to_2019-09-30_half_hourly.Rdata')
 hobo.2020 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Weather data (HOBO)/2020/Processed/HOBO_2019-10-01_to_2020-09-30_half_hourly.Rdata')
 hobo.2019 <- rbind(hobo.2019, hobo.2020)[ts >= as_date('2019-01-01') & ts < as_date('2020-01-01'), .(year, DOY, half.hour, Tair.hobo = Tair, PAR.hobo = PAR)]
+
+data <- loadRData('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
+
+# try modeling annual sum only
+flux.seasonal <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv')
+nee.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_gbm.rds')
+reco.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_gbm.rds')
+gpp.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
 ################################################################################
 
-### Gap fill chamber temp ######################################################
+### Create Frame for 2019 Plots Without Data ###################################
 # check for unusual temps
-data[chambT > 25, .N]
-data[chambT > 35, .N]
-data[Tair > 20, .N]
-data[Tair > 30, .N]
+data[t.chamb.filled > 25, .N]
+data[t.chamb.filled > 40, .N]
+data[t.chamb > 25, .N]
+data[t.chamb > 40, .N]
+data[tair > 20, .N]
+data[tair > 30, .N]
 
 # prepare 2019 data for gap filling
 frame.2019 <- expand_grid(year = 2019,
@@ -452,4 +484,68 @@ filled.2019.daily <- filled.2019[,
                                    ),
                                  by = c('date', 'year', 'month', 'DOY', 
                                         'fence', 'plot', 'treatment')]
+################################################################################
+
+### Try modeling Annual Sum Only (with GBM) ####################################
+# rename the columns that need it
+flux.seasonal[, ':=' (tp.annual = tp,
+                      alt.annual = alt)]
+
+# model data
+flux.seasonal.filled.2019 <- flux.seasonal
+flux.seasonal.filled.2019[flux.year == 2019 & is.na(nee.sum), .N]
+flux.seasonal.filled.2019[flux.year == 2019 & is.na(reco.sum), .N]
+flux.seasonal.filled.2019[flux.year == 2019 & is.na(gpp.sum), .N]
+
+flux.seasonal.filled.2019[,
+                          filled.gbm := fifelse(flux.year == 2019 & is.na(nee.sum),
+                                                1,
+                                                0)]
+
+# NEE
+flux.seasonal.filled.2019 <- flux.seasonal.filled.2019[flux.year == 2019 & is.na(nee.sum),
+                                                       ':=' (nee.sum = predict(nee.seasonal.gbm,
+                                                                               newdata = .SD,
+                                                                               n.trees = nee.seasonal.gbm$n.trees),
+                                                             filled.gbm = 1)]
+# Reco
+flux.seasonal.filled.2019 <- flux.seasonal.filled.2019[flux.year == 2019 & is.na(reco.sum),
+                                                       ':=' (reco.sum = predict(reco.seasonal.gbm,
+                                                                                newdata = .SD,
+                                                                                n.trees = reco.seasonal.gbm$n.trees),
+                                                             filled.gbm = 1)]
+# GPP
+flux.seasonal.filled.2019 <- flux.seasonal.filled.2019[flux.year == 2019 & is.na(gpp.sum),
+                                                       ':=' (gpp.sum = predict(gpp.seasonal.gbm,
+                                                                               newdata = .SD,
+                                                                               n.trees = gpp.seasonal.gbm$n.trees),
+                                                             filled.gbm = 1)]
+
+# Plot output
+ggplot(flux.seasonal.filled.2019,
+       aes(x = flux.year, y = nee.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_wrap(~treatment) +
+  theme_bw()
+ggplot(flux.seasonal.filled.2019,
+       aes(x = flux.year, y = reco.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_wrap(~treatment) +
+  theme_bw()
+ggplot(flux.seasonal.filled.2019,
+       aes(x = flux.year, y = gpp.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_wrap(~treatment) +
+  theme_bw()
+
+# Save output
+write.csv(flux.seasonal.filled.2019,
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
+          row.names = FALSE)
 ################################################################################
