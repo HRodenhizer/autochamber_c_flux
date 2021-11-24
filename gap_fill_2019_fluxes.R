@@ -4,9 +4,10 @@
 ################################################################################
 
 ### To Do
-# Try to use several years of data to get plot level models of parameters,
-# because the current method doesn't give very different results for the
-# different plots, whether lacking vegetation or not.
+# Model Reco in 2019 plots that don't have measurements
+# Merge modeled 2019 plots with measured plots
+# Try using data from flux_filled files to facilitate merge with 2019 measured data?
+
 
 ### Load Libraries #############################################################
 library(data.table)
@@ -42,6 +43,14 @@ data <- rbind(data.2014, data.2015, data.2016, data.2017, data.2018, data.2019, 
 data[is.na(timestamp), timestamp := timestamp1]
 data[, year := year(timestamp)]
 data <- data[!is.na(flux.umol)]
+# data <- data[plot %in% seq(1, 8)]
+data[plot %in% c(2, 4), treatment := 'Control']
+data[plot %in% c(1, 3), treatment := 'Air Warming']
+data[plot %in% c(6, 8), treatment := 'Soil Warming']
+data[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
+data[plot == 9, treatment := 'Drying']
+data[plot == 10, treatment := 'Warming']
+data[plot == 11, treatment := 'Drying + Warming']
 
 # load 2019 hobo data
 hobo.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Weather data (HOBO)/2019/Processed/HOBO_2018-10-01_to_2019-09-30_half_hourly.Rdata')
@@ -53,7 +62,6 @@ hobo.2019 <- rbind(hobo.2019, hobo.2020)[ts >= as_date('2019-01-01') & ts < as_d
 # check for unusual temps
 data[chambT > 25, .N]
 data[chambT > 35, .N]
-data[chambT > 35, chambT := NA]
 data[Tair > 20, .N]
 data[Tair > 30, .N]
 
@@ -63,35 +71,44 @@ frame.2019 <- expand_grid(year = 2019,
                           plot = seq(1, 11),
                           DOY = seq(min(data.2019$DOY), max(data.2019$DOY)),
                           half.hour = seq(0, 23.5, by = 0.5))
-frame.2019 <- data.frame(frame.2019)
+frame.2019 <- data.table(frame.2019)
+frame.2019[, date := as_date('2018-12-31') + days(DOY)]
+frame.2019[,
+           timestamp := parse_date_time(paste(date, 
+                                              paste(str_pad(as.character(floor(half.hour)), 
+                                                            side = "left", 
+                                                            pad = '0',
+                                                            width = 2), 
+                                                    str_pad(as.character(half.hour%%1*60),
+                                                            side = 'left',
+                                                            pad = '0',
+                                                            width = 2), 
+                                                    sep = ':')),
+                                        orders = c('Y!-m!-d! H!:M!'))]
+frame.2019[,
+           month := month(timestamp)]
+# add air temperature
+frame.2019 <- merge(frame.2019, hobo.2019, 
+                    by = c('year', 'DOY', 'half.hour'),
+                    all.x = TRUE)
+# add parameters
+param.2019 <- unique(data[year == 2019 & !is.na(a), .(fence, plot, year, month,
+                                                      a, GPmax, R)])
+frame.2019 <- merge(frame.2019, param.2019, by = c('fence', 'plot', 'year', 'month'),
+                    all.x = TRUE)
 
-filled.2019 <- merge(data[timestamp >= as_date('2019-01-01') & timestamp < as_date('2020 - 01-01')], 
-                     frame.2019, 
-                     by = c('fence', 'plot', 'year', 'DOY', 'half.hour'),
-                     all = TRUE)
-filled.2019 <- merge(filled.2019, hobo.2019, by = c('year', 'DOY', 'half.hour'),
-                     all.x = TRUE)
-filled.2019[, date := as_date('2018-12-31') + days(DOY)]
-filled.2019[is.na(timestamp),
-            timestamp := parse_date_time(paste(date, 
-                                          paste(str_pad(as.character(floor(half.hour)), 
-                                                        side = "left", 
-                                                        pad = '0',
-                                                        width = 2), 
-                                                str_pad(as.character(half.hour%%1*60),
-                                                        side = 'left',
-                                                        pad = '0',
-                                                        width = 2), 
-                                                sep = ':')),
-                                    orders = c('Y!-m!-d! H!:M!'))]
-filled.2019[,
-            month := month(timestamp)]
-filled.2019[is.na(Tair),
-            Tair := Tair.hobo]
-filled.2019[is.na(PAR),
-            PAR := PAR.hobo]
-filled.2019[is.na(Tair), .N]
-filled.2019[is.na(PAR), .N]
+filled <- merge(data, 
+                frame.2019, 
+                by = c('fence', 'plot','timestamp', 'date', 'year', 'month', 
+                       'DOY', 'half.hour', 'a', 'GPmax', 'R'),
+                all = TRUE)
+filled[, plot.id := paste(fence, plot, sep = '_')]
+filled[is.na(Tair),
+       Tair := Tair.hobo]
+filled[is.na(PAR),
+       PAR := PAR.hobo]
+filled[is.na(Tair), .N]
+filled[is.na(PAR), .N]
 
 # model chambT using Tair on a plot by plot basis
 model.chambT.lm <- function(df) {
@@ -104,33 +121,41 @@ model.chambT.lm <- function(df) {
 m.chambT <- data[, 
                  model.chambT.lm(.SD),
                  by=c('fence', 'plot')]
-m.chambT
+# m.chambT[plot %in% c(2, 4),
+#          treatment := 'Control']
+# m.chambT[plot %in% c(1, 3),
+#          treatment := 'Air Warming']
+# m.chambT[plot %in% c(6, 8),
+#          treatment := 'Soil Warming']
+# m.chambT[plot %in% c(5, 7),
+#          treatment := 'Air + Soil Warming']
+# m.chambT[,
+#          mean(chambT.slope),
+#          by = 'treatment']
 
 # test out modeled chamber temps on all data
-data <- merge(data, m.chambT, by = c('fence', 'plot'))
-data[,
+filled <- merge(filled, m.chambT, by = c('fence', 'plot'))
+filled[,
      chambT.filled := chambT.intercept + chambT.slope*Tair]
-data[is.na(chambT.filled), .N]
-ggplot(data, aes(x = chambT, y = chambT.filled, color = factor(year))) +
+filled[is.na(chambT.filled), .N]
+ggplot(filled, aes(x = chambT, y = chambT.filled, color = factor(year))) +
   geom_point() +
   facet_grid(fence ~ plot)
-ggplot(data[fence == 4 & plot == 6], aes(x = chambT, y = chambT.filled, color = factor(year))) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = 'lm')
-
-# model all chamber temperatures to check model performance
-filled.2019 <- merge(filled.2019, m.chambT, by = c('fence', 'plot'))
-filled.2019[is.na(chambT),
-            chambT := chambT.intercept + chambT.slope*Tair]
-filled.2019[is.na(chambT), .N]
+filled[is.na(chambT),
+       chambT := chambT.filled]
+filled[is.na(chambT), .N]
+filled[is.nan(chambT), .N]
 ################################################################################
 
 ### Model parameters with chamber temp #########################################
-data.monthly <- data[, 
-                     lapply(.SD, mean, na.rm = TRUE), 
-                     by = .(year, month, fence, plot),
-                     .SDcols = c('a', 'GPmax', 'R', 
-                                 'chambT', 'Tair')]
+data.monthly <- filled[, 
+                       lapply(.SD, mean, na.rm = TRUE), 
+                       by = .(year, month, fence, plot),
+                       .SDcols = c('a', 'GPmax', 'R', 
+                                   'chambT')]
+data.monthly <- data.monthly[, 
+                             lapply(.SD, 
+                                    function(x) replace(x, list = is.nan(x), values = NA))]
 
 data.monthly[a > 0.15, a := NA]
 data.monthly[GPmax > 30 | GPmax < -100, GPmax := NA]
@@ -156,71 +181,108 @@ ggplot(data.monthly, aes(x = chambT, y = R, color = factor(year))) +
   scale_color_viridis(discrete = TRUE)
 
 ### Model parameters
-# model.parameter.lm <- function(df, parameter) {
-#   fit <- lm(get(parameter) ~ chambT + I(chambT^2), data=df)
-#   output <- list(coef(fit)[1], 
-#                  coef(fit)[2],
-#                  coef(fit)[3],
-#                  summary(fit)$r.squared)
-#   names(output) <- c(paste0(parameter, '.param.1'), 
-#                      paste0(parameter, '.param.2'),
-#                      paste0(parameter, '.param.3'),
-#                      paste0(parameter, '.r2'))
-#   return(output)
-# }
+model.parameter.lm <- function(df, parameter) {
+  fit <- lm(get(parameter) ~ chambT + I(chambT^2), data=df)
+  output <- list(coef(fit)[1],
+                 coef(fit)[2],
+                 coef(fit)[3],
+                 summary(fit)$r.squared)
+  names(output) <- c(paste0(parameter, '.param.1'),
+                     paste0(parameter, '.param.2'),
+                     paste0(parameter, '.param.3'),
+                     paste0(parameter, '.r2'))
+  return(output)
+}
 
-# model light response parameters using the relationship with air temp
-m.a <- lm(a ~ chambT + I(chambT^2), data = data.monthly[!(is.na(chambT) & is.na(a))])
-summary(m.a)
-# m.a <- data.monthly[!(is.na(chambT) & is.na(a)), 
-#                     model.parameter.lm(.SD, 'a'),
-#                     by=c('fence', 'plot')]
-# m.a
+# # model light response parameters using the relationship with air temp
+# m.a <- lm(a ~ chambT + I(chambT^2), data = data.monthly[!(is.na(chambT) & is.na(a))])
+# summary(m.a)
+m.a <- data.monthly[!(is.na(chambT) & is.na(a)),
+                    model.parameter.lm(.SD, 'a'),
+                    by=c('fence', 'plot')]
+m.a
 
-m.gpmax <- lm(GPmax ~ chambT + I(chambT^2), data = data.monthly[is.na(chambT)==F & is.na(GPmax)==F])
-summary(m.gpmax)
-# m.gpmax <- data.monthly[!(is.na(chambT) & is.na(GPmax)), 
-#                     model.parameter.lm(.SD, 'GPmax'),
-#                     by=c('fence', 'plot')]
-# m.gpmax
+# m.gpmax <- lm(GPmax ~ chambT + I(chambT^2), data = data.monthly[is.na(chambT)==F & is.na(GPmax)==F])
+# summary(m.gpmax)
+m.gpmax <- data.monthly[!(is.na(chambT) & is.na(GPmax)),
+                    model.parameter.lm(.SD, 'GPmax'),
+                    by=c('fence', 'plot')]
+m.gpmax
 
-m.r <- lm(R ~ chambT + I(chambT^2), data = data.monthly[is.na(chambT)==F & is.na(R)==F])
-summary(m.r)
-# m.r <- data.monthly[!(is.na(chambT) & is.na(R)), 
-#                     model.parameter.lm(.SD, 'R'),
-#                     by=c('fence', 'plot')]
-# m.r
+# m.r <- lm(R ~ chambT + I(chambT^2), data = data.monthly[is.na(chambT)==F & is.na(R)==F])
+# summary(m.r)
+m.r <- data.monthly[!(is.na(chambT) & is.na(R)),
+                    model.parameter.lm(.SD, 'R'),
+                    by=c('fence', 'plot')]
+m.r
 
-# # model parameters based on environmental conditions to compare with actual parameters
-# data.monthly <- merge(data.monthly,
-#                       m.a,
-#                       by = c('fence', 'plot'),
-#                       all.x = TRUE)
-# data.monthly <- merge(data.monthly,
-#                       m.gpmax,
-#                       by = c('fence', 'plot'),
-#                       all.x = TRUE)
-# data.monthly <- merge(data.monthly,
-#                       m.r,
-#                       by = c('fence', 'plot'),
-#                       all.x = TRUE)
+# model parameters based on environmental conditions to compare with actual parameters
+data.monthly <- merge(data.monthly,
+                      m.a,
+                      by = c('fence', 'plot'),
+                      all.x = TRUE)
+data.monthly <- merge(data.monthly,
+                      m.gpmax,
+                      by = c('fence', 'plot'),
+                      all.x = TRUE)
+data.monthly <- merge(data.monthly,
+                      m.r,
+                      by = c('fence', 'plot'),
+                      all.x = TRUE)
 
-data.monthly[is.na(chambT)==F & is.na(a)==F,
-                 a.filled := coef(m.a)[1] + (coef(m.a)[2] * chambT) + (coef(m.a)[3] * chambT^2)]
-
-data.monthly[is.na(chambT)==F & is.na(GPmax)==F,
-                 gpmax.filled := coef(m.gpmax)[1] + (coef(m.gpmax)[2] * chambT) + (coef(m.gpmax)[3] * chambT^2)]
-
-data.monthly[is.na(chambT)==F & is.na(R)==F,
-                 r.filled := coef(m.r)[1] + (coef(m.r)[2] * chambT) + (coef(m.r)[3] * chambT^2)]
 # data.monthly[is.na(chambT)==F & is.na(a)==F,
-#                  a.filled := a.param.1 + (a.param.2 * chambT) + (a.param.3 * chambT^2)]
+#              a.filled := coef(m.a)[1] + (coef(m.a)[2] * chambT) + (coef(m.a)[3] * chambT^2)]
 # 
 # data.monthly[is.na(chambT)==F & is.na(GPmax)==F,
-#                  gpmax.filled := GPmax.param.1 + (GPmax.param.2 * chambT) + (GPmax.param.3 * chambT^2)]
+#              gpmax.filled := coef(m.gpmax)[1] + (coef(m.gpmax)[2] * chambT) + (coef(m.gpmax)[3] * chambT^2)]
 # 
 # data.monthly[is.na(chambT)==F & is.na(R)==F,
-#                  r.filled := R.param.1 + (R.param.2 * chambT) + (R.param.3 * chambT^2)]
+#              r.filled := coef(m.r)[1] + (coef(m.r)[2] * chambT) + (coef(m.r)[3] * chambT^2)]
+data.monthly[,
+             a.filled := a.param.1 + (a.param.2 * chambT) + (a.param.3 * chambT^2)]
+
+data.monthly[,
+             gpmax.filled := GPmax.param.1 + (GPmax.param.2 * chambT) + (GPmax.param.3 * chambT^2)]
+
+data.monthly[,
+             r.filled := R.param.1 + (R.param.2 * chambT) + (R.param.3 * chambT^2)]
+# missing 1 value in 2016 is okay, because we are only filling 2019 data
+data.monthly[is.na(a.filled), .N]
+data.monthly[is.na(gpmax.filled), .N]
+data.monthly[is.na(r.filled), .N]
+
+# plot parameters modeled with environmental variables with original model parameters
+# a
+ggplot(data.monthly, aes(x=chambT, y = a)) +
+  geom_point(aes(color = "Parameters")) +
+  geom_point(aes(y=a.filled, colour="Modeled Parameters")) +
+  scale_color_manual(values = c("red", "black"))
+
+# GPmax
+ggplot(data.monthly, aes(x=chambT, y = GPmax)) +
+  geom_point(aes(color = "Parameters")) +
+  geom_point(aes(y=gpmax.filled, colour="Modeled Parameters")) +
+  scale_color_manual(values = c("red", "black"))
+
+# R
+ggplot(data.monthly, aes(x=chambT, y = R)) +
+  geom_point(aes(color = "Parameters")) +
+  geom_point(aes(y=r.filled, colour="Modeled Parameters")) +
+  scale_color_manual(values = c("red", "black"))
+
+# Is this step causing the unreasonable NEE values?
+# Adjust modeled parameters with unreasonable values
+# figure out median parameter values at low temperatures where modeled parameters are bad
+a.low <- min(data.monthly[a > 0]$a, na.rm = TRUE)
+gpmax.low <- min(data.monthly[GPmax > 0]$GPmax, na.rm = TRUE)
+r.low <- max(data.monthly[R < 0]$R, na.rm = TRUE)
+
+data.monthly[a.filled < a.low,
+               a.filled := a.low]
+data.monthly[gpmax.filled < gpmax.low,
+               gpmax.filled := gpmax.low]
+data.monthly[r.filled > r.low,
+               r.filled := r.low]
 
 # plot parameters modeled with environmental variables with original model parameters
 # a
@@ -244,199 +306,150 @@ ggplot(data.monthly, aes(x=chambT, y = R)) +
 
 ### Model missing parameters using chamber temp ################################
 # clean up the data
-filled.2019[a > 0.15, a := NA]
-filled.2019[GPmax > 30 | GPmax < -100, GPmax := NA]
-filled.2019[R < -100, R := NA]
+filled[a > 0.15, a := NA]
+filled[GPmax > 30 | GPmax < -100, GPmax := NA]
+filled[R < -100, R := NA]
 
-# gap fill parameters
-filled.2019[is.na(chambT), .N]
-filled.2019.monthly <- filled.2019[, 
-                                   lapply(.SD, mean, na.rm = TRUE), 
-                                   by = .(year, month, fence, plot),
-                                   .SDcols = c('a', 'GPmax', 'R', 
-                                               'chambT')]
-filled.2019.monthly <- filled.2019.monthly[, 
-                                           lapply(.SD, 
-                                                  function(x) replace(x, list = is.nan(x), values = NA))]
+# prep gap filled parameters to join with data
+filled.param <- data.monthly[, 
+                             .(fence, plot, year, month, a, GPmax, R,
+                               chambT.monthly = chambT,
+                               a.param.1, a.param.2, a.param.3, a.r2,
+                               GPmax.param.1, GPmax.param.2, GPmax.param.3, GPmax.r2,
+                               R.param.1, R.param.2, R.param.3, R.r2,
+                               a.filled, gpmax.filled, r.filled)]
 
-# filled.2019.monthly <- merge(filled.2019.monthly,
-#                              m.a,
-#                              by = c('fence', 'plot'),
-#                              all.x = TRUE)
-# filled.2019.monthly <- merge(filled.2019.monthly,
-#                              m.gpmax,
-#                              by = c('fence', 'plot'),
-#                              all.x = TRUE)
-# filled.2019.monthly <- merge(filled.2019.monthly,
-#                              m.r,
-#                              by = c('fence', 'plot'),
-#                              all.x = TRUE)
+# join gap filled parameters with data
+filled <- merge(filled, filled.param,
+                by = c('fence', 'plot', 'year', 'month', 'a', 'GPmax', 'R'),
+                all.x = TRUE)
+filled[year == 2019 & is.na(a.filled), .N]
+filled[year == 2019 & is.na(gpmax.filled), .N]
+filled[year == 2019 & is.na(r.filled), .N]
 
-filled.2019.monthly[!is.na(chambT),
-             a.filled := coef(m.a)[1] + (coef(m.a)[2] * chambT) + (coef(m.a)[3] * chambT^2)]
-filled.2019.monthly[!is.na(chambT),
-             gpmax.filled := coef(m.gpmax)[1] + (coef(m.gpmax)[2] * chambT) + (coef(m.gpmax)[3] * chambT^2)]
-filled.2019.monthly[!is.na(chambT),
-             r.filled := coef(m.r)[1] + (coef(m.r)[2] * chambT) + (coef(m.r)[3] * chambT^2)]
-# filled.2019.monthly[!is.na(chambT),
-#                     a.filled := a.param.1 + (a.param.2 * chambT) + (a.param.3 * chambT^2)]
-# filled.2019.monthly[!is.na(chambT),
-#                     gpmax.filled := GPmax.param.1 + (GPmax.param.2 * chambT) + (GPmax.param.3 * chambT^2)]
-# filled.2019.monthly[!is.na(chambT),
-#                     r.filled := R.param.1 + (R.param.2 * chambT) + (R.param.3 * chambT^2)]
-filled.2019.monthly[is.na(a.filled), .N]
-filled.2019.monthly[is.na(gpmax.filled), .N]
-filled.2019.monthly[is.na(r.filled), .N]
+filled[,
+       ':=' (filled.a = fifelse(is.na(a),
+                               1,
+                               0),
+             filled.gpmax = fifelse(is.na(GPmax),
+                                    1,
+                                    0),
+             filled.r = fifelse(is.na(R),
+                                1,
+                                0))]
+filled[year == 2019, .N, by = 'filled.a']
+filled[year == 2019, .N, by = 'filled.gpmax']
+filled[year == 2019, .N, by = 'filled.r']
 
-# plot the parameters
-# a
-ggplot(filled.2019.monthly, aes(x=chambT, y = a)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=a.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# GPmax
-ggplot(filled.2019.monthly, aes(x=chambT, y = GPmax)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=gpmax.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# R
-ggplot(filled.2019.monthly, aes(x=chambT, y = R)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=r.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# Is this step causing the unreasonable NEE values?
-# Adjust modeled parameters with unreasonable values
-# figure out median parameter values at low temperatures where modeled parameters are bad
-a.low <- min(filled.2019.monthly[a > 0]$a, na.rm = TRUE)
-gpmax.low <- min(filled.2019.monthly[GPmax > 0]$GPmax, na.rm = TRUE)
-r.low <- max(filled.2019.monthly[R < 0]$R, na.rm = TRUE)
-
-filled.2019.monthly[a.filled < a.low,
-                    a.filled := a.low]
-filled.2019.monthly[gpmax.filled < gpmax.low,
-                    gpmax.filled := gpmax.low]
-filled.2019.monthly[r.filled > r.low,
-                    r.filled := r.low]
-
-# plot the parameters
-# a
-ggplot(filled.2019.monthly, aes(x=chambT, y = a)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=a.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# GPmax
-ggplot(filled.2019.monthly, aes(x=chambT, y = GPmax)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=gpmax.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# R
-ggplot(filled.2019.monthly, aes(x=chambT, y = R)) +
-  geom_point(aes(color = "Parameters")) +
-  geom_point(aes(y=r.filled, colour="Modeled Parameters")) +
-  scale_color_manual(values = c("red", "black"))
-
-# Join modeled parameters with entire dataset and mark gap filled parameters
-filled.2019.monthly[, chambT.monthly := chambT]
-filled.2019 <- merge(filled.2019,
-                     filled.2019.monthly[, c('chambT', 'a', 'GPmax', 'R') := NULL],
-                     by = c('fence', 'plot', 'year', 'month'),
-                     all.x = TRUE)
-filled.2019[is.na(a.filled), .N]
-filled.2019[,
-            filled.param := fifelse(is.na(a) | is.na(GPmax) | is.na(R),
-                              1,
-                              0)]
-filled.2019[filled.param == 0, .N]
-filled.2019[filled.param == 1, .N]
+# add gap filled values to parameter columns
+filled[,
+       ':=' (a = fifelse(filled.a == 1,
+                         a.filled,
+                         a),
+             GPmax = fifelse(filled.gpmax == 1,
+                             gpmax.filled,
+                             GPmax),
+             R = fifelse(filled.r == 1,
+                         r.filled,
+                         R))]
+filled[year == 2019 & is.na(a), .N]
+filled[year == 2019 & is.na(GPmax), .N]
+filled[year == 2019 & is.na(R), .N]
 
 # # plot the parameters
 # # a
-# ggplot(filled.2019, aes(x=chambT, y = a)) +
-#   geom_point(aes(color = "Parameters")) +
-#   geom_point(aes(y=a.filled, colour="Modeled Parameters")) +
-#   scale_color_manual(values = c("red", "black")) +
+# ggplot(filled.2019, aes(x=chambT, y = a, color = factor(filled.param))) +
+#   geom_point() +
+#   scale_color_manual(values = c('black', 'red')) +
 #   facet_grid(fence ~ plot)
 # 
 # # GPmax
-# ggplot(filled.2019, aes(x=chambT, y = GPmax)) +
-#   geom_point(aes(color = "Parameters")) +
-#   geom_point(aes(y=gpmax.filled, colour="Modeled Parameters")) +
-#   scale_color_manual(values = c("red", "black")) +
+# ggplot(filled.2019, aes(x=chambT, y = a, color = factor(filled.param))) +
+#   geom_point() +
+#   scale_color_manual(values = c('black', 'red')) +
 #   facet_grid(fence ~ plot)
 # 
 # # R
-# ggplot(filled.2019, aes(x=chambT, y = R)) +
-#   geom_point(aes(color = "Parameters")) +
-#   geom_point(aes(y=r.filled, colour="Modeled Parameters")) +
-#   scale_color_manual(values = c("red", "black")) +
+# ggplot(filled.2019, aes(x=chambT, y = a, color = factor(filled.param))) +
+#   geom_point() +
+#   scale_color_manual(values = c('black', 'red')) +
 #   facet_grid(fence ~ plot)
-
-
-# add gap filled values to parameter columns
-filled.2019[filled.param == 1,
-            ':=' (a = a.filled,
-                  GPmax = gpmax.filled,
-                  R = r.filled)]
-filled.2019[is.na(a), .N]
-filled.2019[is.na(GPmax), .N]
-filled.2019[is.na(R), .N]
 ################################################################################
 
 ### Model NEE Using Gap Filled Parameters ######################################
-filled.2019[, 
-            nee.filled := (a*PAR*GPmax)/((a*PAR) + GPmax) + R]
-filled.2019[is.na(nee.filled), .N]
-filled.2019[nee.filled < -400, .N]
+filled[, 
+            NEE.pred := (a*PAR*GPmax)/((a*PAR) + GPmax) + R]
+filled[year == 2019 & is.na(NEE.pred), .N]
+filled[NEE.pred < -400, .N]
 
 
 # # need to fix ridiculous nee values!
 # 
 # 
-# filled.2019[nee.filled < -400,
+# filled[NEE.pred < -400,
 #             ':=' (a = a.filled,
 #                   GPmax = gpmax.filled,
 #                   R = r.filled)]
-# filled.2019[nee.filled < -400,
-#             ':=' (nee.filled = (a*PAR*GPmax)/((a*PAR) + GPmax) + R,
+# filled[NEE.pred < -400,
+#             ':=' (NEE.pred = (a*PAR*GPmax)/((a*PAR) + GPmax) + R,
 #                   filled.param = 1)]
 
 # plot predicted vs. measured NEE
-ggplot(filled.2019[filled.param == 0], aes(x = flux.umol, y = nee.filled)) +
+ggplot(filled[year == 2019 & !is.na(flux.umol)], 
+       aes(x = flux.umol, y = NEE.pred, color = treatment)) +
   geom_point()
 # these show both measured and modeled for points that have data
-ggplot(filled.2019, aes(x = PAR)) +
+ggplot(filled[year == 2019], aes(x = PAR)) +
   geom_point(aes(y = flux.umol, color = 'Measured')) +
-  geom_point(aes(y = nee.filled, color = 'Modeled')) +
+  geom_point(aes(y = NEE.pred, color = 'Modeled')) +
   scale_color_manual(breaks = c('Measured', 'Modeled'),
                      values = c('black', 'red'))
-ggplot(filled.2019, aes(x = timestamp)) +
+ggplot(filled[year == 2019], aes(x = timestamp)) +
   geom_point(aes(y = flux.umol, color = 'Measured')) +
-  geom_point(aes(y = nee.filled, color = 'Modeled')) +
+  geom_point(aes(y = NEE.pred, color = 'Modeled')) +
   scale_color_manual(breaks = c('Measured', 'Modeled'),
                      values = c('black', 'red'))
 # these show only measured for points that have data to highlight the measurements that will actually be gap filled
-ggplot(filled.2019, aes(x = PAR)) +
+ggplot(filled[year == 2019], aes(x = PAR)) +
   geom_point(aes(y = flux.umol, color = 'Measured')) +
-  geom_point(data = filled.2019[filled.param == 1], 
-             aes(y = nee.filled, color = 'Modeled')) +
+  geom_point(data = filled[year == 2019 & is.na(flux.umol)], 
+             aes(y = NEE.pred, color = 'Modeled')) +
   scale_color_manual(breaks = c('Measured', 'Modeled'),
                      values = c('black', 'red'))
-ggplot(filled.2019, aes(x = PAR)) +
+ggplot(filled[year >= 2018], aes(x = PAR)) +
   geom_point(aes(y = flux.umol, color = 'Measured')) +
-  geom_point(data = filled.2019[filled.param == 1], 
-             aes(y = nee.filled, color = 'Modeled')) +
+  geom_point(data = filled[year == 2019 & is.na(flux.umol)], 
+             aes(y = NEE.pred, color = 'Modeled')) +
   scale_color_manual(breaks = c('Measured', 'Modeled'),
                      values = c('black', 'red')) +
   facet_grid(fence ~ plot)
-ggplot(filled.2019, aes(x = timestamp)) +
+ggplot(filled[year >= 2018], aes(x = PAR)) +
+  geom_point(aes(y = flux.umol, color = year)) +
+  geom_point(data = filled[year == 2019 & is.na(flux.umol)], 
+             aes(y = NEE.pred), color = 'red') +
+  facet_grid(fence ~ plot)
+ggplot(filled[year == 2019], aes(x = timestamp)) +
   geom_point(aes(y = flux.umol, color = 'Measured')) +
-  geom_point(data = filled.2019[filled.param == 1], 
-             aes(y = nee.filled, color = 'Modeled')) +
+  geom_point(data = filled[year == 2019 & is.na(flux.umol)], 
+             aes(y = NEE.pred, color = 'Modeled')) +
   scale_color_manual(breaks = c('Measured', 'Modeled'),
                      values = c('black', 'red'))
+################################################################################
+
+### Create 2019 Files ##########################################################
+flux.2019.original <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Autochamber/2019/Data_processing/Filled_Fluxes_2019_DUALdowel.Rdata')
+plots.2019 <- unique(data[year == 2019, .(fence, plot)])[, plot.id := paste(fence, plot, sep = '_')]$plot.id
+filled.2019 <- filled[year == 2019 & !(plot.id %in% plots.2019),
+                      .(date, year, month, DOY, half.hour, fence, plot, treatment, 
+                        NEE.pred, chambT, Tair, PAR, wind_sp, wind_di, gust_sp, patm,
+                        a, GPmax, R, chambT.monthly, 
+                        a.param.1, a.param.2, a.param.3, a.r2,
+                        GPmax.param.1, GPmax.param.2, GPmax.param.3, GPmax.r2,
+                        R.param.1, R.param.2, R.param.3, R.r2,
+                        filled.a, filled.gpmax, filled.r)]
+filled.2019.daily <- filled.2019[,
+                                 .(flux.umol = sum(flux.umol),
+                                   ),
+                                 by = c('date', 'year', 'month', 'DOY', 
+                                        'fence', 'plot', 'treatment')]
 ################################################################################
