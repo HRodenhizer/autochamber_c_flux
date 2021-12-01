@@ -86,6 +86,10 @@ flux.seasonal <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/
 nee.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_gbm.rds')
 reco.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_gbm.rds')
 gpp.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
+flux.monthly <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv')
+nee.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
+reco.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
+gpp.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
 ################################################################################
 
 ### Create Frame for 2019 Plots Without Data ###################################
@@ -486,7 +490,74 @@ filled.2019.daily <- filled.2019[,
                                         'fence', 'plot', 'treatment')]
 ################################################################################
 
-### Try modeling Annual Sum Only (with GBM) ####################################
+### Try modeling (with GBM) ####################################################
+### try monthly
+# model data
+flux.monthly.filled.2019 <- flux.monthly
+flux.monthly.filled.2019[flux.year == 2019 & is.na(nee.sum), .N]
+flux.monthly.filled.2019[flux.year == 2019 & is.na(reco.sum), .N]
+flux.monthly.filled.2019[flux.year == 2019 & is.na(gpp.sum), .N]
+
+flux.monthly.filled.2019[,
+                          filled.gbm := fifelse(flux.year == 2019 & month %in% seq(5,9) & is.na(nee.sum),
+                                                1,
+                                                0)]
+
+# NEE
+flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(nee.sum),
+                                                       ':=' (nee.sum = predict(nee.monthly.gbm,
+                                                                               newdata = .SD,
+                                                                               n.trees = nee.monthly.gbm$n.trees),
+                                                             filled.gbm = 1)]
+# Reco
+flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(reco.sum),
+                                                       ':=' (reco.sum = predict(reco.monthly.gbm,
+                                                                                newdata = .SD,
+                                                                                n.trees = reco.monthly.gbm$n.trees),
+                                                             filled.gbm = 1)]
+# GPP
+flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(gpp.sum),
+                                                       ':=' (gpp.sum = predict(gpp.monthly.gbm,
+                                                                               newdata = .SD,
+                                                                               n.trees = gpp.monthly.gbm$n.trees),
+                                                             filled.gbm = 1)]
+
+# Plot output
+ggplot(flux.monthly.filled.2019[month %in% seq(5,9)],
+       aes(x = flux.year, y = nee.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_grid(month~treatment) +
+  theme_bw()
+ggplot(flux.monthly.filled.2019[month %in% seq(5,9)],
+       aes(x = flux.year, y = reco.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_grid(month~treatment) +
+  theme_bw()
+ggplot(flux.monthly.filled.2019[month %in% seq(5,9)],
+       aes(x = flux.year, y = gpp.sum, color = factor(filled.gbm))) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
+                     values = c('black', 'red')) +
+  facet_grid(month~treatment) +
+  theme_bw()
+
+# # Save output
+# write.csv(flux.monthly.filled.2019,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
+#           row.names = FALSE)
+
+flux.seasonal.filled.2019.from.monthly <- flux.monthly.filled.2019[
+  flux.year == 2019 & filled.gbm == 1,
+  .(nee.sum.monthly = sum(nee.sum, na.rm = TRUE),
+    gpp.sum.monthly = sum(gpp.sum, na.rm = TRUE),
+    reco.sum.monthly = sum(reco.sum, na.rm = TRUE)),
+  by = c('fence', 'plot', 'flux.year')]
+
+### seasonal
 # rename the columns that need it
 flux.seasonal[, ':=' (tp.annual = tp,
                       alt.annual = alt)]
@@ -520,11 +591,25 @@ flux.seasonal.filled.2019 <- flux.seasonal.filled.2019[flux.year == 2019 & is.na
                                                                                newdata = .SD,
                                                                                n.trees = gpp.seasonal.gbm$n.trees),
                                                              filled.gbm = 1)]
+# Add in sums from monthly models
+flux.seasonal.filled.2019 <- merge(flux.seasonal.filled.2019,
+                                   flux.seasonal.filled.2019.from.monthly,
+                                   by = c('flux.year', 'fence', 'plot'))
+
+# plot to compare models
+ggplot(flux.seasonal.filled.2019[filled.gbm == 1],
+       aes(x = nee.sum, y = nee.sum.monthly)) +
+  geom_point()
 
 # Plot output
 ggplot(flux.seasonal.filled.2019,
        aes(x = flux.year, y = nee.sum, color = factor(filled.gbm))) +
   geom_point(alpha = 0.5) +
+  # geom_point(data = flux.seasonal.filled.2019.from.monthly,
+  #            aes(x = flux.year, y = nee.sum),
+  #            inherit.aes = FALSE,
+  #            color = 'blue',
+  #            alpha = 0.2) +
   scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
                      values = c('black', 'red')) +
   facet_wrap(~treatment) +
