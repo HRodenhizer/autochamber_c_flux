@@ -3,6 +3,9 @@
 ###                             code by HGR 7/2020                           ###
 ################################################################################
 
+# To Do
+# Rearrange order of subsidence/moisture plots to be from shallowest to deepest
+
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
