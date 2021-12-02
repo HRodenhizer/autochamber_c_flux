@@ -1527,12 +1527,12 @@ seasonal.influence.plot <- ggplot(variable.influence.seasonal,
 seasonal.influence.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_seasonal.jpg',
 #        seasonal.influence.plot,
-#        height = 6,
-#        width = 3.5)
+#        height = 7,
+#        width = 5.5)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_seasonal.pdf',
 #        seasonal.influence.plot,
-#        height = 6,
-#        width = 3.5)
+#        height = 7,
+#        width = 5.5)
 
 # monthly
 monthly.influence.plot <- ggplot(variable.influence.monthly) +
@@ -1555,11 +1555,11 @@ monthly.influence.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_monthly.jpg',
 #        monthly.influence.plot,
 #        height = 7,
-#        width = 4)
+#        width = 5.5)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot_monthly.pdf',
 #        monthly.influence.plot,
 #        height = 7,
-#        width = 4)
+#        width = 5.5)
 
 
 ### Join into one plot
