@@ -188,165 +188,93 @@ graph_ci <- function(ci,figtitle,model) {ggplot(ci,aes(x=names,y=coefs))+
 # need to finalize which variables to include
 env.annual.plot <- flux.annual %>%
   filter(flux.year != 2009) %>%
-  select(-c(season, matches('rh'), matches('sd'),
+  select(-c(season, matches('rh'), 
             max.tair.spread, min.tair.spread, matches('ndvi'),
-            biomass.annual, gdd, fdd, winter.fdd, precip.sum)) %>%
+            gdd, fdd, winter.fdd, precip.sum)) %>%
   mutate(subsidence = -1*subsidence.annual,
          wtd.mean = -1*wtd.mean) %>%
   na.omit()
 env.annual <- env.annual.plot %>%
   select(-c(flux.year, block, fence, plot, plot.id, treatment, matches('sum')))
 env.annual.subset <- env.annual %>%
-  select(tair.max = max.tair.max, tair.mean, tair.spread.mean = mean.tair.spread, 
-         t5.max = max.t5.max, t5.mean, 
-         t10.max = max.t10.max, t10.mean, 
-         t20.max = max.t20.max, t20.mean, 
-         t40.max = max.t40.max, t40.mean, 
-         vwc.max = max.vwc.max, vwc.mean, vwc.min = min.vwc.min,
-         gwc.max = max.gwc.max, gwc.mean, gwc.min = min.gwc.min, 
+  select(t5.mean, t5.sd,
+         t10.mean, t10.sd,
+         t20.mean, t20.sd,
+         t40.mean, t40.sd,
+         vwc.mean, vwc.sd,
+         gwc.mean, gwc.sd, 
+         wtd.mean, wtd.sd,
          subsidence, # adding or removing subsidence doesn't change much in pca
-         wtd.mean, alt = alt, 
-         tp = tp, w.snow.depth = winter.snow.depth, 
-         w.t5.min = winter.min.t5.min, w.t10.min = winter.min.t10.min, 
-         w.t20.min = winter.min.t20.min, w.t40.min = winter.min.t40.min)
-# pca.annual <- prcomp(as.matrix(env.annual.subset))
-# saveRDS(pca.annual,
-#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca.rds')
-pca.annual <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca.rds')
+         alt, tp, 
+         biomass = biomass.annual,
+         w.snow.depth = winter.snow.depth, 
+         w.t5.min = winter.min.t5.min, 
+         w.t10.min = winter.min.t10.min, 
+         w.t20.min = winter.min.t20.min, 
+         w.t40.min = winter.min.t40.min)
+env.annual.subset.norm <- env.annual.subset %>%
+  mutate(across(all_of(colnames(.)), ~(.x - mean(.x))/mean(.x)))
+# pca.annual.norm <- prcomp(as.matrix(env.annual.subset.norm))
+# saveRDS(pca.annual.norm,
+#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
+pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
 
 # Environmental PCA colored by subsidence
-pca.plot <- autoplot(pca.annual, data = env.annual.plot, colour = 'subsidence.annual',
-         loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
+pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, colour = 'subsidence.annual',
+                     loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
   scale_color_viridis(name = 'Subsidence (cm)') +
   coord_fixed() +
   theme_bw() +
-  theme()
-pca.plot
+  coord_cartesian()
+pca.plot.norm
 # zoom in on the center mass of red
-pca.plot.zoom <- autoplot(pca.annual, data = env.annual.plot, colour = 'subsidence.annual',
-         loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
+pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, colour = 'subsidence.annual',
+                          loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
   scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_y_continuous(limits = c(-0.008, 0.008)) +
-  scale_x_continuous(limits = c(-0.0075, 0.0075)) +
+  scale_y_continuous(limits = c(-0.04, 0.04)) +
+  scale_x_continuous(limits = c(-0.025, 0.025)) +
   coord_fixed() +
   theme_bw()
-pca.plot.zoom
+pca.plot.norm.zoom
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environmental_pca.jpg',
-#        pca.plot,
+#        pca.plot.norm,
 #        height = 6,
 #        width = 6)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environmental_pca.pdf',
-#        pca.plot,
+#        pca.plot.norm,
 #        height = 6,
 #        width = 6)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environmental_pca_zoom.jpg',
-#        pca.plot.zoom,
+#        pca.plot.norm.zoom,
 #        height = 6,
 #        width = 6)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environmental_pca_zoom.pdf',
-#        pca.plot.zoom,
+#        pca.plot.norm.zoom,
 #        height = 6,
 #        width = 6)
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'plot.id',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'plot.id',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis(discrete = TRUE)
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'treatment',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'treatment',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_manual(breaks = c('Control', 'Air Warming', 'Soil Warming', 'Air + Soil Warming'),
                      values = c("#0099cc", '#009900', "#990000", '#330000'))
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'flux.year',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'flux.year',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis(discrete = TRUE)
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'nee.sum',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'nee.sum',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis()
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'gpp.sum',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'gpp.sum',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis()
 
-autoplot(pca.annual, data = env.annual.plot, colour = 'reco.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-### The following are just exploratory
-### PCA without permafrost thaw related factors
-# pca.annual.env <- prcomp(as.matrix(select(env.annual.subset, -c(subsidence, alt, tp))))
-# saveRDS(pca.annual.env,
-#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_no_thaw.rds')
-pca.annual.env <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_no_thaw.rds')
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'plot.id',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis(discrete = TRUE)
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'treatment',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_manual(breaks = c('Control', 'Air Warming', 'Soil Warming', 'Air + Soil Warming'),
-                     values = c("#0099cc", '#009900', "#990000", '#330000'))
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'flux.year',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis(discrete = TRUE)
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'nee.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'gpp.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-autoplot(pca.annual.env, data = env.annual.plot, colour = 'reco.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-### PCA without permafrost thaw related factors (control only to get interannual variation)
-env.annual.control <- env.annual.plot %>%
-  filter(treatment == 'Control') %>%
-  select(-c(flux.year, block, fence, plot, plot.id, treatment, matches('sum')))
-env.annual.subset.control <- env.annual.control %>%
-  select(tair.max = max.tair.max, tair.mean, tair.spread.mean = mean.tair.spread, 
-         t5.max = max.t5.max, t5.mean, 
-         t10.max = max.t10.max, t10.mean, 
-         t20.max = max.t20.max, t20.mean, 
-         t40.max = max.t40.max, t40.mean, 
-         vwc.max = max.vwc.max, vwc.mean, vwc.min = min.vwc.min,
-         gwc.max = max.gwc.max, gwc.mean, gwc.min = min.gwc.min, 
-         wtd.mean, w.snow.depth = winter.snow.depth, 
-         w.t5.min = winter.min.t5.min, w.t10.min = winter.min.t10.min, 
-         w.t20.min = winter.min.t20.min, w.t40.min = winter.min.t40.min)
-# pca.annual.control <- prcomp(as.matrix(env.annual.subset.control))
-# saveRDS(pca.annual.control,
-#         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_control.rds')
-pca.annual.control <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_control.rds')
-
-autoplot(pca.annual.control, data = env.annual.plot %>%
-           filter(treatment == 'Control'), colour = 'plot.id',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis(discrete = TRUE)
-
-autoplot(pca.annual.control, data = env.annual.plot %>%
-           filter(treatment == 'Control'), colour = 'flux.year',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis(discrete = TRUE)
-
-autoplot(pca.annual.control, data = env.annual.plot %>%
-           filter(treatment == 'Control'), colour = 'nee.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-autoplot(pca.annual.control, data = env.annual.plot %>%
-           filter(treatment == 'Control'), colour = 'gpp.sum',
-         loadings = TRUE, loadings.label = TRUE) +
-  scale_color_viridis()
-
-autoplot(pca.annual.control, data = env.annual.plot %>%
-           filter(treatment == 'Control'), colour = 'reco.sum',
+autoplot(pca.annual.norm, data = env.annual.plot, colour = 'reco.sum',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis()
 ################################################################################
@@ -1391,12 +1319,12 @@ vwc.plot
 vwc.sd.plot
 gwc.plot
 gwc.sd.plot
-sub.moisture.plot <- ggarrange(wtd.plot,
-                               wtd.sd.plot,
+sub.moisture.plot <- ggarrange(gwc.plot,
+                               gwc.sd.plot,
                                vwc.plot,
                                vwc.sd.plot,
-                               gwc.plot,
-                               gwc.sd.plot,
+                               wtd.plot,
+                               wtd.sd.plot,
                                ncol = 2,
                                nrow = 3,
                                common.legend = TRUE,
@@ -2093,7 +2021,7 @@ transect.extract.diff <- transect.extract %>%
               values_from = c(wtd),
               names_sep = '.') %>%
   mutate(wtd.diff = Dry-Wet,
-         condition = 'Difference') %>%
+         condition = 'Wet - Dry') %>%
   select(fence, distance, condition, wtd.diff)
 
 transect.extract <- transect.extract %>%
