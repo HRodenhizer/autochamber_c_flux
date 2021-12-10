@@ -1854,6 +1854,7 @@ ggplot(flux.daily[flux.year == 2020 & month == 8],
 # week ending 2020-08-23 for dry, but that's really soon after a wet period
 # wtd on 2020-08-24 and td on ...?
 ### OR ###
+### I used these 2018 dates!
 # week ending on 2018-07-31 for dry
 # wtd on 2018-07-30, td on 2020-07-27
 # week ending on 2018-08-08 for wet
