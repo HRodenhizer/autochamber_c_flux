@@ -93,7 +93,8 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
     geom_point(aes_string(y = response, color = color.var, shape = shape.var)) +
     scale_color_viridis(name = color.name,
                         limits = color.limits,
-                        breaks = color.breaks) +
+                        breaks = color.breaks,
+                        labels = color.labels) +
     scale_shape_manual(values = shape.values,
                        guide = guide_legend(order = 2)) +
     new_scale('color') +
@@ -898,7 +899,7 @@ nee.monthly.pd.tair.mean <- nee.monthly.gbm %>%
                grid.resolution = 100)
 nee.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.tair.mean,
                                predictor = 'tair.mean', response = 'nee.sum',
-                               color.var = 'flux.year', shape.var = 'treatment')# +
+                               color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = tair.mean, y = nee.sum),
   #            inherit.aes = FALSE,
@@ -916,7 +917,7 @@ nee.monthly.pd.biomass <- nee.monthly.gbm %>%
                grid.resolution = 100)
 nee.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.biomass,
                                 predictor = 'biomass.annual', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = biomass.annual, y = nee.sum),
   #            inherit.aes = FALSE,
@@ -934,7 +935,7 @@ nee.monthly.pd.vwc.mean <- nee.monthly.gbm %>%
                grid.resolution = 100)
 nee.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.vwc.mean,
                                 predictor = 'vwc.mean', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = vwc.mean, y = nee.sum),
   #            inherit.aes = FALSE,
@@ -952,7 +953,7 @@ nee.monthly.pd.gwc.sd <- nee.monthly.gbm %>%
                grid.resolution = 100)
 nee.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.gwc.sd,
                                 predictor = 'gwc.sd', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = gwc.sd, y = nee.sum),
   #            inherit.aes = FALSE,
@@ -1093,7 +1094,7 @@ reco.monthly.pd.t10.mean <- reco.monthly.gbm %>%
                grid.resolution = 100)
 reco.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.t10.mean,
                                predictor = 't10.mean', response = 'reco.sum',
-                               color.var = 'flux.year', shape.var = 'treatment')# +
+                               color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = t10.mean, y = reco.sum),
   #            inherit.aes = FALSE,
@@ -1111,7 +1112,7 @@ reco.monthly.pd.biomass <- reco.monthly.gbm %>%
                grid.resolution = 100)
 reco.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.biomass,
                                predictor = 'biomass.annual', response = 'reco.sum',
-                               color.var = 'flux.year', shape.var = 'treatment')# +
+                               color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = biomass.annual, y = reco.sum),
   #            inherit.aes = FALSE,
@@ -1124,30 +1125,12 @@ reco.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.biomas
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.2
 
-reco.monthly.pd.gwc.sd <- reco.monthly.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = reco.monthly.gbm$n.trees,
-               grid.resolution = 100)
-reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.gwc.sd,
-                               predictor = 'gwc.sd', response = 'reco.sum',
-                               color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = gwc.sd, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
-reco.monthly.plot.3
-
 reco.monthly.pd.subsidence <- reco.monthly.gbm %>%
   pdp::partial(pred.var = "subsidence.annual", n.trees = reco.monthly.gbm$n.trees,
                grid.resolution = 100)
-reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
-                                 predictor = 'subsidence.annual', response = 'reco.sum',
-                                 color.var = 'flux.year', shape.var = 'treatment') +
+reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
+                                predictor = 'subsidence.annual', response = 'reco.sum',
+                                color.var = 'month', shape.var = 'treatment') +
   # geom_point(data = example.plots.monthly,
   #            aes(x = subsidence.annual, y = reco.sum),
   #            inherit.aes = FALSE,
@@ -1161,6 +1144,24 @@ reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsid
 # geom_text(data = example.plots.monthly,
 #           aes(x = subsidence.annual, y = reco.sum, label = ID),
 #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+reco.monthly.plot.3
+
+reco.monthly.pd.gwc.sd <- reco.monthly.gbm %>%
+  pdp::partial(pred.var = "gwc.sd", n.trees = reco.monthly.gbm$n.trees,
+               grid.resolution = 100)
+reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.gwc.sd,
+                               predictor = 'gwc.sd', response = 'reco.sum',
+                               color.var = 'month', shape.var = 'treatment')# +
+  # geom_point(data = example.plots.monthly,
+  #            aes(x = gwc.sd, y = reco.sum),
+  #            inherit.aes = FALSE,
+  #            shape = 1, size = 3) +
+  # geom_text(data = example.plots.monthly,
+  #           aes(x = gwc.sd, y = reco.sum, label = plot.id),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+  # geom_text(data = example.plots.monthly,
+  #           aes(x = gwc.sd, y = reco.sum, label = ID),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.4
 
 reco.monthly.pd.plot <- ggarrange(reco.monthly.plot.1,
@@ -1279,7 +1280,7 @@ gpp.monthly.pd.t10.mean <- gpp.monthly.gbm %>%
                grid.resolution = 100)
 gpp.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.t10.mean,
                                 predictor = 't10.mean', response = 'gpp.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = t10.mean, y = gpp.sum),
   #            inherit.aes = FALSE,
@@ -1297,7 +1298,7 @@ gpp.monthly.pd.biomass <- gpp.monthly.gbm %>%
                grid.resolution = 100)
 gpp.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.biomass,
                                 predictor = 'biomass.annual', response = 'gpp.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = biomass.annual, y = gpp.sum),
   #            inherit.aes = FALSE,
@@ -1315,7 +1316,7 @@ gpp.monthly.pd.tair.mean <- gpp.monthly.gbm %>%
                grid.resolution = 100)
 gpp.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.tair.mean,
                                 predictor = 'tair.mean', response = 'gpp.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
+                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = tair.mean, y = gpp.sum),
   #            inherit.aes = FALSE,
@@ -1333,7 +1334,7 @@ gpp.monthly.pd.vwc.sd <- gpp.monthly.gbm %>%
                grid.resolution = 100)
 gpp.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.vwc.sd,
                                predictor = 'vwc.sd', response = 'gpp.sum',
-                               color.var = 'flux.year', shape.var = 'treatment')# +
+                               color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = vwc.sd, y = gpp.sum),
   #            inherit.aes = FALSE,

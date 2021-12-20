@@ -308,11 +308,6 @@ weather.annual <- weather.annual %>%
          tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
          tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
          precip.z = (precip - mean(precip))/sd(precip))
-mean.temp <- mean(weather.annual$tair.mean)
-mean.temp.gs <- mean(weather.seasonal.wide$tair.mean.gs)
-mean.temp.ngs <- mean(weather.seasonal.wide$tair.mean.ngs)
-mean.precip <- mean(weather.annual$precip)
-
 annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip, color = tair.min)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
              size = 0.1) +
@@ -352,6 +347,14 @@ annual.temp.precip
 #        annual.temp.precip,
 #        height = 4,
 #        width = 5)
+
+### Test if there's a detectable trend in air temp
+lm.tair <- lm(tair.mean ~ I(flux.year-2009), data = weather.annual)
+summary(lm.tair)
+ggplot(weather.annual, aes(x = flux.year, y = tair.mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm',
+              color = 'black')
 
 ### Coldest and Warmest 3 years
 # mean air temp
@@ -394,6 +397,11 @@ weather.seasonal.wide <- weather.seasonal %>%
   mutate(across(tair.mean.ngs:snow.free.date, 
                 ~(.x - mean(.x))/sd(.x),
                 .names = '{col}.z'))
+
+mean.temp <- mean(weather.annual$tair.mean)
+mean.temp.gs <- mean(weather.seasonal.wide$tair.mean.gs)
+mean.temp.ngs <- mean(weather.seasonal.wide$tair.mean.ngs)
+mean.precip <- mean(weather.annual$precip)
 
 weather.seasonal.control.z <- weather.seasonal.wide %>%
   select(flux.year, contains('z')) %>%
@@ -901,7 +909,7 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
 wtd.sd.plot
@@ -916,7 +924,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank()) +
   facet_wrap(~plot.id, ncol = 8)
@@ -929,7 +937,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   scale_color_viridis(direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Precipitation (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank()) +
   facet_wrap(~plot.id, ncol = 8)
@@ -970,7 +978,7 @@ ggplot(subset(test, !is.na(wtd.sd)),
   scale_color_viridis(direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
 
@@ -984,7 +992,7 @@ ggplot(subset(test, !is.na(wtd.sd)),
   scale_color_viridis(direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Microtopography (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(legend.title = element_blank())
 
@@ -1186,7 +1194,7 @@ ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   facet_wrap(~plot.id, ncol = 8) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1207,7 +1215,7 @@ vwc.sd.plot <- ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'VWC SD (%)') +
+  scale_y_continuous(name = 'SD VWC (%)') +
   theme_bw() +
   theme(legend.title = element_blank())
 vwc.sd.plot
@@ -1307,7 +1315,7 @@ gwc.sd.plot <- ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'GWC SD (%)') +
+  scale_y_continuous(name = 'SD GWC (%)') +
   theme_bw() +
   theme(legend.title = element_blank())
 gwc.sd.plot
