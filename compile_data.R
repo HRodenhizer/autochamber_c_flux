@@ -4,7 +4,7 @@
 #############################################################################################################################
 
 ### To Do
-# Add 2020 data
+# Add 2021 data
 # Use tair and t.chamb.filled in summaries
 
 ### Load Libraries ##########################################################################################################
@@ -22,7 +22,7 @@ library(tidyverse)
 
 ### co2 Data ##############################################################################
 ### Load Fluxes
-co2 <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/fluxes/Flux_data_halfhourly_modelled_2009_2020.csv")
+co2 <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/fluxes/Flux_data_halfhourly_modelled_2009_2021.csv")
 co2 <- co2[!is.na(doy)]
 
 # make sure that hour is rounded down from flux time and goes from 0-23.5
@@ -45,6 +45,7 @@ load.r2 <- function(filenames) {
   data.dt <- data.table()
   
   for(i in 1:length(filenames)) {
+    # print(i)
     
     if (str_detect(filenames[i], 'csv$')) {
       
@@ -101,7 +102,7 @@ load.r2 <- function(filenames) {
   
 }
 
-filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/ITEX/warmxresp/2020_09_Dataset request/flux_data/co2/flux_slopes',
+filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_slopes',
                         pattern = 'csv$|Rdata',
                         full.names = TRUE)
 r2 <- load.r2(filenames)
@@ -202,6 +203,40 @@ co2 <- co2[order(date, plot.id, treatment, hourmin)]
 ###########################################################################################
 
 ### Weather Data ##########################################################################
+# ### start with 2 min avgs from early years to get half hourly
+# weather.old <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/EML Met Data 2007-2009 2min avg.txt',
+#                      sep = '\t',
+#                      na.strings = c('N/A'),
+#                      drop = c('#', 'PAR2, uE', 'Pressure, mbar',
+#                               'Wind Speed, m/s', 'Gust Speed, m/s', 'Wind Direction, <f8>'),
+#                      col.names = c('month', 'day', 'year', 'time',
+#                                    'precip', 'PAR', 'Tair', 'RH'))
+# weather.old[, ':=' (month = as.numeric(month),
+#                     day = as.numeric(day),
+#                     Tair = as.numeric(Tair))]
+# weather.2008.2009 <- weather.old[year == 2008 & month >= 10 | year == 2009 & month < 10,]
+# weather.2008.2009[, ':=' (hour = as.numeric(str_split(time, pattern = ':', simplify = TRUE)[,1]),
+#                           min = as.numeric(str_split(time, pattern = ':', simplify = TRUE)[, 2]))]
+# weather.2008.2009[, half.hour := fifelse(min < 30,
+#                                          0,
+#                                          0.5)]
+# weather.2008.2009[, hourmin := hour + half.hour]
+# weather.2008.2009[, date := paste(year, 
+#                                   str_pad(month, width = 2, side = 'left', pad = '0'),
+#                                   str_pad(day, width = 2, side = 'left', pad = '0'),
+#                                   sep = '-')]
+# weather.2008.2009 <- weather.2008.2009[, .(precip = fifelse(any(!is.na(precip)),
+#                                                             sum(precip, na.rm = TRUE),
+#                                                             -999),
+#                                            PAR = mean(PAR, na.rm = TRUE),
+#                                            Tair = mean(Tair, na.rm = TRUE),
+#                                            RH = mean(RH, na.rm = TRUE)),
+#                                        by = .(date, year, month, day, hourmin)]
+# weather.2008.2009[precip == -999, precip := NA]
+# write.csv(weather.2008.2009,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/HOBO_2008-2009_half_hourly.csv',
+#           row.names = FALSE)
+
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/',
                         pattern = 'csv$',
                         full.names = TRUE)
