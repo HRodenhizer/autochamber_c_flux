@@ -4,7 +4,7 @@
 #############################################################################################################################
 
 ### To Do
-# Add 2021 data
+# Add 2021 data - only snow depth data and half-hourly hobo data 2009-2011 remaining
 # Use tair and t.chamb.filled in summaries
 
 ### Load Libraries ##########################################################################################################
@@ -204,7 +204,7 @@ co2 <- co2[order(date, plot.id, treatment, hourmin)]
 
 ### Weather Data ##########################################################################
 # ### start with 2 min avgs from early years to get half hourly
-# weather.old <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/EML Met Data 2007-2009 2min avg.txt',
+# weather.old <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/2min/EML Met Data 2007-2009 2min avg.txt',
 #                      sep = '\t',
 #                      na.strings = c('N/A'),
 #                      drop = c('#', 'PAR2, uE', 'Pressure, mbar',
@@ -221,11 +221,12 @@ co2 <- co2[order(date, plot.id, treatment, hourmin)]
 #                                          0,
 #                                          0.5)]
 # weather.2008.2009[, hourmin := hour + half.hour]
-# weather.2008.2009[, date := paste(year, 
+# weather.2008.2009[, date := paste(year,
 #                                   str_pad(month, width = 2, side = 'left', pad = '0'),
 #                                   str_pad(day, width = 2, side = 'left', pad = '0'),
 #                                   sep = '-')]
-# weather.2008.2009 <- weather.2008.2009[, .(precip = fifelse(any(!is.na(precip)),
+# weather.2008.2009 <- weather.2008.2009[, .(DOY = yday(date),
+#                                            precip = fifelse(any(!is.na(precip)),
 #                                                             sum(precip, na.rm = TRUE),
 #                                                             -999),
 #                                            PAR = mean(PAR, na.rm = TRUE),
@@ -234,18 +235,22 @@ co2 <- co2[order(date, plot.id, treatment, hourmin)]
 #                                        by = .(date, year, month, day, hourmin)]
 # weather.2008.2009[precip == -999, precip := NA]
 # write.csv(weather.2008.2009,
-#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/HOBO_2008-2009_half_hourly.csv',
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/HOBO_2008-10-01_to_2009-09-30_half_hourly.csv',
 #           row.names = FALSE)
 
-filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/',
-                        pattern = 'csv$',
+filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather',
+                        pattern = '[csv$ | txt$]',
                         full.names = TRUE)
 weather <- map_dfr(filenames,
-                   ~ read.csv(.x,
+                   ~ fread(.x,
                               header = TRUE) %>%
-                     select(year = matches('[Y|y]ear'), DOY,
-                            hourmin = matches('hour'), Tair, par = PAR,
-                            precip = matches('[P|p]recip'), rh = RH))
+                     select(year = matches('year', ignore.case = TRUE), 
+                            DOY = matches('doy', ignore.case = TRUE),
+                            hourmin = matches('hour'), 
+                            Tair = matches('Tair', ignore.case = TRUE), 
+                            par = PAR,
+                            precip = matches('precip', ignore.case = TRUE), 
+                            rh = RH))
 
 weather <- data.table(weather)
 
@@ -278,6 +283,9 @@ weather.f <- weather.f[,
                      precip = mean(precip, na.rm = TRUE),
                      rh = mean(rh, na.rm = TRUE)),
                    by = .(date, hour)]
+
+ggplot(weather.f, aes(date, Tair)) +
+  geom_line()
 ###########################################################################################
 
 ### Soil Sensor Data ######################################################################
@@ -336,11 +344,15 @@ soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
                                treatment, fence, plot, plot.id, t5 = T_five,
                                t10 = T_ten, t20 = T_twenty, t40 = T_forty,
                                vwc = VWC, gwc = GWC)]
+
+# ggplot(soil.sensor[year == 2021], aes(ts, t10)) +
+#   geom_line() +
+#   facet_grid(fence ~ plot)
 ###########################################################################################
 
 ### WTD Data ##############################################################################
 ### Load WTD
-wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/wtd/WTD_2020_compiled.csv")
+wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/wtd/WTD_2021_compiled.csv")
 
 ### Format WTD
 # Remove rows without water table depth
@@ -356,7 +368,7 @@ wtd[, day := mday(date)]
 wtd[, WTD_Date := ymd(paste(year, month, day, sep = '/'))]
 
 # Assign plots to wells
-well.assignment <- expand.grid(year = seq(2009, 2020),
+well.assignment <- expand.grid(year = seq(2009, 2021),
                                fence = seq(1, 6),
                                plot = seq(1, 8))
 well.assignment <- data.table(well.assignment)
@@ -432,7 +444,7 @@ wtd.env <- wtd.env[, .(wtd.mean = round(mean(WTD, na.rm = TRUE), 2)),
 ###########################################################################################
 
 ### Load Thaw Depth Data ##################################################################
-td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv")
+td <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/td/Thaw_depth_2009-2021.csv")
 td[, V1 := NULL]
 
 # Remove rows without plot data or thaw depth data
@@ -488,27 +500,36 @@ sub <- sub[, .(year, fence, plot, treatment, subsidence)]
 ###########################################################################################
 
 ### Load Vegetation Data ##################################################################
+# format 2021 data
+biomass.2021 <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/biomass/EML_2021_Biomass_Corrected.csv',
+                         stringsAsFactors = FALSE) %>%
+  filter(!is.na(as.numeric(plot))) %>%
+  mutate(WW = NA,
+         SW = NA,
+         block = case_when(fence <= 2 ~ 'A',
+                           fence <= 4 ~ 'B',
+                           fence <= 6 ~ 'C')) %>%
+  select(year, block, fence, plot, WW, SW, species, avghits, biomass = Biomass)
+
+# read in all data
 biomass <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/biomass/CiPEHR/EML_AK_CiPEHR_BiomassBySpecies_2009-2013__20150320_VGS.csv",
                     stringsAsFactors = FALSE) %>%
   rbind.data.frame(read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/biomass/CiPEHR/CiPEHR_biomass_2017.csv",
                             stringsAsFactors = FALSE)) %>%
+  rbind.data.frame(biomass.2021) %>%
+  mutate(plot = as.numeric(plot)) %>%
   group_by(year, fence, plot) %>%
   summarise(biomass = sum(biomass, na.rm = TRUE)) # sum of all species
 biomass <- as.data.table(biomass)
 biomass.frame <- expand_grid(fence = seq(1, 6),
                              plot = seq(1, 8),
-                             year = seq(2009, 2020)) %>%
+                             year = seq(2009, 2021)) %>%
   as.data.table()
 biomass <- merge(biomass, biomass.frame, all = TRUE)
 # biomass.model.subset <- biomass[year >= 2013 & year <= 2017]
 # biomass.models <- lapply()
 biomass[,
-        biomass := fifelse(is.na(biomass) & year >= 2018,
-                           .SD[year == 2017]$biomass,
-                           biomass),
-        by = c('fence', 'plot')]
-biomass[,
-        biomass := fifelse(is.na(biomass) & year >= 2013 & year <= 2017,
+        biomass := fifelse(is.na(biomass) & year >= 2013,
                            zoo::na.approx(biomass),
                            biomass),
         by = c('fence', 'plot')]
@@ -517,10 +538,10 @@ ggplot(biomass, aes(x = year)) +
   facet_grid(fence~plot) +
   ggtitle('Annual Biomass')
 
-ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/NDVI_CiPEHR&DryPEHR_2019_Datacheck.csv",
+ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/EML_AK_CiPEHR_NDVI_2009-2021EL.csv",
                  stringsAsFactors = FALSE)
-ndvi <- ndvi[plot_type == 'flux' & !is.na(as.numeric(plot))]
-ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!')),
+ndvi <- ndvi[plot.type == 'flux' & !is.na(as.numeric(plot))]
+ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!', 'm!*/d!/y!')),
              ndvi.date = mdy(date),
              plot = as.numeric(plot),
              ndvi = NDVI_relative)]
