@@ -4,8 +4,12 @@
 #############################################################################################################################
 
 ### To Do
-# Add 2021 data - only snow depth data and half-hourly hobo data 2009-2011 remaining
+# Add 2021 data - only snow depth data remaining
+# currently, half-hourly hobo data are missing for 2009-2011. I have gap-filled 
+# with eddy data for that period, rather than try to re-process the raw data.
+# figure out missing values in tair
 # Use tair and t.chamb.filled in summaries
+# interpolate subsidence for 2021? Or try to use NEON?
 
 ### Load Libraries ##########################################################################################################
 library(lubridate)
@@ -14,6 +18,7 @@ library(data.table)
 library(readxl)
 library(sf)
 library(tidyselect)
+library(zoo)
 library(tidyverse)
 #############################################################################################################################
 
@@ -243,7 +248,8 @@ filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber
                         full.names = TRUE)
 weather <- map_dfr(filenames,
                    ~ fread(.x,
-                              header = TRUE) %>%
+                           header = TRUE,
+                           na.strings = c('', 'NA')) %>%
                      select(year = matches('year', ignore.case = TRUE), 
                             DOY = matches('doy', ignore.case = TRUE),
                             hourmin = matches('hour'), 
@@ -253,6 +259,9 @@ weather <- map_dfr(filenames,
                             rh = RH))
 
 weather <- data.table(weather)
+weather[is.nan(precip), precip := NA]
+weather[is.nan(rh), rh := NA]
+weather[is.nan(par), par := NA]
 
 # Format time variables
 weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', sep = '')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
@@ -266,26 +275,98 @@ weather[, season := fifelse(month <= 4 | month >= 10,
                             'gs')]
 weather[, day := mday(date)]
 weather[, hour := floor(hourmin)]
-weather <- weather[order(date, hour)]
+
+# there may be a few duplicated timestamps due to data collection
+# should be averaged or summed
+weather[, duplicated := .N, by = c('date', 'hourmin')]
+weather <- weather[,
+                   .(Tair = mean(Tair, na.rm = TRUE),
+                     par = mean(par, na.rm = TRUE),
+                     precip = fifelse(all(is.na(precip)),
+                                      NaN,
+                                      sum(precip, na.rm = TRUE)),
+                     rh = mean(rh, na.rm = TRUE)),
+                   by = .(flux.year, season, date, hourmin)]
+weather[is.nan(precip), precip := NA]
+weather[is.nan(rh), rh := NA]
+weather[is.nan(par), par := NA]
+any(weather$duplicated > 1)
+
+weather <- weather[order(date, hourmin)]
 
 # Neaten
 # weather data to use for environmental summary
-weather.env <- weather[, .(flux.year, season, date, hour, Tair, par, precip, rh)]
+weather.env <- weather[, .(flux.year, season, date, hourmin, Tair, par, precip, rh)]
 weather.env <- weather.env[flux.year >= 2009][, .(tair.mean = mean(Tair, na.rm = TRUE),
                                                   precip = sum(precip, na.rm = TRUE),
                                                   par = mean(par, na.rm = TRUE)),
                                               by = c('flux.year', 'season')]
 # weather data to use for flux data
-weather.f <- weather[, .(date, hour, Tair, par, precip, rh)]
-weather.f <- weather.f[,
-                   .(par = mean(par, na.rm = TRUE),
-                     Tair = mean(Tair, na.rm = TRUE),
-                     precip = mean(precip, na.rm = TRUE),
-                     rh = mean(rh, na.rm = TRUE)),
-                   by = .(date, hour)]
+weather.f <- weather[, .(flux.year, date, hourmin, Tair, par, precip, rh)]
+# double check that the duplicate columns have been removed - this should be TRUE
+nrow(unique(weather.f, by = c('date', 'hourmin'))) == nrow(weather.f)
 
-ggplot(weather.f, aes(date, Tair)) +
-  geom_line()
+# gap fill hourly data from 2009-2011 using eddy data?
+eddy <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv',
+              na.strings = c('-9999'))
+eddy[, ts := parse_date_time(as.character(TIMESTAMP_START), orders = c('Y!m!d!H!M!'))]
+eddy <- eddy[ts >= as_date('2009-10-01') & ts < as_date('2011-10-01')]
+eddy[, ':=' (date = parse_date_time(as_date(ts), orders = c('Y!-m!-d!')),
+             hour = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 9, end = 10)),
+             min = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 11, end = 12)))]
+eddy[, hourmin := fifelse(min == 0,
+                          hour,
+                          hour + 0.5)]
+eddy <- eddy[, .(date, hourmin, TA)]
+
+weather.f <- merge(weather.f, eddy, by = c('date', 'hourmin'), all = TRUE)
+weather.f[, year := year(date)]
+weather.f[, month := month(date)]
+weather.f[, flux.year := fifelse(month >= 10,
+                               year + 1,
+                               year)]
+weather.f[, ':=' (year = NULL,
+                  month = NULL)]
+tair.model <- lm(Tair ~ TA, data = weather.f)
+summary(tair.model)
+weather.f[, ':=' (filled.tair = factor(fifelse(is.na(Tair),
+                                        1,
+                                        0)),
+                  Tair = fifelse(is.na(Tair),
+                                 tair.model$coefficients[1] + tair.model$coefficients[2]*TA,
+                                 Tair))]
+# fill in the one value that had an NA in both columns
+weather.f[, Tair := na.approx(Tair, maxgap = 1)]
+weather.f[, .N, by = c('year')]
+
+# fill all missing precip values during the measurement period with 0 
+# (because the sum is already in the hourly value)
+# this will have a half day saying it was measured before the container was
+# placed in the middle of the day
+weather.f[, precip.measured := fifelse(date >= date[first(which(!is.na(precip)))] & 
+                                         date <= date[last(which(!is.na(precip)))],
+                                       1,
+                                       0),
+          by = c('flux.year')]
+weather.f[, precip.measured := fifelse(date == date[first(which(!is.na(precip)))] &
+                                         is.na(precip) |
+                                         date == date[last(which(!is.na(precip)))] &
+                                         is.na(precip),
+                                       0,
+                                       precip.measured),
+          by = c('flux.year')]
+weather.f[, precip := fifelse(precip.measured == 1 & is.na(precip),
+                              0,
+                              precip)]
+
+# fill PAR
+weather.f[, par := na.approx(par, maxgap = 1)]
+
+# fill RH
+weather.f[, rh := na.approx(rh, maxgap = 1)]
+
+ggplot(weather.f[date >= as_date('2009-10-01') & date < as_date('2011-10-01')], aes(date, Tair, color = filled.tair)) +
+  geom_point()
 ###########################################################################################
 
 ### Soil Sensor Data ######################################################################
@@ -662,7 +743,7 @@ snow.env <- merge(snow.env, snow.free,
 plot.frame <- expand_grid(fence = seq(1, 6),
                           plot = seq(1, 8),
                           date = parse_date_time(seq(ymd('2008-09-01'),
-                                                     ymd('2020-09-30'),
+                                                     ymd('2021-09-30'),
                                                      by = 'days'),
                                                  orders = c('Y!-m!*-d!')),
                           hourmin = as.numeric(seq(0, 23.5, by = 0.5))) %>%
@@ -688,24 +769,16 @@ plot.frame <- as.data.table(plot.frame)
 
 ### PAR and Tair
 weather.f <- weather.f[date >= ymd('2008-09-01'),]
-weather.f <- merge(weather.f, plot.frame, by = c('date', 'hour'),
+weather.f <- merge(weather.f, plot.frame, by = c('date', 'hourmin'),
                  allow.cartesian = TRUE)
 flux <- merge(co2, weather.f,
               by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
                      'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
-flux[is.nan(precip),
-     precip := NA]
-flux[is.nan(rh),
-     rh := NA]
-flux[is.nan(par),
-     par := NA]
 flux[month %in% seq(5, 9) & is.na(precip),
      .N]/nrow(flux[month %in% seq(5, 9)])
-flux[is.na(rh),
-     .N]/nrow(flux)
-flux[is.na(par),
-     .N]/nrow(flux)
+flux[is.na(rh), .N]/nrow(flux)
+flux[is.na(par), .N]/nrow(flux)
 
 
 ### Soil sensors
@@ -714,18 +787,12 @@ flux <- merge(flux,
               by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
                      'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
               all = TRUE)
-flux[is.na(t5),
-     .N]/nrow(flux)
-flux[is.na(t10),
-     .N]/nrow(flux)
-flux[is.na(t20),
-     .N]/nrow(flux)
-flux[is.na(t40),
-     .N]/nrow(flux)
-flux[is.na(vwc),
-     .N]/nrow(flux)
-flux[is.na(gwc),
-     .N]/nrow(flux)
+flux[is.na(t5), .N]/nrow(flux)
+flux[is.na(t10), .N]/nrow(flux)
+flux[is.na(t20), .N]/nrow(flux)
+flux[is.na(t40), .N]/nrow(flux)
+flux[is.na(vwc), .N]/nrow(flux)
+flux[is.na(gwc), .N]/nrow(flux)
 
 
 ### Water Table Depth
@@ -830,6 +897,7 @@ flux <- flux[, first(.SD),
 flux[abs(interval(date, ndvi.date)/ddays(1)) > 14,
      ndvi := NA]
 flux[month %in% seq(5, 9) & is.na(ndvi), .N]/nrow(flux[month %in% seq(5, 9)])
+flux[month %in% seq(5, 9) & is.na(ndvi), .N, by = 'year']
 
 ### Add block and season variables
 flux[,
@@ -917,14 +985,23 @@ env.treat <- merge(env.treat, wtd.env,
 #    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
 ### Chamber Temps
 # determine period when chambers are deployed
-deployed <- flux[!is.na(nee),
-                 .(first = first(date), last = last(date)),
-                 by = 'year']
-flux <- merge(flux, deployed, by = 'year', all = TRUE)
-flux[, deployed := ifelse(date >= first & date <= last,
-                          1,
-                          0)]
-flux[, ':=' (first = NULL, last = NULL)]
+# this misses 2008 and gets a few wrong on the days that the chambers were deployed or removed
+flux[, deployed := fifelse(date >= date[first(which(!is.na(nee)))] & 
+                             date <= date[last(which(!is.na(nee)))],
+                           1,
+                           0),
+     by = c('year')]
+# get 2008
+flux[year == 2008, deployed := 0]
+# get the wrong values on the days that chambers were deployed or removed
+flux[, deployed := fifelse(date == date[first(which(!is.na(nee)))] &
+                             is.na(precip) |
+                             date == date[last(which(!is.na(nee)))] &
+                             is.na(nee),
+                           0,
+                           deployed),
+     by = c('year')]
+
 # Remove really low chamber temps when air temp is much higher
 flux[(Tair-t.chamb) > 10, t.chamb := NA]
 ggplot(flux, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
@@ -976,14 +1053,52 @@ flux[,
 
 flux[!is.na(t.chamb), t.chamb.filled := t.chamb]
 flux[is.na(t.chamb) & deployed == 1, t.chamb.filled := t.chamb.m]
-flux[is.na(t.chamb.filled & deployed == 1), .N, by = 'year']
-flux[, ':=' (tair = Tair)]
+flux[is.na(t.chamb.filled) & deployed == 1, .N, by = 'year']
+# create a tair column with hobo air temp when chambers aren't deployed and 
+# chamber temps when they are deployed
+flux[, ':=' (tair = fifelse(deployed == 0,
+                            Tair,
+                            t.chamb.filled))]
+flux[is.na(tair), .N, by = 'year']
+flux[is.na(Tair), .N, by = 'year']
+# ggplot(flux, aes(x = date)) +
+#   geom_point(aes(y = tair), color = 'red') +
+#   geom_point(aes(y = Tair), color = 'black') +
+#   facet_grid(fence ~ plot)
+
 flux[, ':=' (Tair = NULL,
              t.chamb.m = NULL)]
 # ggplot(flux, aes(x = tair, y = t.chamb, colour = year), alpha = 0.2) +
 #   geom_point() +
 #   facet_grid(.~treatment)
 rm(deployed, m.t.chamb)
+
+# interpolate 2021 subsidence?
+model.subsidence.lm <- function(df) {
+  fit <- lm(subsidence ~ year, data=df)
+  return(list(subsidence.intercept=coef(fit)[1], 
+              subsidence.slope=coef(fit)[2],
+              subsidence.r2 = summary(fit)$r.squared))
+}
+
+m.subsidence <- flux[, 
+                  model.subsidence.lm(.SD),
+                  by=c('fence', 'plot')]
+
+ggplot(unique(flux, by = c('year', 'fence', 'plot', 'subsidence')), 
+       aes(x = year, y = subsidence)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_grid(fence ~ plot)
+
+flux <- merge(flux, m.subsidence, by = c('fence', 'plot'))
+flux[, subsidence := fifelse(year == 2021,
+                             subsidence.intercept + subsidence.slope*year,
+                             subsidence)]
+flux[, ':=' (subsidence.intercept = NULL,
+             subsidence.slope = NULL,
+             subsidence.r2 = NULL)]
+
 
 ### Probably won't gap fill anything else
 flux[is.na(par), .N, by = 'year']
@@ -1734,9 +1849,10 @@ ggplot(flux.daily, aes(x = date)) +
   geom_line(aes(y = tair.max, color = 'Max Air Temp'), alpha = 0.5) +
   geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
   geom_line(aes(y = tair.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
+  # geom_line(aes(y = tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
   facet_grid(fence~plot) +
-  scale_color_manual(values = c('purple', 'red', 'black', 'blue')) +
+  scale_color_manual(values = c(#'purple', 
+                                'red', 'black', 'blue')) +
   ggtitle('Air Temperature')
 
 # GDD and FDD
