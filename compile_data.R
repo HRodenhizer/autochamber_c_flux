@@ -219,7 +219,7 @@ co2 <- co2[order(date, plot.id, treatment, hourmin)]
 # weather.old[, ':=' (month = as.numeric(month),
 #                     day = as.numeric(day),
 #                     Tair = as.numeric(Tair))]
-# weather.2008.2009 <- weather.old[year == 2008 & month >= 10 | year == 2009 & month < 10,]
+# weather.2008.2009 <- weather.old[year == 2008 & month >= 9 | year == 2009 & month < 10,]
 # weather.2008.2009[, ':=' (hour = as.numeric(str_split(time, pattern = ':', simplify = TRUE)[,1]),
 #                           min = as.numeric(str_split(time, pattern = ':', simplify = TRUE)[, 2]))]
 # weather.2008.2009[, half.hour := fifelse(min < 30,
@@ -310,7 +310,8 @@ nrow(unique(weather.f, by = c('date', 'hourmin'))) == nrow(weather.f)
 eddy <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv',
               na.strings = c('-9999'))
 eddy[, ts := parse_date_time(as.character(TIMESTAMP_START), orders = c('Y!m!d!H!M!'))]
-eddy <- eddy[ts >= as_date('2009-10-01') & ts < as_date('2011-10-01')]
+eddy <- eddy[ts >= ymd_hm('2009-01-05 14:00') & ts <= ymd_hm('2009-03-23 15:30') |
+               ts >= as_date('2009-10-01') & ts < as_date('2011-10-01')]
 eddy[, ':=' (date = parse_date_time(as_date(ts), orders = c('Y!-m!-d!')),
              hour = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 9, end = 10)),
              min = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 11, end = 12)))]
@@ -337,7 +338,7 @@ weather.f[, ':=' (filled.tair = factor(fifelse(is.na(Tair),
                                  Tair))]
 # fill in the one value that had an NA in both columns
 weather.f[, Tair := na.approx(Tair, maxgap = 1)]
-weather.f[, .N, by = c('year')]
+weather.f[is.na(Tair), .N, by = c('flux.year')]
 
 # fill all missing precip values during the measurement period with 0 
 # (because the sum is already in the hourly value)
@@ -365,8 +366,19 @@ weather.f[, par := na.approx(par, maxgap = 1)]
 # fill RH
 weather.f[, rh := na.approx(rh, maxgap = 1)]
 
-ggplot(weather.f[date >= as_date('2009-10-01') & date < as_date('2011-10-01')], aes(date, Tair, color = filled.tair)) +
-  geom_point()
+# # There are a few months without data at the beginning of 2009. These data 
+# # are just missing.
+# # check for missing timestamps
+# measurement.times <- expand.grid(date = parse_date_time(seq(ymd('2008-10-01'),
+#                                                             ymd('2021-09-30'),
+#                                                             by = 'days'),
+#                                                         orders = c('Y!-m!*-d!')),
+#                                  hourmin = as.numeric(seq(0, 23.5, by = 0.5)))
+# 
+# test <- merge(weather.f, measurement.times, by = c('date', 'hourmin'), all = TRUE)
+# 
+# ggplot(weather.f[date >= as_date('2009-10-01') & date < as_date('2011-10-01')], aes(date, Tair, color = filled.tair)) +
+#   geom_point()
 ###########################################################################################
 
 ### Soil Sensor Data ######################################################################
@@ -853,6 +865,32 @@ flux <- merge(flux,
               all = TRUE)
 flux[month %in% seq(5, 9) & is.na(subsidence), .N]/nrow(flux[month %in% seq(5, 9)])
 
+# interpolate 2021 subsidence?
+model.subsidence.lm <- function(df) {
+  fit <- lm(subsidence ~ year, data=df)
+  return(list(subsidence.intercept=coef(fit)[1], 
+              subsidence.slope=coef(fit)[2],
+              subsidence.r2 = summary(fit)$r.squared))
+}
+
+m.subsidence <- flux[, 
+                     model.subsidence.lm(.SD),
+                     by=c('fence', 'plot')]
+
+ggplot(unique(flux, by = c('year', 'fence', 'plot', 'subsidence')), 
+       aes(x = year, y = subsidence)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_grid(fence ~ plot)
+
+flux <- merge(flux, m.subsidence, by = c('fence', 'plot'))
+flux[, subsidence := fifelse(year == 2021,
+                             subsidence.intercept + subsidence.slope*year,
+                             subsidence)]
+flux[, ':=' (subsidence.intercept = NULL,
+             subsidence.slope = NULL,
+             subsidence.r2 = NULL)]
+
 ### ALT
 flux <- merge(flux,
               alt.f,
@@ -1072,32 +1110,6 @@ flux[, ':=' (Tair = NULL,
 #   geom_point() +
 #   facet_grid(.~treatment)
 rm(deployed, m.t.chamb)
-
-# interpolate 2021 subsidence?
-model.subsidence.lm <- function(df) {
-  fit <- lm(subsidence ~ year, data=df)
-  return(list(subsidence.intercept=coef(fit)[1], 
-              subsidence.slope=coef(fit)[2],
-              subsidence.r2 = summary(fit)$r.squared))
-}
-
-m.subsidence <- flux[, 
-                  model.subsidence.lm(.SD),
-                  by=c('fence', 'plot')]
-
-ggplot(unique(flux, by = c('year', 'fence', 'plot', 'subsidence')), 
-       aes(x = year, y = subsidence)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  facet_grid(fence ~ plot)
-
-flux <- merge(flux, m.subsidence, by = c('fence', 'plot'))
-flux[, subsidence := fifelse(year == 2021,
-                             subsidence.intercept + subsidence.slope*year,
-                             subsidence)]
-flux[, ':=' (subsidence.intercept = NULL,
-             subsidence.slope = NULL,
-             subsidence.r2 = NULL)]
 
 
 ### Probably won't gap fill anything else
@@ -1855,6 +1867,11 @@ ggplot(flux.daily, aes(x = date)) +
                                 'red', 'black', 'blue')) +
   ggtitle('Air Temperature')
 
+ggplot(flux.daily[tair.mean >= 0], aes(x = date)) +
+  geom_line(aes(y = tair.mean)) +
+  facet_grid(fence~plot) +
+  ggtitle('Mean Air Temperature')
+
 # GDD and FDD
 ggplot(flux.daily, aes(x = date)) +
   geom_line(aes(y = fdd, color = 'FDD'), alpha = 0.5) +
@@ -1865,33 +1882,33 @@ ggplot(flux.daily, aes(x = date)) +
 
 # Soil Temps
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = t5.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t5.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 'Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('5 cm Soil Temperature')
 
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = t10.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t10.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 'Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('10 cm Soil Temperature')
 
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = t20.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t20.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('20 cm Soil Temperature')
 
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = t40.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t40.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 'Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('40 cm Soil Temperature')
@@ -1924,7 +1941,7 @@ ggplot(flux.daily, aes(x = date)) +
   ggtitle('GWC SD')
 
 ggplot(flux.daily, aes(x = date)) +
-  geom_line(aes(y = wtd, color = 'WTD'), alpha = 0.5) +
+  geom_line(aes(y = wtd)) +
   facet_grid(fence~plot) +
   ggtitle('Water Table Depth')
 
