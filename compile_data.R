@@ -642,7 +642,7 @@ ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
 ###########################################################################################
 
 ### Load Snow Data ########################################################################
-snow <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2020.csv')
+snow <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2021.csv')
 
 snow <- snow[exp == 'CiPEHR', ]
 snow[, ':=' (exp = NULL,
@@ -733,16 +733,31 @@ snow.free.2020 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Share
          doy.snow.free = yday(flux)) %>% 
   select(colnames(snow.free.2009.2016))
 
+snow.free.2021 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2021/CiPEHR_DryPEHR/SnowFree_2021/Date Plots Snow Free_2021.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = 2021,
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
 snow.free <- snow.free.2009.2016 %>%
   rbind.data.frame(snow.free.2017) %>%
   rbind.data.frame(snow.free.2018) %>%
   rbind.data.frame(snow.free.2019) %>%
-  rbind.data.frame(snow.free.2020)
+  rbind.data.frame(snow.free.2020) %>%
+  rbind.data.frame(snow.free.2021)
 snow.free <- as.data.table(snow.free)
 snow.free <- snow.free[, .(doy.snow.free = round(mean(doy.snow.free, na.rm = TRUE))),
                        by = c('flux.year', 'treatment')]
 rm(snow.free.2009.2016, snow.free.2017, snow.free.2018, snow.free.2019, 
-   snow.free.2020)
+   snow.free.2020, snow.free.2021)
 
 snow.env <- merge(snow.env, snow.free, 
                   by = c('flux.year', 'treatment'),
