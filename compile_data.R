@@ -3,12 +3,10 @@
 ###                                                code by HGR 2/2020                                                     ###
 #############################################################################################################################
 
-### To Do
-# Add 2021 data - only snow depth data remaining
 # currently, half-hourly hobo data are missing for 2009-2011. I have gap-filled 
 # with eddy data for that period, rather than try to re-process the raw data.
-# figure out missing values in tair
-# Use tair and t.chamb.filled in summaries
+
+### To Do
 # interpolate subsidence for 2021? Or try to use NEON?
 
 ### Load Libraries ##########################################################################################################
@@ -590,6 +588,19 @@ sub[, ':='(exp = NULL,
            plot = as.numeric(plot),
            subsidence = subsidence * 100)]
 sub <- sub[, .(year, fence, plot, treatment, subsidence)]
+
+### using LiDAR data doesn't produce believable results...
+# sub.2021 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/elevation/plot_elev_2021_lidar.csv')
+# sub.2021 <- sub.2021[!is.na(as.numeric(plot))]
+# sub.2021[, plot := as.numeric(plot)]
+# sub.2021 <- merge(sub.2021, sub[year == 2017], by = c('fence', 'plot', 'treatment'))
+# sub.2021[, subsidence := subsidence + sub.17.21*100]
+# sub.2021 <- sub.2021[, .(year = year.x, fence, plot, treatment, subsidence)]
+# sub <- rbind(sub, sub.2021)
+# 
+# ggplot(sub, aes(x = year, y = subsidence)) +
+#   geom_point() +
+#   facet_grid(fence ~ plot)
 ###########################################################################################
 
 ### Load Vegetation Data ##################################################################
