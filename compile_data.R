@@ -590,6 +590,7 @@ sub[, ':='(exp = NULL,
 sub <- sub[, .(year, fence, plot, treatment, subsidence)]
 
 ### using LiDAR data doesn't produce believable results...
+### will use the linear interpolation that is already in place.
 # sub.2021 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/elevation/plot_elev_2021_lidar.csv')
 # sub.2021 <- sub.2021[!is.na(as.numeric(plot))]
 # sub.2021[, plot := as.numeric(plot)]
@@ -1157,7 +1158,7 @@ flux[is.na(tp), .N, by = 'year']
 flux[is.na(tp.to.date), .N, by = 'year'] # missing a lot - but not during growing season
 
 # # save output
-# saveRDS(flux, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
+# save(flux, file = '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
 
 ### Could maybe assign deep soil temps to neighboring plots of same treatment?
 ###########################################################################################
