@@ -2253,38 +2253,38 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Soil Temps
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t5.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t5.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t5.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = max.t5.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t5.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t5.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 5 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t10.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t10.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t10.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = max.t10.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t10.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t10.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 10 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t20.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t20.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = max.t20.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t20.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 20 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t40.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t40.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t40.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = max.t40.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = min.t40.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.min.t40.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 40 cm Soil Temperature')
@@ -2366,7 +2366,6 @@ ggplot(flux.annual, aes(x = flux.year)) +
   geom_line(aes(y = winter.snow.depth), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Snow Depth')
-
 ###########################################################################################
 
 ### Merge WTD, precip, subsidence, td for soil hydrology investigation ####################
