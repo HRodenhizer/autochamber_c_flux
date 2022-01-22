@@ -304,7 +304,7 @@ weather.f <- weather[, .(flux.year, date, hourmin, Tair, par, precip, rh)]
 # double check that the duplicate columns have been removed - this should be TRUE
 nrow(unique(weather.f, by = c('date', 'hourmin'))) == nrow(weather.f)
 
-# gap fill hourly data from 2009-2011 using eddy data?
+# gap fill hourly data from 2009-2011 using eddy data
 eddy <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv',
               na.strings = c('-9999'))
 eddy[, ts := parse_date_time(as.character(TIMESTAMP_START), orders = c('Y!m!d!H!M!'))]
@@ -316,7 +316,7 @@ eddy[, ':=' (date = parse_date_time(as_date(ts), orders = c('Y!-m!-d!')),
 eddy[, hourmin := fifelse(min == 0,
                           hour,
                           hour + 0.5)]
-eddy <- eddy[, .(date, hourmin, TA)]
+eddy <- eddy[, .(date, hourmin, TA, PPFD_IN, RH)]
 
 weather.f <- merge(weather.f, eddy, by = c('date', 'hourmin'), all = TRUE)
 weather.f[, year := year(date)]
@@ -363,6 +363,10 @@ weather.f[, par := na.approx(par, maxgap = 1)]
 
 # fill RH
 weather.f[, rh := na.approx(rh, maxgap = 1)]
+
+# ### Save outpu
+# write.csv(weather.f, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hobo_half_hourly_gap_filled.csv',
+#           row.names = FALSE)
 
 # # There are a few months without data at the beginning of 2009. These data 
 # # are just missing.
