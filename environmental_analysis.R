@@ -35,6 +35,10 @@ flux.annual <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/',
                         pattern = 'csv$',
                         full.names = TRUE)
+# weather <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hobo_half_hourly_gap_filled.csv')
+filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/hourly',
+                        pattern = 'csv$',
+                        full.names = TRUE)
 weather <- map_dfr(filenames,
                    ~ read.csv(.x,
                               header = TRUE) %>%
@@ -43,7 +47,6 @@ weather <- map_dfr(filenames,
                             precip = matches('[P|p]recip'), rh = RH))
 
 weather <- data.table(weather)
-
 # Format time variables
 weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', sep = '')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
 weather[, year := year(date)]
@@ -78,7 +81,7 @@ weather.annual <- weather[flux.year >= 2009,
                    by = .(flux.year)]
 
 # Snow depth
-snow.depth <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2020.csv')
+snow.depth <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/snow_depth/plot_snow_depth_2009_2021.csv')
 
 # Snow free date
 snow.free.2009.2016 <- read.csv('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Snow free/LTER_Data/2016/CiPEHR_dates_snowfree_2010_2016.csv',
@@ -147,13 +150,28 @@ snow.free.2020 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Share
          doy.snow.free = yday(flux)) %>% 
   select(colnames(snow.free.2009.2016))
 
+snow.free.2021 <- read_excel('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Computer_Backups/Healy cabin computer backup/2021/CiPEHR_DryPEHR/SnowFree_2021/Date Plots Snow Free_2021.xlsx',
+                             sheet = 1) %>%
+  slice(-1) %>%
+  select(plot = `Plot Number`, flux = Flux) %>%
+  mutate(flux = as_date(as.numeric(flux), origin = '1899-12-30')) %>% # excel uses 1900-01-01, but I think there is a difference in indexing that is causing the 2 day offset?
+  separate(plot, into = c('fence', 'plot'), sep = '_',  convert = TRUE) %>%
+  mutate(flux.year = 2021,
+         treatment = case_when(plot == 2 | plot == 4 ~ 'Control',
+                               plot == 1 | plot == 3 ~ 'Air Warming',
+                               plot == 6 | plot == 8 ~ 'Soil Warming',
+                               plot == 5 | plot == 7 ~ 'Air + Soil Warming'),
+         doy.snow.free = yday(flux)) %>% 
+  select(colnames(snow.free.2009.2016))
+
 snow.free <- snow.free.2009.2016 %>%
   rbind.data.frame(snow.free.2017) %>%
   rbind.data.frame(snow.free.2018) %>%
   rbind.data.frame(snow.free.2019) %>%
-  rbind.data.frame(snow.free.2020)
+  rbind.data.frame(snow.free.2020) %>%
+  rbind.data.frame(snow.free.2021)
 rm(snow.free.2009.2016, snow.free.2017, snow.free.2018, snow.free.2019, 
-   snow.free.2020)
+   snow.free.2020, snow.free.2021)
 ################################################################################
 
 ######################## DEFINE FUNCTIONS TO EXTRACT AND GRAPH CI #########################
@@ -191,7 +209,12 @@ env.annual.plot <- flux.annual %>%
   select(-c(season, matches('rh'), 
             max.tair.spread, min.tair.spread, matches('ndvi'),
             gdd, fdd, winter.fdd, precip.sum)) %>%
-  mutate(subsidence = -1*subsidence.annual,
+  mutate(treatment = factor(treatment, 
+                            levels = c('Control', 
+                                       'Air Warming', 
+                                       'Soil Warming', 
+                                       'Air + Soil Warming')),
+         subsidence = -1*subsidence.annual,
          wtd.mean = -1*wtd.mean) %>%
   na.omit()
 env.annual <- env.annual.plot %>%
@@ -220,17 +243,23 @@ env.annual.subset.norm <- env.annual.subset %>%
 pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
 
 # Environmental PCA colored by subsidence
-pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, colour = 'subsidence.annual',
+pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, 
+                          colour = 'subsidence.annual', shape = 'treatment',
                      loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     values = c(1, 0, 16, 15)) +
   coord_fixed() +
   theme_bw() +
   coord_cartesian()
 pca.plot.norm
 # zoom in on the center mass of red
-pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, colour = 'subsidence.annual',
+pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, 
+                               colour = 'subsidence.annual', shape = 'treatment',
                           loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
   scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     values = c(1, 0, 16, 15)) +
   scale_y_continuous(limits = c(-0.04, 0.04)) +
   scale_x_continuous(limits = c(-0.025, 0.025)) +
   coord_fixed() +
@@ -287,17 +316,21 @@ ggplot(weather.annual, aes(x = flux.year)) +
   geom_point(aes(y = tair.min, color = 'Min Air Temp')) +
   scale_x_continuous(breaks = seq(2009, 2020))
 
+### Test if there's a detectable trend in air temp
+lm.tair <- lm(tair.mean ~ I(flux.year-2009), data = weather.annual)
+summary(lm.tair)
+ggplot(weather.annual, aes(x = flux.year, y = tair.mean)) +
+  geom_point() +
+  geom_smooth(method = 'lm',
+              color = 'black')
+
 # no detectable trend in air temp over time 
 # (although there was a non-significant increase in mean and min)
-tair.lm <- lm(tair.mean ~ flux.year, 
-              data = weather.annual)
-summary(tair.lm)
-
-tair.max.lm <- lm(tair.max ~ flux.year, 
+tair.max.lm <- lm(tair.max ~ I(flux.year-2009), 
               data = weather.annual)
 summary(tair.max.lm)
 
-tair.min.lm <- lm(tair.min ~ flux.year, 
+tair.min.lm <- lm(tair.min ~ I(flux.year-2009), 
               data = weather.annual)
 summary(tair.min.lm)
 
@@ -347,14 +380,6 @@ annual.temp.precip
 #        annual.temp.precip,
 #        height = 4,
 #        width = 5)
-
-### Test if there's a detectable trend in air temp
-lm.tair <- lm(tair.mean ~ I(flux.year-2009), data = weather.annual)
-summary(lm.tair)
-ggplot(weather.annual, aes(x = flux.year, y = tair.mean)) +
-  geom_point() +
-  geom_smooth(method = 'lm',
-              color = 'black')
 
 ### Coldest and Warmest 3 years
 # mean air temp
@@ -527,7 +552,7 @@ snow.free.date <- snow.free %>%
 
 env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
-
+write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv')
 ################################################################################
 
 ### Calculate Microtopography ##################################################
@@ -627,7 +652,8 @@ sub.moisture <- flux.annual %>%
                                        'Air + Soil Warming')),
          subsidence = subsidence.annual*-1,
          wtd.mean = wtd.mean*-1) %>%
-  select(flux.year, fence, plot, plot.id, treatment, subsidence, mtopo, wtd.mean, wtd.sd, wtd.n, 
+  select(flux.year, fence, plot, plot.id, treatment, subsidence, # mtopo, 
+         wtd.mean, wtd.sd, wtd.n, 
          vwc.mean, vwc.sd, gwc.mean, gwc.sd) %>%
   full_join(weather.annual %>%
               select(flux.year, precip, precip.z) %>%
