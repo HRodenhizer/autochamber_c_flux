@@ -105,7 +105,8 @@ data[tair > 30, .N]
 frame.2019 <- expand_grid(year = 2019,
                           fence = seq(1, 6),
                           plot = seq(1, 11),
-                          DOY = seq(min(data.2019$DOY), max(data.2019$DOY)),
+                          DOY = seq(min(data[year == 2019 & !is.na(nee)]$doy), 
+                                    max(data[year == 2019 & !is.na(nee)]$doy)),
                           half.hour = seq(0, 23.5, by = 0.5))
 frame.2019 <- data.table(frame.2019)
 frame.2019[, date := as_date('2018-12-31') + days(DOY)]
