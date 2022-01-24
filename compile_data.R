@@ -528,6 +528,7 @@ wtd.f[, plot.id := paste(fence, plot, sep = '_')]
 # Neaten
 # for flux data
 wtd.f <- wtd.f[, .(date, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
+wtd.f <- wtd.f[order(date, plot.id)]
 
 # for environmental data
 wtd.env <- wtd[, ':=' (treatment = fifelse(well %in% c(1, 2, 2.5, 1.17, 2.17, 3.17, 4.17),
@@ -859,7 +860,8 @@ flux <- flux[, first(.SD), by = .(date, fence, treatment, plot.id, hourmin, hour
 
 # If WTD date is more than 2 weeks from date, remove wtd
 flux[abs(interval(date, WTD_Date)/ddays(1)) > 14,
-     wtd := NA]
+     ':=' (wtd = NA,
+           WTD_Date = NA)]
 flux[month %in% seq(5, 9) & is.na(wtd), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Thaw Depth
@@ -886,7 +888,8 @@ flux <- flux[, first(.SD),
 
 # If TD date is more than 2 weeks from date, remove td
 flux[abs(interval(date, TD_Date)/ddays(1)) > 14,
-     td := NA]
+     ':=' (td = NA,
+           TD_Date = NA)]
 flux[month %in% seq(5, 9) & is.na(td), .N]/nrow(flux[month %in% seq(5, 9)])
 
 ### Subsidence
@@ -925,7 +928,7 @@ flux[, ':=' (subsidence.intercept = NULL,
 ### ALT
 flux <- merge(flux,
               alt.f,
-              by = c('year', 'fence', 'plot.id', 'treatment'),
+              by = c('year', 'flux.year', 'fence', 'plot.id', 'treatment'),
               all = TRUE)
 
 flux <- flux[order(ts, plot.id)]
@@ -2167,6 +2170,7 @@ ggplot(flux.weekly, aes(x = year.decimal)) +
 
 ggplot(flux.weekly, aes(x = year.decimal)) +
   geom_line(aes(y = wtd.mean, color = 'WTD'), alpha = 0.5) +
+  geom_line(aes(y = wtd.sd, color = 'SD WTD'), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Weekly Water Table Depth')
 
