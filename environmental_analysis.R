@@ -850,7 +850,7 @@ wtd.plot
 # 
 # AIC(model1, model2, model3)
 # 
-# # check model residuals of model3
+# # check model residuals of model2
 # # look at residuals
 # model2.resid <- resid(model2)
 # model2.fitted <- fitted(model2)
@@ -939,47 +939,6 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   theme_bw() +
   theme(legend.title = element_blank())
 wtd.sd.plot
-
-# test if the relationship is actually linear and due to subsidence or precipitation
-ggplot(subset(sub.moisture, !is.na(wtd.sd)),
-       aes(x = subsidence, y = wtd.sd)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
-  geom_line(data = test, aes(x = subsidence, y = fit), inherit.aes = FALSE, color = 'black') +
-  # geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank()) +
-  facet_wrap(~plot.id, ncol = 8)
-
-ggplot(subset(sub.moisture, !is.na(wtd.sd)),
-       aes(x = precip, y = wtd.sd)) +
-  geom_point(aes(color = subsidence, shape = treatment)) +
-  geom_line(data = test, aes(x = precip, y = fit), inherit.aes = FALSE, color = 'black') +
-  # geom_smooth(method = 'gam', color = 'black') +
-  scale_color_viridis(direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_x_continuous(name = 'Precipitation (cm)') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank()) +
-  facet_wrap(~plot.id, ncol = 8)
-
-ggplot(subset(sub.moisture, !is.na(wtd.sd)),
-       aes(x = precip, y = subsidence)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
-  geom_smooth(method = 'glm', color = 'black') +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_x_continuous(name = 'Precip Z-score') +
-  scale_y_continuous(name = 'Subsidence (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank()) +
-  facet_wrap(~plot.id, ncol = 8)
 
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd (using 2010, because precipitation was closer to average 
@@ -1109,7 +1068,7 @@ ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'VWC (%)') +
   facet_wrap(~plot.id, ncol = 8) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1172,7 +1131,7 @@ vwc.plot
 # 
 # hist(sub.moisture$vwc.sd)
 
-# re-run with REML = TRUE
+# # re-run with REML = TRUE
 # vwc.sd.model <- lmer(vwc.sd ~ subsidence + I(subsidence^2) +
 #                        (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
 #                      data = sub.moisture,
@@ -1220,7 +1179,7 @@ ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
+  scale_y_continuous(name = 'SD VWC (%)') +
   facet_wrap(~plot.id, ncol = 8) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1318,7 +1277,7 @@ gwc.plot
 # 
 # ranova(model3)
 # 
-# check model residuals of model3
+# # check model residuals of model3
 # # look at residuals
 # model3.resid <- resid(model3)
 # model3.fitted <- fitted(model3)
