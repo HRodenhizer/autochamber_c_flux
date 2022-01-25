@@ -136,6 +136,7 @@ co2[, date := parse_date_time(as_date(doy-1, origin = paste0(year, '-01-01')), o
 co2[hour == round(hour), minute := 0]
 co2[hour != round(hour), minute := 30]
 co2[, ts := parse_date_time(paste(date, paste(floor(hour), minute, sep = ':')), orders = c('Y!-m!*-d! H!:M!'))]
+co2[, month := month(ts)]
 co2[, week := week(ts)]
 co2[, day := mday(date)]
 co2[, Flux_Date := paste(day, month, year, sep = '/')]
@@ -272,6 +273,7 @@ weather[, season := fifelse(month <= 4 | month >= 10,
                             'ngs',
                             'gs')]
 weather[, day := mday(date)]
+weather[as_date(date) >= as_date('2010-10-01') & as_date(date) <= as_date('2011-09-30'), hourmin := hourmin - 0.5]
 weather[, hour := floor(hourmin)]
 
 # there may be a few duplicated timestamps due to data collection
@@ -303,13 +305,20 @@ weather.env <- weather.env[flux.year >= 2009][, .(tair.mean = mean(Tair, na.rm =
 weather.f <- weather[, .(flux.year, date, hourmin, Tair, par, precip, rh)]
 # double check that the duplicate columns have been removed - this should be TRUE
 nrow(unique(weather.f, by = c('date', 'hourmin'))) == nrow(weather.f)
+# make sure there are no missing timestamps
+times.frame <- expand_grid(date = parse_date_time(seq(ymd('2008-09-01'),
+                                                      ymd('2021-09-30'),
+                                                      by = 'days'),
+                                                  orders = c('Y!-m!*-d!')),
+                           hourmin = as.numeric(seq(0, 23.5, by = 0.5)))
+weather.f <- merge(weather.f, times.frame, 
+                   by = c('date', 'hourmin'),
+                   all = TRUE)
 
 # gap fill hourly data from 2009-2011 using eddy data
 eddy <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv',
               na.strings = c('-9999'))
 eddy[, ts := parse_date_time(as.character(TIMESTAMP_START), orders = c('Y!m!d!H!M!'))]
-eddy <- eddy[ts >= ymd_hm('2009-01-05 14:00') & ts <= ymd_hm('2009-03-23 15:30') |
-               ts >= as_date('2009-10-01') & ts < as_date('2011-10-01')]
 eddy[, ':=' (date = parse_date_time(as_date(ts), orders = c('Y!-m!-d!')),
              hour = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 9, end = 10)),
              min = as.numeric(str_sub(as.character(TIMESTAMP_START), start = 11, end = 12)))]
@@ -334,7 +343,7 @@ weather.f[, ':=' (filled.tair = factor(fifelse(is.na(Tair),
                   Tair = fifelse(is.na(Tair),
                                  tair.model$coefficients[1] + tair.model$coefficients[2]*TA,
                                  Tair))]
-# fill in the one value that had an NA in both columns
+# fill in individual missing values that had an NA in both columns
 weather.f[, Tair := na.approx(Tair, maxgap = 1)]
 weather.f[is.na(Tair), .N, by = c('flux.year')]
 
@@ -363,6 +372,10 @@ weather.f[, par := na.approx(par, maxgap = 1)]
 
 # fill RH
 weather.f[, rh := na.approx(rh, maxgap = 1)]
+
+# clean up columns
+weather.f <- weather.f[, .(date, hourmin, flux.year, Tair, par, precip, rh, 
+                           filled.tair)]
 
 # ### Save outpu
 # write.csv(weather.f, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hobo_half_hourly_gap_filled.csv',
@@ -592,7 +605,7 @@ sub <- sub[exp == 'CiPEHR']
 sub[, ':='(exp = NULL,
            plot = as.numeric(plot),
            subsidence = subsidence * 100)]
-sub <- sub[, .(year, fence, plot, treatment, subsidence)]
+sub <- sub[, .(flux.year = year, fence, plot, treatment, subsidence)]
 
 ### using LiDAR data doesn't produce believable results...
 ### will use the linear interpolation that is already in place.
@@ -799,6 +812,9 @@ plot.frame <- expand_grid(fence = seq(1, 6),
                               orders = c('Y!-m!*-d! H!:M!')),
          year = year(ts),
          month = month(ts),
+         flux.year = ifelse(month < 10,
+                            year,
+                            year + 1),
          week = week(ts),
          doy = yday(ts),
          treatment = case_when(
@@ -813,8 +829,10 @@ plot.frame <- as.data.table(plot.frame)
 
 ### PAR and Tair
 weather.f <- weather.f[date >= ymd('2008-09-01'),]
-weather.f <- merge(weather.f, plot.frame, by = c('date', 'hourmin'),
-                 allow.cartesian = TRUE)
+weather.f <- merge(weather.f, plot.frame, 
+                   by = c('date', 'flux.year', 'hourmin'),
+                 allow.cartesian = TRUE,
+                 all = TRUE)
 flux <- merge(co2, weather.f,
               by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
                      'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
@@ -823,7 +841,6 @@ flux[month %in% seq(5, 9) & is.na(precip),
      .N]/nrow(flux[month %in% seq(5, 9)])
 flux[is.na(rh), .N]/nrow(flux)
 flux[is.na(par), .N]/nrow(flux)
-
 
 ### Soil sensors
 flux <- merge(flux, 
@@ -895,7 +912,7 @@ flux[month %in% seq(5, 9) & is.na(td), .N]/nrow(flux[month %in% seq(5, 9)])
 ### Subsidence
 flux <- merge(flux,
               sub,
-              by = c('year', 'fence', 'plot', 'treatment'),
+              by = c('flux.year', 'fence', 'plot', 'treatment'),
               all = TRUE)
 flux[month %in% seq(5, 9) & is.na(subsidence), .N]/nrow(flux[month %in% seq(5, 9)])
 
@@ -918,23 +935,28 @@ ggplot(unique(flux, by = c('year', 'fence', 'plot', 'subsidence')),
   facet_grid(fence ~ plot)
 
 flux <- merge(flux, m.subsidence, by = c('fence', 'plot'))
-flux[, subsidence := fifelse(year == 2021,
+flux[, subsidence := fifelse(flux.year == 2021,
                              subsidence.intercept + subsidence.slope*year,
                              subsidence)]
 flux[, ':=' (subsidence.intercept = NULL,
              subsidence.slope = NULL,
              subsidence.r2 = NULL)]
+flux[is.na(subsidence), .N, by = 'flux.year']
 
 ### ALT
+alt.f[, year := NULL]
 flux <- merge(flux,
               alt.f,
-              by = c('year', 'flux.year', 'fence', 'plot.id', 'treatment'),
+              by = c('flux.year', 'fence', 'plot.id', 'treatment'),
               all = TRUE)
 
 flux <- flux[order(ts, plot.id)]
 flux[, tp := alt - subsidence]
 flux[, tp.to.date := td - subsidence]
-flux[month %in% seq(5, 9) & is.na(alt), .N]/nrow(flux[month %in% seq(5, 9)])
+flux[month %in% seq(5, 9) & is.na(alt) & year >= 2009, .N]/nrow(flux[month %in% seq(5, 9) & year >= 2009])
+flux[is.na(alt) & flux.year >= 2009, .N]/nrow(flux[year >= 2009])
+flux[is.na(subsidence) & flux.year >= 2009, .N, by = 'flux.year']
+flux[is.na(tp) & flux.year >= 2009, .N, by = 'flux.year']
 
 ### Biomass
 flux <- merge(flux,
@@ -1073,6 +1095,7 @@ flux[, deployed := fifelse(date == date[first(which(!is.na(nee)))] &
                            0,
                            deployed),
      by = c('year')]
+flux[is.na(deployed), .N, by = 'year']
 
 # Remove really low chamber temps when air temp is much higher
 flux[(Tair-t.chamb) > 10, t.chamb := NA]
