@@ -409,12 +409,18 @@ snow.depth.control <- snow.depth %>%
   summarise(snow.depth = mean(snow.depth, na.rm = TRUE),
             snow.free.date = mean(snow.free, na.rm = TRUE))
 
+precip.seasonal <- weather.seasonal %>%
+  select(flux.year, precip) %>%
+  group_by(flux.year) %>%
+  summarise(precip.annual = sum(precip))
+
 weather.seasonal.wide <- weather.seasonal %>%
   select(-c(tair.min, tair.max)) %>%
   pivot_wider(names_from = 'season', 
               values_from = c(tair.mean:par),
               names_sep = '.') %>%
-  select(-precip.ngs) %>%
+  full_join(precip.seasonal, by = 'flux.year') %>%
+  mutate(ngs.precip.percent = precip.ngs/(precip.ngs + precip.gs)) %>%
   full_join(snow.depth.control, by = 'flux.year') %>%
   mutate(across(tair.mean.ngs:snow.free.date, 
                 ~(.x - mean(.x))/sd(.x),
@@ -427,6 +433,7 @@ mean.precip <- mean(weather.annual$precip)
 
 weather.seasonal.control.z <- weather.seasonal.wide %>%
   select(flux.year, contains('z')) %>%
+  select(-c(precip.gs.z, precip.ngs.z)) %>%
   pivot_longer(tair.mean.ngs.z:snow.free.date.z, names_to = 'measurement', values_to = 'z.score') %>%
   mutate(flux.year = factor(flux.year),
          measurement = factor(str_sub(measurement, 1, -3),
@@ -452,7 +459,7 @@ weather.seasonal.control.z <- weather.seasonal.wide %>%
                                               'Snow Free Date')))
 
 weather.seasonal.control <- weather.seasonal.wide %>%
-  select(-contains('z')) %>%
+  select(-contains('z'), -precip.ngs, -ngs.precip.percent) %>%
   pivot_longer(tair.mean.ngs:snow.free.date, names_to = 'measurement', values_to = 'value') %>%
   mutate(flux.year = factor(flux.year),
          measurement = factor(measurement,
