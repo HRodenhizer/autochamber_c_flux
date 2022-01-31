@@ -409,18 +409,13 @@ snow.depth.control <- snow.depth %>%
   summarise(snow.depth = mean(snow.depth, na.rm = TRUE),
             snow.free.date = mean(snow.free, na.rm = TRUE))
 
-precip.seasonal <- weather.seasonal %>%
-  select(flux.year, precip) %>%
-  group_by(flux.year) %>%
-  summarise(precip.annual = sum(precip))
-
 weather.seasonal.wide <- weather.seasonal %>%
   select(-c(tair.min, tair.max)) %>%
   pivot_wider(names_from = 'season', 
               values_from = c(tair.mean:par),
               names_sep = '.') %>%
-  full_join(precip.seasonal, by = 'flux.year') %>%
-  mutate(ngs.precip.percent = precip.ngs/(precip.ngs + precip.gs)) %>%
+  full_join(select(weather.annual, flux.year, precip), by = 'flux.year') %>%
+  mutate(ngs.precip.percent = precip.ngs/precip) %>%
   full_join(snow.depth.control, by = 'flux.year') %>%
   mutate(across(tair.mean.ngs:snow.free.date, 
                 ~(.x - mean(.x))/sd(.x),
@@ -433,7 +428,8 @@ mean.precip <- mean(weather.annual$precip)
 
 weather.seasonal.control.z <- weather.seasonal.wide %>%
   select(flux.year, contains('z')) %>%
-  select(-c(precip.gs.z, precip.ngs.z)) %>%
+  select(-c(precip.gs.z, precip.ngs.z, ngs.precip.percent.z)) %>%
+  rename(precip.gs.z = precip.z) %>% # use total annual rainfall rather than May-Oct rainfall
   pivot_longer(tair.mean.ngs.z:snow.free.date.z, names_to = 'measurement', values_to = 'z.score') %>%
   mutate(flux.year = factor(flux.year),
          measurement = factor(str_sub(measurement, 1, -3),
@@ -459,7 +455,8 @@ weather.seasonal.control.z <- weather.seasonal.wide %>%
                                               'Snow Free Date')))
 
 weather.seasonal.control <- weather.seasonal.wide %>%
-  select(-contains('z'), -precip.ngs, -ngs.precip.percent) %>%
+  select(-c(contains('z'), precip.gs, precip.ngs, ngs.precip.percent)) %>%
+  rename(precip.gs = precip) %>%
   pivot_longer(tair.mean.ngs:snow.free.date, names_to = 'measurement', values_to = 'value') %>%
   mutate(flux.year = factor(flux.year),
          measurement = factor(measurement,
@@ -556,7 +553,7 @@ snow.free.date <- snow.free %>%
 
 env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
-write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv')
+# write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv')
 ################################################################################
 
 ### Calculate Microtopography ##################################################
@@ -702,24 +699,30 @@ sub.moisture <- flux.annual %>%
 
 ## Model wtd with subsidence
 # model1 <- lmer(wtd.mean ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
 # model2 <- lmer(wtd.mean ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 + subsidence | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
 # model3 <- lmer(wtd.mean ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 + subsidence | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
 # 
-# AIC(model1, model2, model3)
+# model4 <- lmer(wtd.mean ~ subsidence + I(subsidence^2) +
+#                  (1 + subsidence + I(subsidence^2) | block.f/fencegroup/wholeplot), REML = FALSE,
+#                data = sub.moisture,
+#                control=lmerControl(check.conv.singular="warning"))
+# summary(model4)
+# 
+# AIC(model1, model2, model3, model4)
 # 
 # ranova(model3)
 # 
@@ -741,7 +744,7 @@ sub.moisture <- flux.annual %>%
 
 # re-run with REML = TRUE
 # wtd.model <- lmer(wtd.mean ~ subsidence + I(subsidence^2) +
-#                        (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+#                  (1 + subsidence | block.f/fencegroup/wholeplot), REML = TRUE,
 #                      data = sub.moisture,
 #                      control=lmerControl(check.conv.singular="warning"))
 # summary(wtd.model)
@@ -834,20 +837,20 @@ wtd.plot
 # there is high variability in wtd when magnitude of subsidence is similar to 
 # pre-subsidence wtd
 ## Model wtd.sd with precipitation and subsidence
-# model1 <- lmer(wtd.sd ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+# model1 <- lmer(I(log(wtd.sd)) ~ 1 +
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
-# model2 <- lmer(wtd.sd ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+# model2 <- lmer(I(log(wtd.sd)) ~ subsidence +
+#                  (1 + subsidence | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
-# model3 <- lmer(wtd.sd ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+# model3 <- lmer(I(log(wtd.sd)) ~ subsidence + I(subsidence^2) +
+#                  (1 + subsidence | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
@@ -862,18 +865,18 @@ wtd.plot
 # 
 # # graph
 # par(mfrow=c(2,2), mar = c(4,4,3,2))
-# plot(model2.fitted, model2.resid, main='resid, model3')
-# plot(model2.fitted, model2.sqrt, main='sqrt resid, model3')
-# qqnorm(model2.resid, main = 'model3')
+# plot(model2.fitted, model2.resid, main='resid, model2')
+# plot(model2.fitted, model2.sqrt, main='sqrt resid, model2')
+# qqnorm(model2.resid, main = 'model2')
 # qqline(model2.resid)
 # par(mfrow=c(1,1))
 # 
-# hist(sub.moisture$wtd.sd)
+# hist(log(sub.moisture$wtd.sd))
 
 
 # # re-run with REML = TRUE
-# wtd.sd.model <- lmer(wtd.sd ~ subsidence +
-#                        (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+# wtd.sd.model <- lmer(I(log(wtd.sd)) ~ subsidence +
+#                        (1 + subsidence | block.f/fencegroup/wholeplot), REML = TRUE,
 #                      data = sub.moisture,
 #                      control=lmerControl(check.conv.singular="warning"))
 # summary(wtd.sd.model)
@@ -905,15 +908,15 @@ wtd.sd.r2.label <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round
 # # write.csv(wtd.sd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_sd_model_fit.csv', row.names = FALSE)
 wtd.sd.model.fit <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_sd_model_fit.csv')
 
-sub.moisture <- sub.moisture %>%
+wtd.sd.fit <- sub.moisture %>%
   mutate(wtd.sd.fit = ifelse(!is.na(wtd.sd),
                              predict(wtd.sd.model),
                              NA))
 ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.sd)) +
   geom_point(aes(color = flux.year, shape = treatment)) +
-  geom_line(aes(x = subsidence, y = wtd.sd.fit), color = 'black') +
-  geom_line(data = wtd.sd.model.fit, aes(x = subsidence, y = fit), color = 'red') +
+  geom_line(data = wtd.sd.fit, aes(x = subsidence, y = I(exp(wtd.sd.fit))), color = 'black') +
+  geom_line(data = wtd.sd.model.fit, aes(x = subsidence, y = I(exp(fit))), color = 'red') +
   scale_color_viridis(discrete = TRUE,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
@@ -926,11 +929,11 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
 wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.sd)) +
   geom_point(aes(color = flux.year, shape = treatment)) +
-  geom_ribbon(data = wtd.sd.model.fit, aes(x = subsidence, ymin = lwr, ymax = upr), 
+  geom_ribbon(data = wtd.sd.model.fit, aes(x = subsidence, ymin = I(exp(lwr)), ymax = I(exp(upr))), 
               inherit.aes = FALSE,
               fill = 'gray', 
               alpha = 0.5) +
-  geom_line(data = wtd.sd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
+  geom_line(data = wtd.sd.model.fit, aes(x = subsidence, y = I(exp(fit))), color = 'black') +
   geom_text(aes(x = 100, y = 17, 
                 label = wtd.sd.r2.label),
             parse = TRUE,
@@ -987,19 +990,19 @@ ggplot(subset(test, !is.na(wtd.sd)),
 
 ### VWC
 # model1 <- lmer(vwc.mean ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
 # model2 <- lmer(vwc.mean ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
 # model3 <- lmer(vwc.mean ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
@@ -1026,7 +1029,7 @@ ggplot(subset(test, !is.na(wtd.sd)),
 
 # re-run with REML = TRUE
 # vwc.model <- lmer(vwc.mean ~ subsidence +
-#                        (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+#                        (1 | block.f/fencegroup/wholeplot), REML = TRUE,
 #                      data = sub.moisture,
 #                      control=lmerControl(check.conv.singular="warning"))
 # summary(vwc.model)
@@ -1098,19 +1101,19 @@ vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
 vwc.plot
 
 # model1 <- lmer(vwc.sd ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
 # model2 <- lmer(vwc.sd ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
 # model3 <- lmer(vwc.sd ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
@@ -1137,7 +1140,7 @@ vwc.plot
 
 # # re-run with REML = TRUE
 # vwc.sd.model <- lmer(vwc.sd ~ subsidence + I(subsidence^2) +
-#                        (1 | block.f/fencegroup/wholeplot) + (1|time), REML = TRUE,
+#                        (1 | block.f/fencegroup/wholeplot), REML = TRUE,
 #                      data = sub.moisture,
 #                      control=lmerControl(check.conv.singular="warning"))
 # summary(vwc.sd.model)
@@ -1211,19 +1214,19 @@ vwc.sd.plot
 
 ### GWC
 # model1 <- lmer(gwc.mean ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
 # model2 <- lmer(gwc.mean ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
 # model3 <- lmer(gwc.mean ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
@@ -1260,19 +1263,19 @@ gwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = gwc.mean)) +
 gwc.plot
 
 # model1 <- lmer(gwc.sd ~ 1 +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model1)
 # 
 # model2 <- lmer(gwc.sd ~ subsidence +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model2)
 # 
 # model3 <- lmer(gwc.sd ~ subsidence + I(subsidence^2) +
-#                  (1 | block.f/fencegroup/wholeplot) + (1|time), REML = FALSE,
+#                  (1 | block.f/fencegroup/wholeplot), REML = FALSE,
 #                data = sub.moisture,
 #                control=lmerControl(check.conv.singular="warning"))
 # summary(model3)
