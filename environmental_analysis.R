@@ -206,7 +206,8 @@ env.annual.plot <- flux.annual %>%
   select(-c(season, matches('rh'), 
             max.tair.spread, min.tair.spread, matches('ndvi'),
             gdd, fdd, winter.fdd, precip.sum)) %>%
-  mutate(treatment = factor(treatment, 
+  mutate(flux.year = as.numeric(as.character(flux.year)),
+         treatment = factor(treatment, 
                             levels = c('Control', 
                                        'Air Warming', 
                                        'Soil Warming', 
@@ -241,9 +242,11 @@ pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autocham
 
 # Environmental PCA colored by subsidence
 pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, 
-                          colour = 'subsidence.annual', shape = 'treatment',
+                          colour = 'flux.year', shape = 'treatment',
                      loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_color_viridis(name = '',
+                      direction = -1,
+                      breaks = seq(2010, 2020, by = 2)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   coord_fixed() +
@@ -252,9 +255,11 @@ pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot,
 pca.plot.norm
 # zoom in on the center mass of red
 pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, 
-                               colour = 'subsidence.annual', shape = 'treatment',
+                               colour = 'flux.year', shape = 'treatment',
                           loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_color_viridis(name = '',
+                      direction = -1,
+                      breaks = seq(2010, 2020, by = 2)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   scale_y_continuous(limits = c(-0.04, 0.04)) +
