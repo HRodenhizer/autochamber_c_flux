@@ -249,7 +249,7 @@ nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = -200, y = 150, label = nee.seasonal.r2.label,
+  geom_text(x = -65, y = 200, label = nee.seasonal.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -441,7 +441,7 @@ reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 200, y = 575, label = reco.seasonal.r2.label,
+  geom_text(x = 110, y = 575, label = reco.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -625,7 +625,7 @@ gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 50, y = 700, label = gpp.seasonal.r2.label,
+  geom_text(x = 50, y = 720, label = gpp.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -875,7 +875,7 @@ nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = -50, y = 115, label = nee.monthly.r2.label,
+  geom_text(x = -50, y = 110, label = nee.monthly.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -1060,7 +1060,7 @@ reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', 
 reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 10, y = 175, label = reco.monthly.r2.label,
+  geom_text(x = 10, y = 255, label = reco.monthly.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -1068,19 +1068,6 @@ reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pr
   scale_y_continuous(name = expression('Predicted Reco (gC m'^-2*')')) +
   theme_bw()
 reco.monthly.fit.plot
-
-# plot model performance
-nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
-  geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = -50, y = 115, label = nee.monthly.r2.label,
-            hjust = 0,
-            vjust = 1,
-            parse = TRUE) +
-  scale_x_continuous(name = expression('Measured NEE (gC m'^-2*')')) +
-  scale_y_continuous(name = expression('Predicted NEE (gC m'^-2*')')) +
-  theme_bw()
-nee.monthly.fit.plot
 
 # plot partial dependence plots with data points
 reco.monthly.pd.t10.mean <- reco.monthly.gbm %>%
@@ -1119,10 +1106,28 @@ reco.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.biomas
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.2
 
+reco.monthly.pd.tair <- reco.monthly.gbm %>%
+  pdp::partial(pred.var = "tair.mean", n.trees = reco.monthly.gbm$n.trees,
+               grid.resolution = 100)
+reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
+                               predictor = 'tair.mean', response = 'reco.sum',
+                               color.var = 'month', shape.var = 'treatment')# +
+  # geom_point(data = example.plots.monthly,
+  #            aes(x = gwc.sd, y = reco.sum),
+  #            inherit.aes = FALSE,
+  #            shape = 1, size = 3) +
+  # geom_text(data = example.plots.monthly,
+  #           aes(x = gwc.sd, y = reco.sum, label = plot.id),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+  # geom_text(data = example.plots.monthly,
+  #           aes(x = gwc.sd, y = reco.sum, label = ID),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+reco.monthly.plot.3
+
 reco.monthly.pd.subsidence <- reco.monthly.gbm %>%
   pdp::partial(pred.var = "subsidence.annual", n.trees = reco.monthly.gbm$n.trees,
                grid.resolution = 100)
-reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
+reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
                                 predictor = 'subsidence.annual', response = 'reco.sum',
                                 color.var = 'month', shape.var = 'treatment') +
   # geom_point(data = example.plots.monthly,
@@ -1138,24 +1143,6 @@ reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsid
 # geom_text(data = example.plots.monthly,
 #           aes(x = subsidence.annual, y = reco.sum, label = ID),
 #           inherit.aes = FALSE, size = 3, nudge_y = -15)
-reco.monthly.plot.3
-
-reco.monthly.pd.gwc.sd <- reco.monthly.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = reco.monthly.gbm$n.trees,
-               grid.resolution = 100)
-reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.gwc.sd,
-                               predictor = 'gwc.sd', response = 'reco.sum',
-                               color.var = 'month', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = gwc.sd, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.4
 
 reco.monthly.pd.plot <- ggarrange(reco.monthly.plot.1,
@@ -1259,7 +1246,7 @@ gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', r
 gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
   geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 0, y = 270, label = gpp.monthly.r2.label,
+  geom_text(x = 0, y = 285, label = gpp.monthly.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -1269,22 +1256,22 @@ gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred))
 gpp.monthly.fit.plot
 
 # plot partial dependence plots with data points
-gpp.monthly.pd.t10.mean <- gpp.monthly.gbm %>%
-  pdp::partial(pred.var = "t10.mean", n.trees = gpp.monthly.gbm$n.trees,
+gpp.monthly.pd.tair.mean <- gpp.monthly.gbm %>%
+  pdp::partial(pred.var = "tair.mean", n.trees = gpp.monthly.gbm$n.trees,
                grid.resolution = 100)
-gpp.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.t10.mean,
-                                predictor = 't10.mean', response = 'gpp.sum',
-                                color.var = 'month', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = t10.mean, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = t10.mean, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = t10.mean, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+gpp.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.tair.mean,
+                               predictor = 'tair.mean', response = 'gpp.sum',
+                               color.var = 'month', shape.var = 'treatment')# +
+# geom_point(data = example.plots.monthly,
+#            aes(x = tair.mean, y = gpp.sum),
+#            inherit.aes = FALSE,
+#            shape = 1, size = 3) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = tair.mean, y = gpp.sum, label = plot.id),
+#           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = tair.mean, y = gpp.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.1
 
 gpp.monthly.pd.biomass <- gpp.monthly.gbm %>%
@@ -1305,29 +1292,29 @@ gpp.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.biomass,
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.2
 
-gpp.monthly.pd.tair.mean <- gpp.monthly.gbm %>%
-  pdp::partial(pred.var = "tair.mean", n.trees = gpp.monthly.gbm$n.trees,
+gpp.monthly.pd.t10.mean <- gpp.monthly.gbm %>%
+  pdp::partial(pred.var = "t10.mean", n.trees = gpp.monthly.gbm$n.trees,
                grid.resolution = 100)
-gpp.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.tair.mean,
-                                predictor = 'tair.mean', response = 'gpp.sum',
-                                color.var = 'month', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = tair.mean, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = tair.mean, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = tair.mean, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+gpp.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.t10.mean,
+                               predictor = 't10.mean', response = 'gpp.sum',
+                               color.var = 'month', shape.var = 'treatment')# +
+# geom_point(data = example.plots.monthly,
+#            aes(x = t10.mean, y = gpp.sum),
+#            inherit.aes = FALSE,
+#            shape = 1, size = 3) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = t10.mean, y = gpp.sum, label = plot.id),
+#           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = t10.mean, y = gpp.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.3
 
-gpp.monthly.pd.vwc.sd <- gpp.monthly.gbm %>%
-  pdp::partial(pred.var = "vwc.sd", n.trees = gpp.monthly.gbm$n.trees,
+gpp.monthly.pd.gwc.sd <- gpp.monthly.gbm %>%
+  pdp::partial(pred.var = "gwc.sd", n.trees = gpp.monthly.gbm$n.trees,
                grid.resolution = 100)
-gpp.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.vwc.sd,
-                               predictor = 'vwc.sd', response = 'gpp.sum',
+gpp.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.gwc.sd,
+                               predictor = 'gwc.sd', response = 'gpp.sum',
                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
   #            aes(x = vwc.sd, y = gpp.sum),
@@ -1435,13 +1422,13 @@ model.fit.seasonal <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
   mutate(label = c(gpp.seasonal.r2.label,
                    nee.seasonal.r2.label,
                    reco.seasonal.r2.label),
-         x = c(5, -200, 100),
+         x = c(50, -70, 100),
          y = c(760, 245, 600))
 
-seasonal.grob.dimensions <- data.frame(xmin = 9,
-                                      xmax = 24.5,
+seasonal.grob.dimensions <- data.frame(xmin = 8,
+                                      xmax = 27.5,
                                       ymin = 1,
-                                      ymax = 12)
+                                      ymax = 15)
 
 # monthly
 flux.monthly.pred <- nee.monthly.pred %>%
@@ -1458,13 +1445,13 @@ model.fit.monthly <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
   mutate(label = c(gpp.monthly.r2.label,
                    nee.monthly.r2.label,
                    reco.monthly.r2.label),
-         x = c(0, -55, 15),
-         y = c(295, 128, 210))
+         x = c(0, -60, 10),
+         y = c(295, 128, 265))
 
 monthly.grob.dimensions <- data.frame(xmin = 10,
-                                      xmax = 39.25,
+                                      xmax = 40,
                                       ymin = 1.25,
-                                      ymax = 14.25)
+                                      ymax = 16)
 
 
 ### Create the insets
@@ -1512,7 +1499,7 @@ seasonal.influence.plot <- ggplot(variable.influence.seasonal,
   seasonal.insets +
   scale_x_continuous(name = 'Relative Influence',
                      breaks = seq(0, 25, by = 5),
-                     minor_breaks = seq(0, 25, by = 1),
+                     minor_breaks = seq(0, 28, by = 1),
                      expand = expansion(mult = c(0, .05))) +
   scale_y_discrete(breaks = variable.influence.seasonal$variable,
                    labels = as.character(variable.influence.seasonal$variable.label)) +
