@@ -1830,11 +1830,13 @@ flux.seasonal.filled <- flux.seasonal.filled %>%
                               '40-60 cm Subsidence', '>=60 cm Subsidence')))
 flux.seasonal.filled <- as.data.table(flux.seasonal.filled)
 
+flux.seasonal.filled.plotting <- flux.seasonal.filled[flux.year >= 2010]
+
 ### Plot
 ### growing season
 # NEE
 # 2019 not filled
-ggplot(flux.seasonal.filled[filled.gbm == 0],
+ggplot(flux.seasonal.filled.plotting[filled.gbm == 0],
        aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1846,7 +1848,7 @@ ggplot(flux.seasonal.filled[filled.gbm == 0],
   theme_bw() +
   theme(axis.title.x = element_blank())
 # 2019 filled
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1861,7 +1863,7 @@ ggplot(flux.seasonal.filled,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-nee.trajectory <- ggplot(flux.seasonal.filled,
+nee.trajectory <- ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1878,7 +1880,7 @@ nee.trajectory <- ggplot(flux.seasonal.filled,
         axis.text.x = element_text(angle = 90))
 nee.trajectory
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
@@ -1894,7 +1896,7 @@ ggplot(flux.seasonal.filled,
   theme(axis.title.x = element_blank())
 
 # Reco
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1909,7 +1911,7 @@ ggplot(flux.seasonal.filled,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-reco.trajectory <- ggplot(flux.seasonal.filled,
+reco.trajectory <- ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1927,7 +1929,7 @@ reco.trajectory <- ggplot(flux.seasonal.filled,
         axis.text.x = element_text(angle = 90))
 reco.trajectory
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
@@ -1943,7 +1945,7 @@ ggplot(flux.seasonal.filled,
   theme(axis.title.x = element_blank())
 
 # GPP
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1958,7 +1960,7 @@ ggplot(flux.seasonal.filled,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-gpp.trajectory <- ggplot(flux.seasonal.filled,
+gpp.trajectory <- ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.sum, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -1976,7 +1978,7 @@ gpp.trajectory <- ggplot(flux.seasonal.filled,
         axis.text.x = element_text(angle = 90))
 gpp.trajectory
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
@@ -2024,7 +2026,7 @@ flux.trajectory
 
 # annual estimate
 # NEE
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2033,7 +2035,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2042,7 +2044,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2051,7 +2053,7 @@ ggplot(flux.seasonal.filled,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2061,7 +2063,7 @@ ggplot(flux.seasonal.filled,
   theme_bw()
 
 # Reco
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2070,7 +2072,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2079,7 +2081,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2088,7 +2090,7 @@ ggplot(flux.seasonal.filled,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2098,7 +2100,7 @@ ggplot(flux.seasonal.filled,
   theme_bw()
 
 # GPP
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
   geom_hline(yintercept = 0) +
   geom_point() +
@@ -2107,7 +2109,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
   # geom_hline(yintercept = 0) +
   geom_point() +
@@ -2116,7 +2118,7 @@ ggplot(flux.seasonal.filled,
   facet_wrap(~ treatment) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
   geom_point() +
   # geom_hline(yintercept = 0) +
@@ -2125,7 +2127,7 @@ ggplot(flux.seasonal.filled,
   facet_grid(fence ~ plot) +
   theme_bw()
 
-ggplot(flux.seasonal.filled,
+ggplot(flux.seasonal.filled.plotting,
        aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
   geom_point() +
   # geom_hline(yintercept = 0) +
