@@ -548,7 +548,7 @@ ggplot(flux.monthly.filled.2019[month %in% seq(5,9)],
 
 # # Save output
 # write.csv(flux.monthly.filled.2019,
-#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly_filled_2019.csv',
 #           row.names = FALSE)
 
 flux.seasonal.filled.2019.from.monthly <- flux.monthly.filled.2019[
@@ -595,7 +595,8 @@ flux.seasonal.filled.2019 <- flux.seasonal.filled.2019[flux.year == 2019 & is.na
 # Add in sums from monthly models
 flux.seasonal.filled.2019 <- merge(flux.seasonal.filled.2019,
                                    flux.seasonal.filled.2019.from.monthly,
-                                   by = c('flux.year', 'fence', 'plot'))
+                                   by = c('flux.year', 'fence', 'plot'),
+                                   all = TRUE)
 
 # plot to compare models
 ggplot(flux.seasonal.filled.2019[filled.gbm == 1],
@@ -604,13 +605,11 @@ ggplot(flux.seasonal.filled.2019[filled.gbm == 1],
 
 # Plot output
 ggplot(flux.seasonal.filled.2019,
-       aes(x = flux.year, y = nee.sum, color = factor(filled.gbm))) +
-  geom_point(alpha = 0.5) +
-  # geom_point(data = flux.seasonal.filled.2019.from.monthly,
-  #            aes(x = flux.year, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            color = 'blue',
-  #            alpha = 0.2) +
+       aes(x = flux.year)) +
+  geom_point(aes(y = nee.sum, color = factor(filled.gbm)), alpha = 0.5) +
+  geom_point(aes(y = nee.sum.monthly),
+             color = 'blue',
+             alpha = 0.2) +
   scale_color_manual(name = 'Gap Filled w/\nGBM Prediction',
                      values = c('black', 'red')) +
   facet_wrap(~treatment) +
@@ -630,8 +629,21 @@ ggplot(flux.seasonal.filled.2019,
   facet_wrap(~treatment) +
   theme_bw()
 
-# Save output
-write.csv(flux.seasonal.filled.2019,
-          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
-          row.names = FALSE)
+### Monthly predictions lead to a wider and more realistic distribution of 
+### annual flux sums, so I will use the monthly predictions
+flux.seasonal.filled.2019[filled.gbm == 1, .N]
+flux.seasonal.filled.2019[!is.na(nee.sum.monthly), .N]
+flux.seasonal.filled.2019[filled.gbm == 1,
+                          ':=' (nee.sum = nee.sum.monthly,
+                                reco.sum = reco.sum.monthly,
+                                gpp.sum = gpp.sum.monthly)]
+flux.seasonal.filled.2019[,
+                          ':=' (nee.sum.monthly = NULL,
+                                reco.sum.monthly = NULL,
+                                gpp.sum.monthly = NULL)]
+
+# # Save output
+# write.csv(flux.seasonal.filled.2019,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
+#           row.names = FALSE)
 ################################################################################
