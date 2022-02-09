@@ -243,7 +243,9 @@ pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autocham
 # Environmental PCA colored by subsidence
 pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, 
                           colour = 'flux.year', shape = 'treatment',
-                     loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
+                     loadings = TRUE, loadings.colour = 'black',
+                     loadings.label = TRUE, loadings.label.size = 3,
+                     loadings.label.colour = 'black') +
   scale_color_viridis(name = '',
                       direction = -1,
                       breaks = seq(2010, 2020, by = 2)) +
@@ -256,7 +258,9 @@ pca.plot.norm
 # zoom in on the center mass of red
 pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, 
                                colour = 'flux.year', shape = 'treatment',
-                          loadings = TRUE, loadings.label = TRUE, loadings.label.size = 3) +
+                          loadings = TRUE, loadings.colour = 'black',
+                          loadings.label = TRUE, loadings.label.size = 3,
+                          loadings.label.colour = 'black') +
   scale_color_viridis(name = '',
                       direction = -1,
                       breaks = seq(2010, 2020, by = 2)) +
@@ -558,7 +562,8 @@ snow.free.date <- snow.free %>%
 
 env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
-# write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv')
+# write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv',
+#           row.names = FALSE)
 ################################################################################
 
 ### Calculate Microtopography ##################################################

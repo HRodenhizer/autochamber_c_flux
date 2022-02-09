@@ -44,22 +44,24 @@ flux.seasonal <- merge(flux.seasonal, newgroups.join, by = c('fence', 'plot'), a
 ### Function to Plot Partial Dependence Plots ###############################################################################
 plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
   # print(paste('Running predictor.name <- xxx'))
-  predictor.name <- case_when(predictor == 'biomass.annual' ~ expression('Biomass (g m'^-2*')'), 
-                              predictor == 'tair.mean' ~ expression('Mean Air Temp ('*degree*'C)'), 
-                              predictor == 'tair.sd' ~ expression('SD Air Temp ('*degree*'C)'), 
-                              predictor == 'wtd.mean' ~ expression('Mean WTD (cm)'), 
+  predictor.name <- case_when(predictor == 'tp.annual' ~ expression('Thaw Penetration (cm)'), 
+                              predictor == 'subsidence.annual' ~ expression('Subsidence (cm)'),
+                              predictor == 'alt.annual' ~ expression('ALT (cm)'), 
                               predictor == 'vwc.mean' ~ expression('Mean VWC (%)'), 
                               predictor == 'vwc.sd' ~ expression('SD VWC (%)'), 
                               predictor == 'gwc.mean' ~ expression('Mean GWC (%)'), 
                               predictor == 'gwc.sd' ~ expression('SD GWC (%)'), 
+                              predictor == 'wtd.mean' ~ expression('Mean WTD (cm)'), 
+                              predictor == 'wtd.sd' ~ expression('SD WTD (cm)'), 
+                              predictor == 'precip.sum' ~ expression('Precipitation (mm)'), 
+                              predictor == 'winter.snow.depth' ~ expression('Snow Depth (cm)'), 
+                              predictor == 'winter.min.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'), 
                               predictor == 't10.mean' ~ expression('Mean Soil Temp ('*degree*'C)'), 
                               predictor == 't10.sd' ~ expression('SD Soil Temp ('*degree*'C)'), 
-                              predictor == 'winter.min.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'),  
-                              predictor == 'subsidence.annual' ~ expression('Subsidence (cm)'),
-                              predictor == 'tp.annual' ~ expression('Thaw Penetration (cm)'), 
-                              predictor == 'alt.annual' ~ expression('ALT (cm)'), 
-                              predictor == 'winter.snow.depth' ~ expression('Snow Depth (cm)'), 
-                              predictor == 'precip.sum' ~ expression('Precipitation (mm)'))
+                              predictor == 'tair.mean' ~ expression('Mean Air Temp ('*degree*'C)'), 
+                              predictor == 'tair.sd' ~ expression('SD Air Temp ('*degree*'C)'), 
+                              predictor == 'biomass.annual' ~ expression('Biomass (g m'^-2*')'))
+
   # print(paste('Running response.name <- xxx'))
   response.name <- case_when(response == 'nee.sum' ~ expression('NEE (gC m'^-2*')'),
                              response == 'gpp.sum' ~ expression('GPP (gC m'^-2*')'),
@@ -1355,6 +1357,7 @@ gpp.monthly.pd.plot
 # A function to plot the inset 
 get_inset <- function(data.df, fit.df){
   p <- ggplot(data.df, aes(x = flux.measured, y = flux.pred)) +
+    geom_abline(slope = 1, intercept = 0, linetype = 'dashed') +
     geom_point() +
     geom_smooth(method = 'lm', color = 'black') +
     geom_text(data = fit.df,
@@ -1567,6 +1570,7 @@ influence.plot
 
 ### Plot PDP plots all together
 seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
+                            theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))) +
                             facet_grid(. ~ 1), 
                           gpp.seasonal.plot.2 +
                             theme(axis.title.y = element_blank(),
@@ -1579,8 +1583,6 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
                                   axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            scale_x_continuous(name = expression('SD GWC (%)'),
-                                               breaks = seq(0.5, 1, by = 0.25)) +
                             facet_grid(. ~ 3), 
                           gpp.seasonal.plot.4 +
                             theme(axis.title.y = element_blank(),
@@ -1588,7 +1590,8 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                                   axis.ticks.y = element_blank(),
                                   axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
                             facet_grid("GPP" ~ 4),
-                          nee.seasonal.plot.1, 
+                          nee.seasonal.plot.1 +
+                            theme(axis.title.y = element_text(margin = margin(r = 0, unit = 'pt'))), 
                           nee.seasonal.plot.2 +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
@@ -1598,22 +1601,23 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            scale_x_continuous(name = expression('SD GWC (%)'),
-                                               breaks = seq(0.5, 1, by = 0.25)), 
+                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
                           nee.seasonal.plot.4 +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
                                   axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
                             facet_grid("NEE" ~ .),
-                          reco.seasonal.plot.1, 
+                          reco.seasonal.plot.1 +
+                            theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))), 
                           reco.seasonal.plot.2 +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
                                   axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
                           reco.seasonal.plot.3 +
+                            scale_x_continuous(name = expression('SD GWC (%)'),
+                                               breaks = seq(0.5, 1, by = 0.25)) +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
