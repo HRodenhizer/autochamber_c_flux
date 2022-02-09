@@ -242,7 +242,7 @@ pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autocham
 
 # Environmental PCA colored by subsidence
 pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, 
-                          colour = 'flux.year', shape = 'treatment',
+                          colour = 'flux.year', shape = 'treatment', alpha = 0.8,
                      loadings = TRUE, loadings.colour = 'black',
                      loadings.label = TRUE, loadings.label.size = 3,
                      loadings.label.colour = 'black') +
@@ -257,7 +257,7 @@ pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot,
 pca.plot.norm
 # zoom in on the center mass of red
 pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot, 
-                               colour = 'flux.year', shape = 'treatment',
+                               colour = 'flux.year', shape = 'treatment', alpha = 0.8,
                           loadings = TRUE, loadings.colour = 'black',
                           loadings.label = TRUE, loadings.label.size = 3,
                           loadings.label.colour = 'black') +
