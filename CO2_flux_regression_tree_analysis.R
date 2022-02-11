@@ -13,6 +13,8 @@ library(lubridate)
 library(viridis)
 library(ggpubr)
 library(ggnewscale)
+library(raster)
+library(sf)
 library(tidyverse)
 #############################################################################################################################
 
@@ -2264,6 +2266,119 @@ biomass.hydrology.plot
 #        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.pdf',
 #        biomass.hydrology.plot,
+#        height = 7,
+#        width = 6.5)
+################################################################################
+
+### Impact of TK Classification on 2018 fluxes #################################
+cip.bnd <- st_read('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/GPS survey/Processed/Site_Summary_Shapefiles/CiPEHR_bnd_NAD83.shp')
+tk.edges <- raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_2.tif')
+plots <- st_read('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/GPS survey/Processed/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
+
+cip.bnd <- st_transform(cip.bnd, st_crs(tk.edges))
+plots <- plots %>%
+  filter(!is.na(as.numeric(plot))) %>%
+  mutate(plot = as.numeric(plot)) %>%
+  st_transform(st_crs(tk.edges))
+tk.edges.cip <- crop(tk.edges, cip.bnd)
+plot(tk.edges.cip)
+
+plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE) %>%
+  as.data.frame() %>%
+  rename(tk.class = 2) %>%
+  mutate(tk.class = factor(case_when(tk.class == 1 ~ 'TK Center',
+                              tk.class == 2 ~ 'TK Edge',
+                              tk.class == 0 ~ 'Non-TK'),
+                           levels = c('Non-TK', 'TK Edge', 'TK Center'))) %>%
+  cbind.data.frame(plots) %>%
+  select(fence, plot, tk.class) %>%
+  as.data.table()
+
+flux.2018.tk <- merge(flux.seasonal[flux.year == 2018], plots.tk.class)
+flux.2018.tk.mean <- flux.2018.tk[, .(nee.sum = mean(nee.sum),
+                                      nee.se = sd(nee.sum)/sqrt(.N),
+                                      gpp.sum = mean(gpp.sum),
+                                      gpp.se = sd(gpp.sum)/sqrt(.N),
+                                      reco.sum = mean(reco.sum),
+                                      reco.se = sd(reco.sum)/sqrt(.N)),
+                                  by = c('tk.class')]
+
+nee.tk.class.plot <- ggplot(flux.2018.tk.mean, aes (x = tk.class, y = nee.sum), size = 2) +
+  geom_point(data = flux.2018.tk, aes(x = tk.class, y = nee.sum), 
+             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_point() +
+  geom_errorbar(aes(ymin = nee.sum - nee.se, ymax = nee.sum + nee.se),
+                width = 0.2) +
+  geom_text(aes(x = c(1, 2, 3), y = rep(-150, 3), label = rep('a', 3)),
+            inherit.aes = FALSE) +
+  scale_y_continuous(name = expression('Cumulative NEE (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+gpp.tk.class.plot <- ggplot(flux.2018.tk.mean, aes (x = tk.class, y = gpp.sum), size = 2) +
+  geom_point(data = flux.2018.tk, aes(x = tk.class, y = gpp.sum), 
+             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_point() +
+  geom_errorbar(aes(ymin = gpp.sum - gpp.se, ymax = gpp.sum + gpp.se),
+                width = 0.2) +
+  geom_text(aes(x = c(1, 2, 3), y = rep(0, 3), label = rep('a', 3)),
+            inherit.aes = FAL SE) +
+  scale_y_continuous(name = expression('Cumulative GPP (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+reco.tk.class.plot <- ggplot(flux.2018.tk.mean, aes (x = tk.class, y = reco.sum), size = 2) +
+  geom_point(data = flux.2018.tk, aes(x = tk.class, y = reco.sum), 
+             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_point() +
+  geom_errorbar(aes(ymin = reco.sum - reco.se, ymax = reco.sum + reco.se),
+                width = 0.2) +
+  geom_text(aes(x = c(1, 2, 3), y = rep(100, 3), label = c('a', 'ab', 'b')),
+            inherit.aes = FALSE) +
+  scale_y_continuous(name = expression('Cumulative Reco (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+flux.2018.tk[, .N, by = c('tk.class')]
+histogram(flux.2018.tk[tk.class == 'Non-TK']$nee.sum)
+histogram(flux.2018.tk[tk.class == 'TK Edge']$nee.sum)
+histogram(flux.2018.tk[tk.class == 'TK Center']$nee.sum)
+
+histogram(flux.2018.tk[tk.class == 'Non-TK']$gpp.sum)
+histogram(flux.2018.tk[tk.class == 'TK Edge']$gpp.sum)
+histogram(flux.2018.tk[tk.class == 'TK Center']$gpp.sum)
+
+histogram(flux.2018.tk[tk.class == 'Non-TK']$reco.sum)
+histogram(flux.2018.tk[tk.class == 'TK Edge']$reco.sum)
+histogram(flux.2018.tk[tk.class == 'TK Center']$reco.sum)
+
+# will use kruskall wallis test
+# NEE
+kruskal.test(nee.sum ~ tk.class, data = flux.2018.tk)
+
+# GPP
+kruskal.test(gpp.sum ~ tk.class, data = flux.2018.tk)
+
+# Reco
+kruskal.test(reco.sum ~ tk.class, data = flux.2018.tk)
+# Wilcoxon Rank Sum test with p-value adjustment
+pairwise.wilcox.test(flux.2018.tk$reco.sum, flux.2018.tk$tk.class,
+                     p.adjust.method = "BH")
+
+# should facet plots and then have the y-axis label be for flux
+tk.class.plot <- ggarrange(gpp.tk.class.plot,
+          nee.tk.class.plot,
+          reco.tk.class.plot,
+          ncol = 1)
+tk.class.plot
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class_2018.jpg',
+#        tk.class.plot,
+#        height = 4,
+#        width = 6.5,
+#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class_2018.pdf',
+#        tk.class.plot,
 #        height = 7,
 #        width = 6.5)
 ################################################################################
