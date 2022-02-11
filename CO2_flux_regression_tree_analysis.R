@@ -2141,3 +2141,129 @@ ggplot(flux.seasonal.filled.plotting,
   theme_bw()
 
 ################################################################################
+
+### Investigate relationship between soil moisture variables and biomass #######
+biomass.hydrology.plot.1 <- ggplot(flux.seasonal.filled.plotting, 
+       aes(x = subsidence.annual*-1, biomass.annual,
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'Subsidence (cm)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+biomass.hydrology.plot.2 <- ggplot(flux.seasonal.filled.plotting, 
+       aes(x = wtd.mean*-1, biomass.annual, 
+           color = flux.year)) +
+  geom_vline(xintercept = 0, linetype = 'dashed') +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'WTD (cm)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+biomass.hydrology.plot.3 <- ggplot(flux.seasonal.filled.plotting, 
+       aes(x = vwc.mean, biomass.annual, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'VWC (%)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+biomass.hydrology.plot.4 <- ggplot(flux.seasonal.filled.plotting, 
+       aes(x = gwc.mean, biomass.annual, 
+           color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'GWC (%)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+biomass.hydrology.plot.5 <- ggplot(flux.seasonal.filled.plotting, 
+                                   aes(x = wtd.sd, biomass.annual, 
+                                       color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'SD WTD (cm)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+biomass.hydrology.plot.6 <- ggplot(flux.seasonal.filled.plotting, 
+                                   aes(x = vwc.sd, biomass.annual, 
+                                       color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'SD VWC (%)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+biomass.hydrology.plot.7 <- ggplot(flux.seasonal.filled.plotting, 
+                                   aes(x = gwc.sd, biomass.annual, 
+                                       color = flux.year)) +
+  geom_point(aes(shape = treatment)) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_x_continuous(name = 'SD GWC (%)') +
+  scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
+  scale_color_viridis(breaks = seq(2010, 2020),
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+biomass.hydrology.plot <- ggarrange(biomass.hydrology.plot.4,
+                                    biomass.hydrology.plot.7,
+                                    biomass.hydrology.plot.3,
+                                    biomass.hydrology.plot.6,
+                                    biomass.hydrology.plot.2,
+                                    biomass.hydrology.plot.5,
+                                    # biomass.hydrology.plot.1,
+                                    ncol = 2,
+                                    nrow = 3,
+                                    common.legend = TRUE,
+                                    legend = "right")
+biomass.hydrology.plot
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.jpg',
+#        biomass.hydrology.plot,
+#        height = 7,
+#        width = 6.5,
+#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.pdf',
+#        biomass.hydrology.plot,
+#        height = 7,
+#        width = 6.5)
+################################################################################
