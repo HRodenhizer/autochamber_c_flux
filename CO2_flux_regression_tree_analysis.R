@@ -72,17 +72,14 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
   color.name <- case_when(color.var == 'flux.year' ~ 'Year',
                           color.var == 'month' ~ 'Month')
   # print(paste('Running color.limits <- xxx'))
-  color.limits <- case_when(color.var == 'flux.year' ~ c(2010, 2021),
-                            color.var == 'month' ~ c(5, 9))
-  # print(paste('Running color.breaks <- xxx'))
   color.breaks <- if (color.var == 'flux.year') {
-    seq(2010, 2020, by = 2)
+    seq(2010, 2021)
   } else if (color.var == 'month') {
     seq(5, 9)
   }
   # print(paste('Running color.breaks <- xxx'))
   color.labels <- if (color.var == 'flux.year') {
-    seq(2010, 2020, by = 2)
+    seq(2010, 2021)
   } else if (color.var == 'month') {
     month.name[seq(5, 9)]
   }
@@ -97,7 +94,7 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
     geom_point(aes_string(y = response, color = color.var, shape = shape.var)) +
     scale_color_viridis(name = color.name,
                         direction = -1,
-                        limits = color.limits,
+                        discrete = TRUE,
                         breaks = color.breaks,
                         labels = color.labels) +
     scale_shape_manual(values = shape.values,
@@ -118,6 +115,7 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
 #############################################################################################################################
 
 ### Gradient Boosted Regression Tree ########################################################################################
+flux.seasonal[, flux.year := factor(flux.year)]
 set.seed(21591)
 
 ### Seasonal
@@ -734,6 +732,7 @@ gpp.seasonal.pd.plot
 
 
 ### Monthly
+flux.monthly[, month := factor(month)]
 # include ndvi?
 nee.monthly <- flux.monthly[!is.na(nee.sum), 
                             c('nee.sum',
@@ -1575,6 +1574,8 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                             theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))) +
                             facet_grid(. ~ 1), 
                           gpp.seasonal.plot.2 +
+                            scale_x_continuous(name = expression('SD GWC (%)'),
+                                               breaks = seq(0.5, 1, by = 0.25)) +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
@@ -2271,19 +2272,39 @@ biomass.hydrology.plot
 ################################################################################
 
 ### Impact of TK Classification on 2018 fluxes #################################
-cip.bnd <- st_read('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/GPS survey/Processed/Site_Summary_Shapefiles/CiPEHR_bnd_NAD83.shp')
+cip.bnd <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/CiPEHR_bnd_NAD83.shp')
 tk.edges <- brick(stack(raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_1.tif'),
                         raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_2.tif'),
                         raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_3.tif')))
-plots <- st_read('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/GPS survey/Processed/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
+plots <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
 
 cip.bnd <- st_transform(cip.bnd, st_crs(tk.edges))
 plots <- plots %>%
   filter(!is.na(as.numeric(plot))) %>%
   mutate(plot = as.numeric(plot)) %>%
   st_transform(st_crs(tk.edges))
+
+# crop thermokarst edges to cipehr
 tk.edges.cip <- crop(tk.edges, cip.bnd)
+# adjust edges to be both the cells immediately outside the thermokarst depression
+# and immediately inside
+tk.centers.cip <- tk.edges.cip
+for (years.n in 1:nlayers(tk.edges.cip)) {
+  tk.centers.cip[[years.n]][tk.centers.cip[[years.n]] != 1] <- NA
+  plot(tk.centers.cip[[years.n]])
+  edges.inner.cip[[years.n]] <- boundaries(tk.centers.cip[[years.n]], directions = 4)
+  edges.inner.cip[[years.n]][is.na(edges.inner.cip[[years.n]])] <- 0
+  plot(edges.inner.cip[[years.n]])
+}
+
+tk.edges.cip <- tk.edges.cip + edges.inner.cip
 plot(tk.edges.cip)
+
+ggplot(tk.edges.cip %>%
+         as.data.frame(xy = TRUE),
+       aes(x = x, y = y, color = karst_edges_1, fill = karst_edges_1)) +
+  geom_tile() +
+  geom_sf(data = plots, inherit.aes = FALSE)
 
 plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE) %>%
   as.data.frame() %>%
@@ -2292,45 +2313,72 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
          tk.class.2019 = 4) %>%
   cbind.data.frame(plots) %>%
   pivot_longer(tk.class.2017:tk.class.2019, names_to = 'flux.year', values_to = 'tk.class') %>%
-  mutate(flux.year = as.numeric(str_sub(flux.year, start = 10)),
+  mutate(flux.year = as.integer(str_sub(flux.year, start = 10)),
          tk.class = factor(case_when(tk.class == 1 ~ 'TK Center',
-                              tk.class == 2 ~ 'TK Edge',
-                              tk.class == 0 ~ 'Non-TK'),
-                           levels = c('Non-TK', 'TK Edge', 'TK Center'))) %>%
+                                     tk.class == 2 ~ 'TK Edge',
+                                     tk.class == 0 ~ 'Non-TK'),
+                           levels = c('Pre-Thaw', 'Non-TK', 'TK Edge', 'TK Center'))) %>%
   select(flux.year, fence, plot, tk.class) %>%
+  rbind.data.frame(plots %>%
+                     st_drop_geometry() %>%
+                     mutate(flux.year = as.integer(2010),
+                            tk.class = factor('Pre-Thaw')) %>%
+                     select(flux.year, fence, plot, tk.class)) %>%
+  arrange(fence, plot, flux.year) %>%
   as.data.table()
 
-# PLots 2-6 and 5-6 were edge, center, edge in 2017, 2018, and 2019, respectively
+# PLots 1-5 and 1-6 were edge, center, edge in 2017, 2018, and 2019, respectively
 # Will call them edge for all three years
-plots.tk.class[fence %in% c(2, 5) & plot == 6 & flux.year == 2018,
+plots.tk.class[fence == 1 & plot %in% c(5, 6) & flux.year == 2018,
                tk.class := factor('TK Edge')]
+# plot 4-7 was center, edge, center in 2017, 2018, and 2019 respectively
+# Will call it center
+plots.tk.class[fence == 4 & plot == 7 & flux.year == 2018,
+               tk.class := factor('TK Center')]
+# plots 4-6 and 5-6 got classified as edges, but are really centers
+plots.tk.class[fence %in% c(4, 5) & plot == 6,
+               tk.class := factor('TK Center')]
 
-flux.tk <- merge(flux.seasonal[flux.year >= 2017 & flux.year <= 2019], plots.tk.class,
-                      by = c('flux.year', 'fence', 'plot'))
-flux.tk.mean <- flux.2018.tk[, .(nee.sum = mean(nee.sum),
-                                      nee.se = sd(nee.sum)/sqrt(.N),
-                                      gpp.sum = mean(gpp.sum),
-                                      gpp.se = sd(gpp.sum)/sqrt(.N),
-                                      reco.sum = mean(reco.sum),
-                                      reco.se = sd(reco.sum)/sqrt(.N)),
-                                  by = c('tk.class', 'flux.year')]
+
+flux.tk <- merge(flux.seasonal[flux.year == 2010 | 
+                                 flux.year >= 2017 & flux.year <= 2019], 
+                 plots.tk.class,
+                 by = c('flux.year', 'fence', 'plot'))
+flux.tk.mean <- flux.tk[, .(nee.sum = mean(nee.sum, na.rm = TRUE),
+                            nee.se = sd(nee.sum, na.rm = TRUE)/sqrt(.N),
+                            gpp.sum = mean(gpp.sum, na.rm = TRUE),
+                            gpp.se = sd(gpp.sum, na.rm = TRUE)/sqrt(.N),
+                            reco.sum = mean(reco.sum, na.rm = TRUE),
+                            reco.se = sd(reco.sum, na.rm = TRUE)/sqrt(.N),
+                            wtd.mean = mean(wtd.mean),
+                            wtd.se = sd(wtd.mean)/sqrt(.N),
+                            alt.mean = mean(alt.annual),
+                            alt.se = sd(alt.annual)/sqrt(.N),
+                            tp.mean = mean(tp.annual),
+                            tp.se = sd(tp.annual)/sqrt(.N)),
+                        by = c('tk.class')]
 
 flux.tk[, .N, by = c('tk.class')]
+histogram(flux.tk[tk.class == 'Pre-Thaw']$nee.sum)
 histogram(flux.tk[tk.class == 'Non-TK']$nee.sum)
 histogram(flux.tk[tk.class == 'TK Edge']$nee.sum)
 histogram(flux.tk[tk.class == 'TK Center']$nee.sum)
 
+histogram(flux.tk[tk.class == 'Pre-Thaw']$gpp.sum)
 histogram(flux.tk[tk.class == 'Non-TK']$gpp.sum)
 histogram(flux.tk[tk.class == 'TK Edge']$gpp.sum)
 histogram(flux.tk[tk.class == 'TK Center']$gpp.sum)
 
+histogram(flux.tk[tk.class == 'Pre-Thaw']$reco.sum)
 histogram(flux.tk[tk.class == 'Non-TK']$reco.sum)
 histogram(flux.tk[tk.class == 'TK Edge']$reco.sum)
 histogram(flux.tk[tk.class == 'TK Center']$reco.sum)
 
-# will use kruskall wallis test
+# will use kruskall wallis test for small sample size and perhaps non-normal distribution
 # NEE
 kruskal.test(nee.sum ~ tk.class, data = flux.tk)
+pairwise.wilcox.test(flux.tk$nee.sum, flux.tk$tk.class,
+                     p.adjust.method = "BH")
 
 # GPP
 kruskal.test(gpp.sum ~ tk.class, data = flux.tk)
@@ -2344,43 +2392,47 @@ pairwise.wilcox.test(flux.tk$reco.sum, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # Plot
-nee.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = nee.sum), size = 2) +
+nee.tk.class.plot <- ggplot(flux.tk.mean, 
+                            aes (x = tk.class, y = nee.sum), 
+                            size = 2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_point(data = flux.tk, aes(x = tk.class, y = nee.sum), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
   geom_errorbar(aes(ymin = nee.sum - nee.se, ymax = nee.sum + nee.se),
                 width = 0.2) +
-  geom_text(aes(x = c(1, 2, 3), y = rep(-150, 3), label = rep('a', 3)),
+  geom_text(aes(x = c(1, 2, 3, 4), y = rep(-150, 4), label = c('a', 'b', 'bc', 'ac')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = expression('Flux (gC' ~ m^-2*')')) +
   theme_bw() +
-  theme(axis.title.x = element_blank()) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
   facet_grid('NEE' ~ .)
 
 gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum), size = 2) +
   geom_point(data = flux.tk, aes(x = tk.class, y = gpp.sum), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
   geom_errorbar(aes(ymin = gpp.sum - gpp.se, ymax = gpp.sum + gpp.se),
                 width = 0.2) +
-  geom_text(aes(x = c(1, 2, 3), y = rep(0, 3), label = c('a', 'ab', 'b')),
+  geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = '') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
         axis.title.y = element_text(margin = margin(r = 14, unit = 'pt'))) +
   facet_grid('GPP' ~ .)
 
 reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum), size = 2) +
   geom_point(data = flux.tk, aes(x = tk.class, y = reco.sum), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
   geom_errorbar(aes(ymin = reco.sum - reco.se, ymax = reco.sum + reco.se),
                 width = 0.2) +
-  geom_text(aes(x = c(1, 2, 3), y = rep(50, 3), label = c('a', 'ab', 'b')),
+  geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = '') +
@@ -2391,18 +2443,61 @@ reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum), siz
 
 # should facet plots and then have the y-axis label be for flux
 tk.class.plot <- ggarrange(gpp.tk.class.plot,
-          nee.tk.class.plot,
-          reco.tk.class.plot,
-          ncol = 1)
+                           nee.tk.class.plot,
+                           reco.tk.class.plot,
+                           ncol = 1,
+                           heights = c(0.95, 0.95, 1))
 tk.class.plot
 
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class_2018.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class.jpg',
 #        tk.class.plot,
 #        height = 5.5,
-#        width = 3,
+#        width = 3.5,
 #        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class_2018.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_tk_class.pdf',
 #        tk.class.plot,
 #        height = 5.5,
-#        width = 3)
+#        width = 3.5)
+
+# plot WTD
+wtd.tk.class <- ggplot(flux.tk.mean, 
+       aes (x = tk.class, y = wtd.mean), 
+       size = 2) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_point(data = flux.tk, aes(x = tk.class, y = wtd.mean), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point() +
+  geom_errorbar(aes(ymin = wtd.mean - wtd.se, ymax = wtd.mean + wtd.se),
+                width = 0.2) +
+  scale_y_continuous(name = 'WTD (cm)') +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+wtd.tk.class
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_tk_class.jpg',
+#        wtd.tk.class,
+#        height = 3.5,
+#        width = 3.5) # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_tk_class.pdf',
+#        wtd.tk.class,
+#        height = 3.5,
+#        width = 3.5)
+
+# plot ALT
+ggplot(flux.tk.mean, aes (x = tk.class, y = alt.mean), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = alt.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_point() +
+  geom_errorbar(aes(ymin = alt.mean - alt.se, ymax = alt.mean + alt.se),
+                width = 0.2) +
+  scale_y_continuous(name = '') +
+  theme_bw()
+  
+ggplot(flux.tk.mean, aes (x = tk.class, y = tp.mean), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = tp.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_point() +
+  geom_errorbar(aes(ymin = tp.mean - tp.se, ymax = tp.mean + tp.se),
+                width = 0.2) +
+  scale_y_continuous(name = '') +
+  theme_bw()
 ################################################################################

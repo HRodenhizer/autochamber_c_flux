@@ -206,7 +206,7 @@ env.annual.plot <- flux.annual %>%
   select(-c(season, matches('rh'), 
             max.tair.spread, min.tair.spread, matches('ndvi'),
             gdd, fdd, winter.fdd, precip.sum)) %>%
-  mutate(flux.year = as.numeric(as.character(flux.year)),
+  mutate(flux.year = factor(as.numeric(as.character(flux.year))),
          treatment = factor(treatment, 
                             levels = c('Control', 
                                        'Air Warming', 
@@ -248,7 +248,8 @@ pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot,
                      loadings.label.colour = 'black') +
   scale_color_viridis(name = '',
                       direction = -1,
-                      breaks = seq(2010, 2020, by = 2)) +
+                      discrete = TRUE,
+                      breaks = seq(2010, 2021)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   coord_fixed() +
@@ -263,7 +264,8 @@ pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot,
                           loadings.label.colour = 'black') +
   scale_color_viridis(name = '',
                       direction = -1,
-                      breaks = seq(2010, 2020, by = 2)) +
+                      discrete = TRUE,
+                      breaks = seq(2010, 2021)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   scale_y_continuous(limits = c(-0.04, 0.04)) +
