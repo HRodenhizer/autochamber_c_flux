@@ -1452,6 +1452,37 @@ wtd.precip
 #        wtd.precip,
 #        height = 5,
 #        width = 6.5)
+
+### Table of model output
+hydrology.model.table <- rbind.data.frame(wtd.model.ci %>%
+                                            mutate(Response = c('WTD', NA, NA),
+                                                   R2M = c(signif(wtd.model.r2[1], 3), NA, NA),
+                                                   R2C = c(signif(wtd.model.r2[2], 3), NA, NA)) %>%
+                                            select(Response, `Final Variables` = term, Coefficient = coefs, Min = min, Max = max, R2M, R2C),
+                                          wtd.sd.model.ci %>%
+                                            mutate(Response = c('SD WTD', NA),
+                                                   R2M = c(signif(wtd.sd.model.r2[1], 3), NA),
+                                                   R2C = c(signif(wtd.sd.model.r2[2], 3), NA)) %>%
+                                            select(Response, `Final Variables` = term, Coefficient = coefs, Min = min, Max = max, R2M, R2C),
+                                          vwc.model.ci %>%
+                                            mutate(Response = c('VWC', NA, NA),
+                                                   R2M = c(signif(vwc.model.r2[1], 3), NA, NA),
+                                                   R2C = c(signif(vwc.model.r2[2], 3), NA, NA)) %>%
+                                            select(Response, `Final Variables` = term, Coefficient = coefs, Min = min, Max = max, R2M, R2C),
+                                          vwc.sd.model.ci %>%
+                                            mutate(Response = c('SD VWC', NA, NA),
+                                                   R2M = c(signif(vwc.sd.model.r2[1], 3), NA, NA),
+                                                   R2C = c(signif(vwc.sd.model.r2[2], 3), NA, NA)) %>%
+                                            select(Response, `Final Variables` = term, Coefficient = coefs, Min = min, Max = max, R2M, R2C)) %>%
+  mutate(`Final Variables` = case_when(`Final Variables` == '(Intercept)' ~ 'Intercept',
+                                       `Final Variables` == 'subsidence' ~ 'Subsidence',
+                                       `Final Variables` == 'I(subsidence^2)' ~ 'Subsidence^2'),
+         Coefficient = signif(Coefficient, 3),
+         Min = signif(Min, 3),
+         Max = signif(Max, 3))
+# write_excel_csv(hydrology.model.table,
+#                 '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/hydrology_model_table.xlsx',
+#                 na = '')
 ################################################################################
 
 ### Impact of Subsidence on Soil Moisture (Spatial) ############################
@@ -1626,7 +1657,7 @@ for (block.n in 1:length(wtd.list)) {
 # # save data
 # saveRDS(wtd.surface,
 #         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/wtd_surfaces.rds')
-
+wtd.surface <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/wtd_surfaces.rds')
 
 ### Format TD data
 td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Thaw Depth/Processed/2020/Thaw_depth_2009-2020.csv",
@@ -1743,6 +1774,7 @@ for (block.n in 1:length(td.list)) {
 # # save data
 # saveRDS(td.surface,
 #         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/td_surfaces.rds')
+td.surface <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/hydrology_kriging_output/td_surfaces.rds')
 
 
 ### Select days for high and low precip in previous week 
@@ -1774,9 +1806,10 @@ ggplot(flux.daily[flux.year == 2020 & month == 8],
 ### OR ###
 ### I used these 2018 dates!
 # week ending on 2018-07-31 for dry
-# wtd on 2018-07-30, td on 2020-07-27
+# wtd on 2018-07-30, td on 2018-07-27
 # week ending on 2018-08-08 for wet
 # wtd on 2018-08-08, td on 2020-08-10
+
 
 # Join elevation (annual), and wtd and td data from selected dates into brick
 hydro.brick.dry <- list()
@@ -2034,21 +2067,45 @@ transect.diff.plot <- ggplot(transect.extract.diff,
   theme_bw()
 transect.diff.plot
 
-wtd.transect.plot <- ggarrange(transect.plot, transect.diff.plot,
+wtd.transect.plot <- ggarrange(transect.plot, 
+                               transect.diff.plot,
           ncol = 2,
           widths = c(1.75, 1),
           common.legend = TRUE,
           legend = 'bottom')
 wtd.transect.plot
 
+precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)], 
+                      aes(x = date, y = precip)) +
+  geom_line() +
+  geom_vline(aes(xintercept = as_date('2018-07-30'), color = 'WTD'), linetype = 'dashed') +
+  geom_vline(aes(xintercept = as_date('2018-07-27'), color = 'TD'), linetype = 'dashed') +
+  geom_vline(aes(xintercept = as_date('2018-08-08'), color = 'WTD'), linetype = 'dashed') +
+  geom_vline(aes(xintercept = as_date('2018-08-10'), color = 'TD'), linetype = 'dashed') +
+  geom_text(aes(x = as_date('2018-07-28'), y = 28, label = 'Dry'), size = 3) +
+  geom_text(aes(x = as_date('2018-08-09'), y = 28, label = 'Wet'), size = 3) +
+  scale_y_continuous(name = 'Precipitation (mm)') +
+  scale_color_manual(name = 'Measurement\nDates',
+                     breaks = c('WTD', 'TD'),
+                     values = c('#3399CC', '#660000')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+precip.plot
+
+wtd.transect.plot.precip <- ggarrange(precip.plot,
+                               wtd.transect.plot,
+                               ncol = 1,
+                               heights = c(0.25, 1))
+wtd.transect.plot.precip
+
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.jpg',
-#        wtd.transect.plot,
-#        height = 7,
+#        wtd.transect.plot.precip,
+#        height = 8.5,
 #        width = 6.5,
 #        bg = 'white')
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.pdf',
-#        wtd.transect.plot,
-#        height = 7,
+#        wtd.transect.plot.precip,
+#        height = 8.5,
 #        width = 6.5,
 #        bg = 'white')
 ################################################################################
