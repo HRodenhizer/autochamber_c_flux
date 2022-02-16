@@ -202,7 +202,6 @@ graph_ci <- function(ci,figtitle,model) {ggplot(ci,aes(x=names,y=coefs))+
 ### PCA ########################################################################
 # need to finalize which variables to include
 env.annual.plot <- flux.annual %>%
-  filter(flux.year != 2009) %>%
   select(-c(season, matches('rh'), 
             max.tair.spread, min.tair.spread, matches('ndvi'),
             gdd, fdd, winter.fdd, precip.sum)) %>%
@@ -240,6 +239,18 @@ env.annual.subset.norm <- env.annual.subset %>%
 #         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
 pca.annual.norm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
 
+# get PCA scores for each plot in each year
+env.annual.plot <- env.annual.plot %>%
+  cbind.data.frame(pca.annual.norm[['x']])
+# write.csv(env.annual.plot,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_output.csv',
+#            row.names = FALSE)
+
+# # get PCA scores for each variable
+# write.csv(pca.annual.norm[['rotation']],
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_variable_rotation.csv',
+#           row.names = FALSE)
+
 # Environmental PCA colored by subsidence
 pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot, 
                           colour = 'flux.year', shape = 'treatment', alpha = 0.8,
@@ -249,7 +260,7 @@ pca.plot.norm <- autoplot(pca.annual.norm, data = env.annual.plot,
   scale_color_viridis(name = '',
                       direction = -1,
                       discrete = TRUE,
-                      breaks = seq(2010, 2021)) +
+                      breaks = seq(2009, 2021)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   coord_fixed() +
@@ -265,7 +276,7 @@ pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot,
   scale_color_viridis(name = '',
                       direction = -1,
                       discrete = TRUE,
-                      breaks = seq(2010, 2021)) +
+                      breaks = seq(2009, 2021)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
   scale_y_continuous(limits = c(-0.04, 0.04)) +
