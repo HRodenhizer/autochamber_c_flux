@@ -1720,6 +1720,7 @@ monthly.pdp
 
 ### Time Series Analysis #######################################################
 flux.seasonal.filled <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv')
+pca.scores <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_output.csv')
 
 # Add in eddy covariance estimate for winter
 # a function to load and return a file
@@ -1734,6 +1735,11 @@ flux.eddy <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files
                  na.strings = c('-9999'),
                  quote = "\"'")
 flux.eddy <- data.table(flux.eddy)
+co2.2015.2016 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2015-2016/AK15_Carbon_new_30Apr2019.Rdata")
+load("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2016-2017/AK16_Carbon_new_30Apr2019.Rdata")
+co2.2016.2017 <- export
+rm(export)
+co2.2017.2018 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2017-2018/AK17_Carbon_new_30Apr2019.Rdata")
 co2.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_Carbon_new_30Apr2019.Rdata")
 co2.2018.2019[, u_var := NULL]
 co2.2018.2019[, v_var := NULL]
@@ -1752,7 +1758,10 @@ flux.eddy[, month := month(ts)]
 flux.eddy[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
 flux.eddy[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
 flux.eddy[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
-flux.eddy <- flux.eddy[, .(ts, ts.2, date, date.2, month, year, CO2_measured = FC, NEP = NEE_PI_F, Reco = RECO_PI_F,GEP = GPP_PI_F, CH4_measured = FCH4)]
+flux.eddy <- flux.eddy[, .(ts, ts.2, date, date.2, month, year,
+                           CO2_measured = FC, NEP = NEE_PI_F,
+                           Reco = RECO_PI_F,GEP = GPP_PI_F,
+                           CH4_measured = FCH4)]
 flux.eddy[, NEP := NEP*12.0107*1800/1000000] # convert micromoles m-2 s-1 to g m-2 half hr-1
 flux.eddy[, Reco := Reco*12.0107*1800/1000000]
 flux.eddy[, GEP := GEP*-12.0107*1800/1000000] # switch sign and convert units
@@ -1761,13 +1770,15 @@ flux.eddy[, CH4_measured := CH4_measured/1000] # convert nanomoles m-2 s-1 to mi
 
 # Format recent co2 and ch4 data
 # co2
-co2 <- rbind(co2.2018.2019, co2.2019.2020, co2.2020.2021)
+co2 <- rbind(co2.2015.2016, co2.2016.2017, co2.2017.2018, co2.2018.2019, 
+             co2.2019.2020, co2.2020.2021)
 co2[, year := year(ts)]
 co2[, month := month(ts)]
 co2[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
 co2[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
 co2[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
-co2 <- co2[, .(ts, ts.2, date, date.2, month, year, CO2_measured = nee1, NEP, Reco, GEP)]
+co2 <- co2[, .(ts, ts.2, date, date.2, month, year, ppfd, tsoil,
+               CO2_measured = nee1, NEP, Reco, GEP)]
 
 # ch4
 ch4 <- rbind(ch4.2018.2019, ch4.2019.2020, ch4.2020.2021)
@@ -1779,7 +1790,11 @@ ch4[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''
 ch4 <- ch4[, .(ts, ts.2, date, date.2, month, year, CH4_measured = ch4_flux_filter)]
 
 # join co2 and ch4
-flux.eddy.recent <- merge(co2, ch4, by = c('ts', 'ts.2', 'date', 'date.2', 'month', 'year'))
+flux.eddy.recent <- merge(co2[ts >= as_date('2018-05-01'), 
+                              .(ts, ts.2, date, date.2, month, year, 
+                                CO2_measured , NEP, Reco, GEP)], ch4, 
+                          by = c('ts', 'ts.2', 'date', 'date.2', 'month', 'year'),
+                          all = TRUE)
 
 # join old and new
 flux.eddy <- rbind(flux.eddy, flux.eddy.recent)
@@ -1796,6 +1811,62 @@ flux.eddy[, ch4.balance := factor(ifelse(CH4_measured >= 0,
                                     'release',
                                     'uptake'),
                              levels = c('release', 'uptake'))]
+
+# Model EC winter respiration using soil temperature response
+# only use 2015-2021 to be consistent about soil temperature
+m <- function(df){
+  mod <- nls(CO2_measured ~ a * exp( b * tsoil),
+             start = list(a=0.1, b=0.1),
+             control = nls.control(maxiter = 1000,
+                                   tol = 1e-05,
+                                   minFactor = 1/3024,
+                                   printEval = FALSE,
+                                   warnOnly = TRUE),
+             data = df)
+  
+  as.list(c(coef(mod),
+            RSS.p =sum(residuals(mod)^2),
+            TSS = sum((df$CO2_measured - mean(df$CO2_measured^2)))))
+}
+
+winter.co2 <- co2[month %in% c(10, 11, 12, 1, 2, 3, 4) & tsoil < 5 & 
+                    CO2_measured >= 0 & ppfd < 5]
+winter.tsoil.curve <- m(winter.co2)
+ggplot(winter.co2, 
+       aes(x = tsoil, y = CO2_measured, color = factor(month))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+ggplot(winter.co2, 
+       aes(x = tsoil, y = CO2_measured, color = factor(month))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE) +
+  facet_grid(month ~ .)
+ggplot(winter.co2, 
+       aes(x = tsoil, y = CO2_measured, color = factor(year))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+
+# estimate winter fluxes
+load('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
+flux[month %in% c(10, 11, 12, 1, 2, 3, 4),
+     ':=' (nee = winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t10)*-1,
+           reco = winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t10),
+           winter.filled = 1)]
+ggplot(flux[month %in% c(10, 11, 12, 1, 2, 3, 4)], 
+       aes(x = t10, y = nee)) +
+  geom_point()
+
+flux[is.na(t10), .N, by = .(fence, plot)]
+flux[is.na(t10), .N, by = .(flux.year)]
+View(flux[is.na(t10)])
+flux.winter.filled <- flux[,
+                           .(nee.sum.winter = sum(nee),
+                             reco.sum.winter = sum(reco),
+                             gpp.sum.winter = sum(gpp)),
+                           by = .(flux.year, fence, plot, treatment, plot.id)]
+flux.winter.filled[is.na(nee.sum.winter), .N, by = .(fence, plot)]
+flux.winter.filled[is.na(reco.sum.winter), .N, by = .(fence, plot)]
+flux.winter.filled[is.na(gpp.sum.winter), .N, by = .(fence, plot)]
 
 # Winter Sum
 flux.eddy.winter <- flux.eddy[
