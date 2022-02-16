@@ -432,7 +432,7 @@ soil.sensor[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 # Format Plot IDs
 soil.sensor[, plot.id := paste(fence, plot, sep = '_')]
 
-# Gap fill missing vwc and soil temps
+# Gap fill missing vwc and soil temps in plots without sensors
 soil.sensor[, ':=' (T_twenty = fifelse(is.na(T_twenty),
                                           mean(T_twenty, na.rm = TRUE),
                                           T_twenty),
@@ -452,10 +452,115 @@ soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
                                treatment, fence, plot, plot.id, t5 = T_five,
                                t10 = T_ten, t20 = T_twenty, t40 = T_forty,
                                vwc = VWC, gwc = GWC)]
+View(soil.sensor[is.na(t10), .N, by = .(year)])
+View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
+
+######################################################################################
+########  GAPFILL THE FULL DATASET, FIRST BY FILLING SMALL GAPS BY LINEAR  ############
+########  INTERPOLATION, THEN BY FILLING LARGER GAPS USING MEDIAN          ############
+########  PREDICTION FROM AN ENSEMBLE OF REGRESSIONS WITH OTHER SENSORS    ############  
+######################################################################################
+
+##Fill small datagaps using linear interpolation between observations.
+soil.sensor[, 
+            ':=' (t5 = na.approx(t5, maxgap = 4),
+                  t10 = na.approx(t10, maxgap = 4),
+                  t20 = na.approx(t20, maxgap = 4),
+                  t40 = na.approx(t40, maxgap = 4)),
+            by = .(fence, plot)]
+
+###Create a new DF ("meas") of all sensors and fill all gaps based on ensemble predictions#######
+meas <- dcast(melt(soil.sensor, 
+                   id.vars = c('ts', 'plot.id'), 
+                   measure.vars = c('t5', 't10', 't20', 't40'),
+                   variable.name = 'depth', 
+                   value.name = 'tsoil'), 
+              ts ~ depth + plot.id, value.var = 'tsoil')
+meas <- data.frame(meas[, ts := NULL])##Double check you have all sensor data, but no other colums (e.g. time, month)
+mods <- data.frame(meas[,]==NA)
+R2s <- data.frame(NA)
+fits <- data.frame(names(meas))
+fits$R2s <- NA
+fits$N.models <- NA
+#This loop makes a matrix of all univariate predictions with an R2 over 89.5
+for(j in 1:ncol(meas)) {
+  
+  for(i in 1:ncol(meas)) {
+    print(paste0('j = ', j, ', i = ', i))
+    b<-lm(meas[,j]~meas[,i])
+    mods[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas[,i]))
+    R2s[i]<-(summary(b)$r.squared)
+    if (R2s[i]<0.895) {mods[,i]=NA}
+    if (R2s[i]<0.895) {R2s[,i]=NA}
+  }
+  mods$med<-apply(mods,1,median, na.rm=T) #Take the median prediction of all models for all timestamps
+  fits[j,2]<-(summary(lm(mods[,j]~mods$med))$r.squared)
+  print(summary(lm(mods[,j]~mods$med))) #Compare prediction of ensemble models to observed values
+  meas[,j] <- ifelse(is.na(meas[,j]), mods$med, meas[,j])#Replace NA's in the "measured" dataset with model predictions
+}
+
+#Replace columns in "all" with gapfilled columns in "meas"
+dates <- dcast(melt(soil.sensor, 
+                    id.vars = c('ts', 'plot.id'), 
+                    measure.vars = c('t5', 't10', 't20', 't40'),
+                    variable.name = 'depth', 
+                    value.name = 'tsoil'), 
+               ts ~ depth + plot.id, value.var = 'tsoil')[, .(ts)]
+soil.sensor.ensemble <- melt(cbind(dates, data.table(meas)),
+                             measure.vars = c(colnames(meas)),
+                             variable.name = 'id',
+                             value.name = 'tsoil')
+soil.sensor.ensemble[,
+                     c('depth', 'fence', 'plot') := tstrsplit(id, '_', fixed = TRUE)]
+soil.sensor.ensemble[, ':=' (fence = as.numeric(fence),
+                             plot = as.numeric(plot))]
+soil.sensor.ensemble[, id := NULL]
+soil.sensor.ensemble <- dcast(soil.sensor.ensemble,
+                              ts + fence + plot ~ depth,
+                              value.var = 'tsoil')
+soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.modeled = t5, t10.modeled = t10,
+                                                 t20.modeled = t20, t40.modeled = t40)]
+soil.sensor <- merge(soil.sensor, soil.sensor.ensemble,
+                     all = TRUE,
+                     by = c('ts', 'fence', 'plot'))
+
+soil.sensor[, ':=' (t5.filled = fifelse(is.na(t5),
+                                 t5.modeled,
+                                 t5),
+                    t10.filled = fifelse(is.na(t10),
+                                 t10.modeled,
+                                 t10),
+                    t20.filled = fifelse(is.na(t20),
+                                 t20.modeled,
+                                 t20),
+                    t40.filled = fifelse(is.na(t40),
+                                 t40.modeled,
+                                 t40))]
+View(soil.sensor[is.na(t10), .N, by = .(year)])
+View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
+View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
+View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
+
+ggplot(soil.sensor[year == 2018]) +
+  geom_line(aes(x = ts, y = t10, color = 'Previously Filled')) +
+  geom_line(aes(x = ts, y = t10.modeled, color = 'Ensemble Fill')) +
+  facet_grid(fence ~ plot)
+
+ggplot(soil.sensor[year == 2018], aes(x = t10, y = t10.modeled)) +
+  geom_point() +
+  facet_grid(fence ~ plot)
 
 # ggplot(soil.sensor[year == 2021], aes(ts, t10)) +
 #   geom_line() +
 #   facet_grid(fence ~ plot)
+
+### Need to gap fill the rest with eddy tower or 2ET
+
+# Neaten
+soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
+                               treatment, fence, plot, plot.id, t5 = T_five,
+                               t10 = T_ten, t20 = T_twenty, t40 = T_forty,
+                               vwc = VWC, gwc = GWC)]
 ###########################################################################################
 
 ### WTD Data ##############################################################################
