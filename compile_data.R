@@ -565,6 +565,7 @@ ec.soil.temp[, ts := parse_date_time(TIMESTAMP_START, orders = c('Y!m!d!H!M!'))]
 ec.soil.temp <- ec.soil.temp[year(ts) == 2018]
 ec.soil.temp <- ec.soil.temp[, .(ts, TS_1_1_1, TS_1_2_1, TS_1_3_1, TS_1_4_1, TS_2_1_1, TS_2_2_1,
                  TS_2_3_1, TS_2_4_1)]
+# ec.soil.temp[,which(unlist(lapply(ec.soil.temp, function(x)!all(is.na(x))))),with=F]
 
 ggplot(ec.soil.temp, aes(x = ts)) +
   geom_line(aes(y = TS_1_1_1, color = "Probe 1"), alpha = 0.5) +
@@ -582,11 +583,6 @@ ggplot(ec.soil.temp, aes(x = ts)) +
   geom_line(aes(y = TS_1_4_1, color = "Probe 1"), alpha = 0.5) +
   geom_line(aes(y = TS_2_4_1, color = "Probe 2"), alpha = 0.5)
 
-soil.sensor <- merge(soil.sensor, ec.soil.temp, all.x = TRUE, by = c('ts'))
-
-ggplot(soil.sensor[year == 2018], aes(x = t5.filled, y = TS_1_2_1)) +
-  geom_point()
-
 # gap fill with ensemble mean from ec soil temperature probes
 soil.sensor.wide <- dcast(melt(soil.sensor, 
                                id.vars = c('ts', 'plot.id'), 
@@ -595,16 +591,15 @@ soil.sensor.wide <- dcast(melt(soil.sensor,
                                value.name = 'tsoil'), 
                           ts ~ depth + plot.id, value.var = 'tsoil')
 
-cols <- c(1, sensor.n)
-test <- meas2[, .SD, .SDcols = cols]
 
-for (sensor.n in 2:ncol(meas2)) {
+final.coefs <- data.table()
+final.predictions <- data.table()
+for (sensor.n in 2:ncol(soil.sensor.wide)) {
   
-  coefs <- data.table(intercept = NA,
-                      slope = NA,
-                      r2 = NA)
+  coefs <- data.table()
+  predictions <- data.table()
   
-  for (ec.n in 2:ncol(data)) {
+  for (ec.n in 2:ncol(ec.soil.temp)) {
     
     cols1 <- c(1, sensor.n)
     soil.sensor.subset <- soil.sensor.wide[, .SD , .SDcols = cols1]
@@ -614,42 +609,69 @@ for (sensor.n in 2:ncol(meas2)) {
                   ec.soil.temp.subset,
                   all = TRUE,
                   by = 'ts')
-    data <- data[, .(ts, cip.soil = 2, ec.soil = 3)]
+    data <- setnames(data, old = seq(1,3), new = c('ts', 'cip.soil', 'ec.soil'))
     
     if (!all(is.na(data$cip.soil)) & !all(is.na(data$ec.soil))) {
       model <- lm(cip.soil ~ ec.soil, data = data)
       model.coefs <- list(intercept = model$coefficients[1],
                           slope = model$coefficients[2],
-                          r2 = summary(model)$r2)
-      coefs[]
+                          r2 = summary(model)$r.squared)
+      coefs <- rbind(coefs, model.coefs)
+      
     }
   }  
   
-}
-
-meas2 <- data.frame(meas2[, ts := NULL])##Double check you have all sensor data, but no other columns (e.g. time, month)
-mod2s <- data.frame(meas2[,]==NA)
-R2s2 <- data.frame(NA)
-fits2 <- data.frame(names(meas2))
-fits2$R2s2 <- NA
-fits2$N.mod2els <- NA
-#This loop makes a matrix of all univariate predictions with an R2 over 89.5
-for(j in 1:ncol(meas2)) {
+  # save coefficients
+  coefs <- coefs[r2 == max(r2)]
+  coefs <- coefs[, sensor := colnames(soil.sensor.wide)[sensor.n]]
+  final.coefs <- rbind(final.coefs, coefs)
   
-  for(i in 1:ncol(meas2)) {
-    print(paste0('j = ', j, ', i = ', i))
-    b<-lm(meas2[,j]~meas2[,i])
-    mod2s[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas2[,i]))
-    R2s2[i]<-(summary(b)$r.squared)
-    if (R2s2[i]<0.895) {mod2s[,i]=NA}
-    if (R2s2[i]<0.895) {R2s2[,i]=NA}
-  }
-  mod2s$med<-apply(mod2s,1,median, na.rm=T) #Take the median prediction of all mod2els for all timestamps
-  fits2[j,2]<-(summary(lm(mod2s[,j]~mod2s$med))$r.squared)
-  print(summary(lm(mod2s[,j]~mod2s$med))) #Compare prediction of ensemble mod2els to observed values
-  meas2[,j] <- ifelse(is.na(meas2[,j]), mod2s$med, meas2[,j])#Replace NA's in the "meas2ured" dataset with mod2el predictions
+  # estimate soil temperatures
+  predictions[, ':=' (ts = data$ts,
+                      sensor = rep(colnames(soil.sensor.wide)[sensor.n], nrow(data)),
+                      prediction = coefs$intercept[1] + coefs$slope[1]*data$cip.soil)]
+  final.predictions <- rbind(final.predictions, predictions)
+  
 }
 
+final.predictions[,  c('depth', 'id') := tstrsplit(sensor, '.', fixed = TRUE)]
+final.predictions[,  c('id', 'fence', 'plot') := tstrsplit(id, '_', fixed = TRUE)]
+final.predictions[, ':=' (fence = as.numeric(fence),
+                          plot = as.numeric(plot))]
+final.predictions <- dcast(final.predictions,
+              ts + fence + plot ~ depth,
+              value.var = 'prediction')
+final.predictions <- final.predictions[,
+                                       ':=' (t5.pred = t5,
+                                             t10.pred = t10,
+                                             t20.pred = t20,
+                                             t40.pred = t40)]
+final.predictions <- final.predictions[,
+                                       ':=' (t5 = NULL,
+                                             t10 = NULL,
+                                             t20 = NULL,
+                                             t40 = NULL)]
+soil.sensor <- merge(soil.sensor,
+                     final.predictions,
+                     all.x = TRUE,
+                     by = c('ts', 'fence', 'plot'))
+
+soil.sensor[, ':=' (t5.filled = fifelse(is.na(t5.filled),
+                                        t5.pred,
+                                        t5.filled),
+                    t10.filled = fifelse(is.na(t10.filled),
+                                        t10.pred,
+                                        t10.filled),
+                    t20.filled = fifelse(is.na(t20.filled),
+                                        t20.pred,
+                                        t20.filled),
+                    t40.filled = fifelse(is.na(t40.filled),
+                                        t40.pred,
+                                        t40.filled))]
+
+### This step didn't appear to fill anything...?
+View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
+View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
 
 # Neaten
 soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
