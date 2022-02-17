@@ -518,36 +518,36 @@ soil.sensor.ensemble[, id := NULL]
 soil.sensor.ensemble <- dcast(soil.sensor.ensemble,
                               ts + fence + plot ~ depth,
                               value.var = 'tsoil')
-soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.modeled = t5, t10.modeled = t10,
-                                                 t20.modeled = t20, t40.modeled = t40)]
+soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.filled = t5, t10.filled = t10,
+                                                 t20.filled = t20, t40.filled = t40)]
 soil.sensor <- merge(soil.sensor, soil.sensor.ensemble,
                      all = TRUE,
                      by = c('ts', 'fence', 'plot'))
 
-soil.sensor[, ':=' (t5.filled = fifelse(is.na(t5),
-                                 t5.modeled,
-                                 t5),
-                    t10.filled = fifelse(is.na(t10),
-                                 t10.modeled,
-                                 t10),
-                    t20.filled = fifelse(is.na(t20),
-                                 t20.modeled,
-                                 t20),
-                    t40.filled = fifelse(is.na(t40),
-                                 t40.modeled,
-                                 t40))]
+# write.csv(soil.sensor,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv',
+#           row.names = FALSE)
+
+soil.sensor <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv')
+
 View(soil.sensor[is.na(t10), .N, by = .(year)])
 View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
 View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
 View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
 
-ggplot(soil.sensor[year == 2018]) +
-  geom_line(aes(x = ts, y = t10, color = 'Previously Filled')) +
-  geom_line(aes(x = ts, y = t10.modeled, color = 'Ensemble Fill')) +
+ggplot(soil.sensor[year == 2009], aes(x = ts)) +
+  geom_point(aes(y = t10.filled, color = "gap filled"), alpha = 0.2) +
+  geom_point(aes(y = t10, color = "pre gap fill"), alpha = 0.2) +
   facet_grid(fence ~ plot)
 
-ggplot(soil.sensor[year == 2018], aes(x = t10, y = t10.modeled)) +
-  geom_point() +
+ggplot(soil.sensor[year == 2010], aes(x = ts)) +
+  geom_point(aes(y = t10.filled, color = "gap filled"), alpha = 0.2) +
+  geom_point(aes(y = t10, color = "pre gap fill"), alpha = 0.2) +
+  facet_grid(fence ~ plot)
+
+ggplot(soil.sensor[year == 2018], aes(x = ts)) +
+  geom_point(aes(y = t10.filled, color = "gap filled"), alpha = 0.2) +
+  geom_point(aes(y = t10, color = "pre gap fill"), alpha = 0.2) +
   facet_grid(fence ~ plot)
 
 # ggplot(soil.sensor[year == 2021], aes(ts, t10)) +
@@ -555,6 +555,101 @@ ggplot(soil.sensor[year == 2018], aes(x = t10, y = t10.modeled)) +
 #   facet_grid(fence ~ plot)
 
 ### Need to gap fill the rest with eddy tower or 2ET
+ec.ameriflux <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/AMF_US-EML_BASE_HH_3-5.csv',
+                      na.strings = c('-9999', 'NA'))
+ec.2018 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/US-EML_HH_201804302330_201904302330.csv',
+                 na.strings = c('-9999', 'NA'))
+
+ec.soil.temp <- rbind(ec.ameriflux, ec.2018, use.names = TRUE, fill = TRUE)
+ec.soil.temp[, ts := parse_date_time(TIMESTAMP_START, orders = c('Y!m!d!H!M!'))]
+ec.soil.temp <- ec.soil.temp[year(ts) == 2018]
+ec.soil.temp <- ec.soil.temp[, .(ts, TS_1_1_1, TS_1_2_1, TS_1_3_1, TS_1_4_1, TS_2_1_1, TS_2_2_1,
+                 TS_2_3_1, TS_2_4_1)]
+
+ggplot(ec.soil.temp, aes(x = ts)) +
+  geom_line(aes(y = TS_1_1_1, color = "Probe 1"), alpha = 0.5) +
+  geom_line(aes(y = TS_2_1_1, color = "Probe 2"), alpha = 0.5)
+
+ggplot(ec.soil.temp, aes(x = ts)) +
+  geom_line(aes(y = TS_1_2_1, color = "Probe 1"), alpha = 0.5) +
+  geom_line(aes(y = TS_2_2_1, color = "Probe 2"), alpha = 0.5)
+
+ggplot(ec.soil.temp, aes(x = ts)) +
+  geom_line(aes(y = TS_1_3_1, color = "Probe 1"), alpha = 0.5) +
+  geom_line(aes(y = TS_2_3_1, color = "Probe 2"), alpha = 0.5)
+
+ggplot(ec.soil.temp, aes(x = ts)) +
+  geom_line(aes(y = TS_1_4_1, color = "Probe 1"), alpha = 0.5) +
+  geom_line(aes(y = TS_2_4_1, color = "Probe 2"), alpha = 0.5)
+
+soil.sensor <- merge(soil.sensor, ec.soil.temp, all.x = TRUE, by = c('ts'))
+
+ggplot(soil.sensor[year == 2018], aes(x = t5.filled, y = TS_1_2_1)) +
+  geom_point()
+
+# gap fill with ensemble mean from ec soil temperature probes
+soil.sensor.wide <- dcast(melt(soil.sensor, 
+                               id.vars = c('ts', 'plot.id'), 
+                               measure.vars = c('t5.filled', 't10.filled', 't20.filled', 't40.filled'),
+                               variable.name = 'depth', 
+                               value.name = 'tsoil'), 
+                          ts ~ depth + plot.id, value.var = 'tsoil')
+
+cols <- c(1, sensor.n)
+test <- meas2[, .SD, .SDcols = cols]
+
+for (sensor.n in 2:ncol(meas2)) {
+  
+  coefs <- data.table(intercept = NA,
+                      slope = NA,
+                      r2 = NA)
+  
+  for (ec.n in 2:ncol(data)) {
+    
+    cols1 <- c(1, sensor.n)
+    soil.sensor.subset <- soil.sensor.wide[, .SD , .SDcols = cols1]
+    cols2 <- c(1, ec.n)
+    ec.soil.temp.subset <- ec.soil.temp[, .SD, .SDcols = cols2]
+    data <- merge(soil.sensor.subset,
+                  ec.soil.temp.subset,
+                  all = TRUE,
+                  by = 'ts')
+    data <- data[, .(ts, cip.soil = 2, ec.soil = 3)]
+    
+    if (!all(is.na(data$cip.soil)) & !all(is.na(data$ec.soil))) {
+      model <- lm(cip.soil ~ ec.soil, data = data)
+      model.coefs <- list(intercept = model$coefficients[1],
+                          slope = model$coefficients[2],
+                          r2 = summary(model)$r2)
+      coefs[]
+    }
+  }  
+  
+}
+
+meas2 <- data.frame(meas2[, ts := NULL])##Double check you have all sensor data, but no other columns (e.g. time, month)
+mod2s <- data.frame(meas2[,]==NA)
+R2s2 <- data.frame(NA)
+fits2 <- data.frame(names(meas2))
+fits2$R2s2 <- NA
+fits2$N.mod2els <- NA
+#This loop makes a matrix of all univariate predictions with an R2 over 89.5
+for(j in 1:ncol(meas2)) {
+  
+  for(i in 1:ncol(meas2)) {
+    print(paste0('j = ', j, ', i = ', i))
+    b<-lm(meas2[,j]~meas2[,i])
+    mod2s[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas2[,i]))
+    R2s2[i]<-(summary(b)$r.squared)
+    if (R2s2[i]<0.895) {mod2s[,i]=NA}
+    if (R2s2[i]<0.895) {R2s2[,i]=NA}
+  }
+  mod2s$med<-apply(mod2s,1,median, na.rm=T) #Take the median prediction of all mod2els for all timestamps
+  fits2[j,2]<-(summary(lm(mod2s[,j]~mod2s$med))$r.squared)
+  print(summary(lm(mod2s[,j]~mod2s$med))) #Compare prediction of ensemble mod2els to observed values
+  meas2[,j] <- ifelse(is.na(meas2[,j]), mod2s$med, meas2[,j])#Replace NA's in the "meas2ured" dataset with mod2el predictions
+}
+
 
 # Neaten
 soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
