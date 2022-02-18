@@ -397,136 +397,136 @@ weather.f <- weather.f[, .(date, hourmin, flux.year, Tair, par, precip, rh,
 ###########################################################################################
 
 ### Soil Sensor Data ######################################################################
-filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/CiPEHR',
-                        pattern = 'csv$|txt$',
-                        full.names = TRUE)
-soil.sensor <- map_dfr(filenames,
-                       ~ read.table(.x,
-                                    header = TRUE,
-                                    sep = ',',
-                                    fill = TRUE) %>%
-                         select(ts = 1, year = matches('[Y|y]ear'), fence = matches('[F|f]ence'),
-                                plot = matches('[P|p]lot'), hourmin = matches('hour'),
-                                T_five, T_ten, T_twenty, T_forty, VWC, GWC))
-
-soil.sensor <- data.table(soil.sensor)
-
-# Format time variables
-soil.sensor[, date := as_date(parse_date_time(ts, orders = c('Y!-m!*-d!', 'Y!-m!*-d! H!:M!:S!')))]
-soil.sensor[, year := year(date)]
-soil.sensor[, month := month(date)]
-soil.sensor[, week := week(date)]
-soil.sensor[, doy := yday(date)]
-soil.sensor[, day := mday(date)]
-soil.sensor[, date := parse_date_time(paste(year, month, day, sep = '-'), orders = c('Y!-m!*-d!'))]
-soil.sensor[, hour := floor(hourmin)]
-soil.sensor[, minute := hourmin%%1*60]
-soil.sensor[, ts := parse_date_time(paste(date, paste(hour, minute)), orders = c('Y!-m!*-d! H!:M!'))]
-
-# Treatment
-soil.sensor[plot == 2 | plot == 4, treatment := 'Control']
-soil.sensor[plot == 1 | plot == 3, treatment := 'Air Warming']
-soil.sensor[plot == 6 | plot == 8, treatment := 'Soil Warming']
-soil.sensor[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
-
-# Format Plot IDs
-soil.sensor[, plot.id := paste(fence, plot, sep = '_')]
-
-# Gap fill missing vwc and soil temps in plots without sensors
-soil.sensor[, ':=' (T_twenty = fifelse(is.na(T_twenty),
-                                          mean(T_twenty, na.rm = TRUE),
-                                          T_twenty),
-                    T_forty  = fifelse(is.na(T_forty),
-                                       mean(T_forty, na.rm = TRUE),
-                                       T_forty),
-                    VWC  = fifelse(is.na(VWC),
-                                       mean(VWC, na.rm = TRUE),
-                                       VWC)),
-                    by = .(year, doy, hourmin, fence, treatment)]
-# remove NaN, -Inf, and Inf introduced by calculations
-soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
-soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
-
-# Neaten
-soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
-                               treatment, fence, plot, plot.id, t5 = T_five,
-                               t10 = T_ten, t20 = T_twenty, t40 = T_forty,
-                               vwc = VWC, gwc = GWC)]
-View(soil.sensor[is.na(t10), .N, by = .(year)])
-View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
-
-######################################################################################
-########  GAPFILL THE FULL DATASET, FIRST BY FILLING SMALL GAPS BY LINEAR  ############
-########  INTERPOLATION, THEN BY FILLING LARGER GAPS USING MEDIAN          ############
-########  PREDICTION FROM AN ENSEMBLE OF REGRESSIONS WITH OTHER SENSORS    ############  
-######################################################################################
-
-##Fill small datagaps using linear interpolation between observations.
-soil.sensor[, 
-            ':=' (t5 = na.approx(t5, maxgap = 4),
-                  t10 = na.approx(t10, maxgap = 4),
-                  t20 = na.approx(t20, maxgap = 4),
-                  t40 = na.approx(t40, maxgap = 4)),
-            by = .(fence, plot)]
-
-###Create a new DF ("meas") of all sensors and fill all gaps based on ensemble predictions#######
-meas <- dcast(melt(soil.sensor, 
-                   id.vars = c('ts', 'plot.id'), 
-                   measure.vars = c('t5', 't10', 't20', 't40'),
-                   variable.name = 'depth', 
-                   value.name = 'tsoil'), 
-              ts ~ depth + plot.id, value.var = 'tsoil')
-meas <- data.frame(meas[, ts := NULL])##Double check you have all sensor data, but no other colums (e.g. time, month)
-mods <- data.frame(meas[,]==NA)
-R2s <- data.frame(NA)
-fits <- data.frame(names(meas))
-fits$R2s <- NA
-fits$N.models <- NA
-#This loop makes a matrix of all univariate predictions with an R2 over 89.5
-for(j in 1:ncol(meas)) {
-  
-  for(i in 1:ncol(meas)) {
-    print(paste0('j = ', j, ', i = ', i))
-    b<-lm(meas[,j]~meas[,i])
-    mods[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas[,i]))
-    R2s[i]<-(summary(b)$r.squared)
-    if (R2s[i]<0.895) {mods[,i]=NA}
-    if (R2s[i]<0.895) {R2s[,i]=NA}
-  }
-  mods$med<-apply(mods,1,median, na.rm=T) #Take the median prediction of all models for all timestamps
-  fits[j,2]<-(summary(lm(mods[,j]~mods$med))$r.squared)
-  print(summary(lm(mods[,j]~mods$med))) #Compare prediction of ensemble models to observed values
-  meas[,j] <- ifelse(is.na(meas[,j]), mods$med, meas[,j])#Replace NA's in the "measured" dataset with model predictions
-}
-
-#Replace columns in "all" with gapfilled columns in "meas"
-dates <- dcast(melt(soil.sensor, 
-                    id.vars = c('ts', 'plot.id'), 
-                    measure.vars = c('t5', 't10', 't20', 't40'),
-                    variable.name = 'depth', 
-                    value.name = 'tsoil'), 
-               ts ~ depth + plot.id, value.var = 'tsoil')[, .(ts)]
-soil.sensor.ensemble <- melt(cbind(dates, data.table(meas)),
-                             measure.vars = c(colnames(meas)),
-                             variable.name = 'id',
-                             value.name = 'tsoil')
-soil.sensor.ensemble[,
-                     c('depth', 'fence', 'plot') := tstrsplit(id, '_', fixed = TRUE)]
-soil.sensor.ensemble[, ':=' (fence = as.numeric(fence),
-                             plot = as.numeric(plot))]
-soil.sensor.ensemble[, id := NULL]
-soil.sensor.ensemble <- dcast(soil.sensor.ensemble,
-                              ts + fence + plot ~ depth,
-                              value.var = 'tsoil')
-soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.filled = t5, t10.filled = t10,
-                                                 t20.filled = t20, t40.filled = t40)]
-soil.sensor <- merge(soil.sensor, soil.sensor.ensemble,
-                     all = TRUE,
-                     by = c('ts', 'fence', 'plot'))
-
-# write.csv(soil.sensor,
-#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv',
-#           row.names = FALSE)
+# filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/CiPEHR',
+#                         pattern = 'csv$|txt$',
+#                         full.names = TRUE)
+# soil.sensor <- map_dfr(filenames,
+#                        ~ read.table(.x,
+#                                     header = TRUE,
+#                                     sep = ',',
+#                                     fill = TRUE) %>%
+#                          select(ts = 1, year = matches('[Y|y]ear'), fence = matches('[F|f]ence'),
+#                                 plot = matches('[P|p]lot'), hourmin = matches('hour'),
+#                                 T_five, T_ten, T_twenty, T_forty, VWC, GWC))
+# 
+# soil.sensor <- data.table(soil.sensor)
+# 
+# # Format time variables
+# soil.sensor[, date := as_date(parse_date_time(ts, orders = c('Y!-m!*-d!', 'Y!-m!*-d! H!:M!:S!')))]
+# soil.sensor[, year := year(date)]
+# soil.sensor[, month := month(date)]
+# soil.sensor[, week := week(date)]
+# soil.sensor[, doy := yday(date)]
+# soil.sensor[, day := mday(date)]
+# soil.sensor[, date := parse_date_time(paste(year, month, day, sep = '-'), orders = c('Y!-m!*-d!'))]
+# soil.sensor[, hour := floor(hourmin)]
+# soil.sensor[, minute := hourmin%%1*60]
+# soil.sensor[, ts := parse_date_time(paste(date, paste(hour, minute)), orders = c('Y!-m!*-d! H!:M!'))]
+# 
+# # Treatment
+# soil.sensor[plot == 2 | plot == 4, treatment := 'Control']
+# soil.sensor[plot == 1 | plot == 3, treatment := 'Air Warming']
+# soil.sensor[plot == 6 | plot == 8, treatment := 'Soil Warming']
+# soil.sensor[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
+# 
+# # Format Plot IDs
+# soil.sensor[, plot.id := paste(fence, plot, sep = '_')]
+# 
+# # Gap fill missing vwc and soil temps in plots without sensors
+# soil.sensor[, ':=' (T_twenty = fifelse(is.na(T_twenty),
+#                                           mean(T_twenty, na.rm = TRUE),
+#                                           T_twenty),
+#                     T_forty  = fifelse(is.na(T_forty),
+#                                        mean(T_forty, na.rm = TRUE),
+#                                        T_forty),
+#                     VWC  = fifelse(is.na(VWC),
+#                                        mean(VWC, na.rm = TRUE),
+#                                        VWC)),
+#                     by = .(year, doy, hourmin, fence, treatment)]
+# # remove NaN, -Inf, and Inf introduced by calculations
+# soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+# soil.sensor <- soil.sensor[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+# 
+# # Neaten
+# soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
+#                                treatment, fence, plot, plot.id, t5 = T_five,
+#                                t10 = T_ten, t20 = T_twenty, t40 = T_forty,
+#                                vwc = VWC, gwc = GWC)]
+# View(soil.sensor[is.na(t10), .N, by = .(year)])
+# View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
+# 
+# 
+# ########  GAPFILL THE FULL DATASET, FIRST BY FILLING SMALL GAPS BY LINEAR
+# ########  INTERPOLATION, THEN BY FILLING LARGER GAPS USING MEDIAN
+# ########  PREDICTION FROM AN ENSEMBLE OF REGRESSIONS WITH OTHER SENSORS 
+#
+# 
+# ##Fill small datagaps using linear interpolation between observations.
+# soil.sensor[, 
+#             ':=' (t5 = na.approx(t5, maxgap = 4),
+#                   t10 = na.approx(t10, maxgap = 4),
+#                   t20 = na.approx(t20, maxgap = 4),
+#                   t40 = na.approx(t40, maxgap = 4)),
+#             by = .(fence, plot)]
+# 
+# ###Create a new DF ("meas") of all sensors and fill all gaps based on ensemble predictions
+# meas <- dcast(melt(soil.sensor, 
+#                    id.vars = c('ts', 'plot.id'), 
+#                    measure.vars = c('t5', 't10', 't20', 't40'),
+#                    variable.name = 'depth', 
+#                    value.name = 'tsoil'), 
+#               ts ~ depth + plot.id, value.var = 'tsoil')
+# meas <- data.frame(meas[, ts := NULL])##Double check you have all sensor data, but no other colums (e.g. time, month)
+# mods <- data.frame(meas[,]==NA)
+# R2s <- data.frame(NA)
+# fits <- data.frame(names(meas))
+# fits$R2s <- NA
+# fits$N.models <- NA
+# #This loop makes a matrix of all univariate predictions with an R2 over 89.5
+# for(j in 1:ncol(meas)) {
+#   
+#   for(i in 1:ncol(meas)) {
+#     print(paste0('j = ', j, ', i = ', i))
+#     b<-lm(meas[,j]~meas[,i])
+#     mods[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas[,i]))
+#     R2s[i]<-(summary(b)$r.squared)
+#     if (R2s[i]<0.895) {mods[,i]=NA}
+#     if (R2s[i]<0.895) {R2s[,i]=NA}
+#   }
+#   mods$med<-apply(mods,1,median, na.rm=T) #Take the median prediction of all models for all timestamps
+#   fits[j,2]<-(summary(lm(mods[,j]~mods$med))$r.squared)
+#   print(summary(lm(mods[,j]~mods$med))) #Compare prediction of ensemble models to observed values
+#   meas[,j] <- ifelse(is.na(meas[,j]), mods$med, meas[,j])#Replace NA's in the "measured" dataset with model predictions
+# }
+# 
+# #Replace columns in "all" with gapfilled columns in "meas"
+# dates <- dcast(melt(soil.sensor, 
+#                     id.vars = c('ts', 'plot.id'), 
+#                     measure.vars = c('t5', 't10', 't20', 't40'),
+#                     variable.name = 'depth', 
+#                     value.name = 'tsoil'), 
+#                ts ~ depth + plot.id, value.var = 'tsoil')[, .(ts)]
+# soil.sensor.ensemble <- melt(cbind(dates, data.table(meas)),
+#                              measure.vars = c(colnames(meas)),
+#                              variable.name = 'id',
+#                              value.name = 'tsoil')
+# soil.sensor.ensemble[,
+#                      c('depth', 'fence', 'plot') := tstrsplit(id, '_', fixed = TRUE)]
+# soil.sensor.ensemble[, ':=' (fence = as.numeric(fence),
+#                              plot = as.numeric(plot))]
+# soil.sensor.ensemble[, id := NULL]
+# soil.sensor.ensemble <- dcast(soil.sensor.ensemble,
+#                               ts + fence + plot ~ depth,
+#                               value.var = 'tsoil')
+# soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.filled = t5, t10.filled = t10,
+#                                                  t20.filled = t20, t40.filled = t40)]
+# soil.sensor <- merge(soil.sensor, soil.sensor.ensemble,
+#                      all = TRUE,
+#                      by = c('ts', 'fence', 'plot'))
+# 
+# # write.csv(soil.sensor,
+# #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv',
+# #           row.names = FALSE)
 
 soil.sensor <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv')
 
@@ -629,7 +629,7 @@ for (sensor.n in 2:ncol(soil.sensor.wide)) {
   # estimate soil temperatures
   predictions[, ':=' (ts = data$ts,
                       sensor = rep(colnames(soil.sensor.wide)[sensor.n], nrow(data)),
-                      prediction = coefs$intercept[1] + coefs$slope[1]*data$cip.soil)]
+                      prediction = coefs$intercept[1] + coefs$slope[1]*data$ec.soil)]
   final.predictions <- rbind(final.predictions, predictions)
   
 }
@@ -669,15 +669,30 @@ soil.sensor[, ':=' (t5.filled = fifelse(is.na(t5.filled),
                                         t40.pred,
                                         t40.filled))]
 
-### This step didn't appear to fill anything...?
+### This step filled about half of the remaining holes
 View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
 View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
 
+##Fill small datagaps using linear interpolation between observations.
+soil.sensor[, 
+            ':=' (t5.filled = na.approx(t5.filled, maxgap = 4),
+                  t10.filled = na.approx(t10.filled, maxgap = 4),
+                  t20.filled = na.approx(t20.filled, maxgap = 4),
+                  t40.filled = na.approx(t40.filled, maxgap = 4)),
+            by = .(fence, plot)]
+
+### 
+View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
+View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
+View(soil.sensor[is.na(t10.filled) & year == 2018, .N, by = .(ts)])
+
+soil.sensor[, date := parse_date_time(date, orders = c('Y!-m!-d!'))]
+
 # Neaten
 soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
-                               treatment, fence, plot, plot.id, t5 = T_five,
-                               t10 = T_ten, t20 = T_twenty, t40 = T_forty,
-                               vwc = VWC, gwc = GWC)]
+                               treatment, fence, plot, plot.id, t5 = t5.filled,
+                               t10 = t10.filled, t20 = t20.filled, t40 = t40.filled,
+                               vwc, gwc)]
 ###########################################################################################
 
 ### WTD Data ##############################################################################
