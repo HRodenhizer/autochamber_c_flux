@@ -243,6 +243,32 @@ mean(nee.seasonal.pred$nee.resid^2)
 nee.seasonal.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.seasonal.pred)
 summary(nee.seasonal.lm)
+nee.seasonal.lm.reversed <- lm(nee.sum ~ nee.pred,
+                      data = nee.seasonal.pred)
+summary(nee.seasonal.lm.reversed)
+
+nee.seasonal.loc.slope <- as.numeric(sqrt(nee.seasonal.lm$coefficients[2] * 
+                                 nee.seasonal.lm.reversed$coefficients[2]))
+nee.seasonal.loc.intercept <- as.numeric(((nee.seasonal.lm$coefficients[1] * 
+                                 nee.seasonal.lm.reversed$coefficients[2] - 
+                                 nee.seasonal.lm.reversed$coefficients[1] * 
+                                 nee.seasonal.lm$coefficients[2]) / 
+                                 (nee.seasonal.lm.reversed$coefficients[2] - 
+                                    nee.seasonal.lm$coefficients[2])) - 
+  nee.seasonal.loc.slope * ((nee.seasonal.lm.reversed$coefficients[1] - 
+                               nee.seasonal.lm$coefficients[1]) / 
+                              (nee.seasonal.lm$coefficients[2] -  
+                                 nee.seasonal.lm.reversed$coefficients[2])))
+
+ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
+  geom_point() +
+  geom_abline(intercept = nee.seasonal.lm$coefficients[1], 
+              slope = nee.seasonal.lm$coefficients[2], color = 'blue') +
+  geom_abline(intercept = nee.seasonal.lm.reversed$coefficients[1], 
+              slope = nee.seasonal.lm.reversed$coefficients[2], color = 'red') +
+  geom_abline(intercept = nee.seasonal.loc.intercept, 
+              slope = nee.seasonal.loc.slope, color = 'black')
+
 nee.seasonal.r2 <- summary(nee.seasonal.lm)$r.squared
 nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
                                 ' ~ ', 
@@ -250,7 +276,8 @@ nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 
 nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = nee.seasonal.loc.intercept, slope = nee.seasonal.loc.slope, color = 'black') +
   geom_text(x = -65, y = 200, label = nee.seasonal.r2.label,
             hjust = 0,
             vjust = 0,
@@ -435,6 +462,23 @@ mean(reco.seasonal.pred$reco.resid^2)
 reco.seasonal.lm <- lm(reco.pred ~ reco.sum,
                       data = reco.seasonal.pred)
 summary(reco.seasonal.lm)
+reco.seasonal.lm.reversed <- lm(reco.sum ~ reco.pred,
+                               data = reco.seasonal.pred)
+summary(reco.seasonal.lm.reversed)
+
+reco.seasonal.loc.slope <- as.numeric(sqrt(reco.seasonal.lm$coefficients[2] * 
+                                 reco.seasonal.lm.reversed$coefficients[2]))
+reco.seasonal.loc.intercept <- as.numeric(((reco.seasonal.lm$coefficients[1] * 
+                                  reco.seasonal.lm.reversed$coefficients[2] - 
+                                  reco.seasonal.lm.reversed$coefficients[1] * 
+                                  reco.seasonal.lm$coefficients[2]) / 
+                                 (reco.seasonal.lm.reversed$coefficients[2] - 
+                                    reco.seasonal.lm$coefficients[2])) - 
+  reco.seasonal.loc.slope * ((reco.seasonal.lm.reversed$coefficients[1] - 
+                               reco.seasonal.lm$coefficients[1]) / 
+                              (reco.seasonal.lm$coefficients[2] -  
+                                 reco.seasonal.lm.reversed$coefficients[2])))
+
 reco.seasonal.r2 <- summary(reco.seasonal.lm)$r.squared
 reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
                                  ' ~ ', 
@@ -442,8 +486,9 @@ reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 
 reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 110, y = 575, label = reco.seasonal.r2.label,
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = reco.seasonal.loc.intercept, slope = reco.seasonal.loc.slope, color = 'black') +
+  geom_text(x = 150, y = 525, label = reco.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -619,6 +664,23 @@ mean(gpp.seasonal.pred$gpp.resid^2)
 gpp.seasonal.lm <- lm(gpp.pred ~ gpp.sum,
                       data = gpp.seasonal.pred)
 summary(gpp.seasonal.lm)
+gpp.seasonal.lm.reversed <- lm(gpp.sum ~ gpp.pred,
+                               data = gpp.seasonal.pred)
+summary(gpp.seasonal.lm.reversed)
+
+gpp.seasonal.loc.slope <- as.numeric(sqrt(gpp.seasonal.lm$coefficients[2] * 
+                                 gpp.seasonal.lm.reversed$coefficients[2]))
+gpp.seasonal.loc.intercept <- as.numeric(((gpp.seasonal.lm$coefficients[1] * 
+                                  gpp.seasonal.lm.reversed$coefficients[2] - 
+                                  gpp.seasonal.lm.reversed$coefficients[1] * 
+                                  gpp.seasonal.lm$coefficients[2]) / 
+                                 (gpp.seasonal.lm.reversed$coefficients[2] - 
+                                    gpp.seasonal.lm$coefficients[2])) - 
+  gpp.seasonal.loc.slope * ((gpp.seasonal.lm.reversed$coefficients[1] - 
+                               gpp.seasonal.lm$coefficients[1]) / 
+                              (gpp.seasonal.lm$coefficients[2] -  
+                                 gpp.seasonal.lm.reversed$coefficients[2])))
+
 gpp.seasonal.r2 <- summary(gpp.seasonal.lm)$r.squared
 gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
                                 ' ~ ', 
@@ -626,7 +688,8 @@ gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 
 gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = gpp.seasonal.loc.intercept, slope = gpp.seasonal.loc.slope, color = 'black') +
   geom_text(x = 50, y = 720, label = gpp.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
@@ -869,6 +932,23 @@ mean(nee.monthly.pred$nee.resid^2)
 nee.monthly.lm <- lm(nee.pred ~ nee.sum,
                       data = nee.monthly.pred)
 summary(nee.monthly.lm)
+nee.monthly.lm.reversed <- lm(nee.sum ~ nee.pred,
+                               data = nee.monthly.pred)
+summary(nee.monthly.lm.reversed)
+
+nee.monthly.loc.slope <- as.numeric(sqrt(nee.monthly.lm$coefficients[2] * 
+                                 nee.monthly.lm.reversed$coefficients[2]))
+nee.monthly.loc.intercept <- as.numeric(((nee.monthly.lm$coefficients[1] * 
+                                  nee.monthly.lm.reversed$coefficients[2] - 
+                                  nee.monthly.lm.reversed$coefficients[1] * 
+                                  nee.monthly.lm$coefficients[2]) / 
+                                 (nee.monthly.lm.reversed$coefficients[2] - 
+                                    nee.monthly.lm$coefficients[2])) - 
+  nee.monthly.loc.slope * ((nee.monthly.lm.reversed$coefficients[1] - 
+                               nee.monthly.lm$coefficients[1]) / 
+                              (nee.monthly.lm$coefficients[2] -  
+                                 nee.monthly.lm.reversed$coefficients[2])))
+
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
 nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
                                ' ~ ', 
@@ -877,7 +957,8 @@ nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')),
 # plot model performance
 nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = nee.monthly.loc.intercept, slope = nee.monthly.loc.slope, color = 'black') +
   geom_text(x = -50, y = 110, label = nee.monthly.r2.label,
             hjust = 0,
             vjust = 1,
@@ -1057,13 +1138,31 @@ mean(reco.monthly.pred$reco.resid^2)
 reco.monthly.lm <- lm(reco.pred ~ reco.sum,
                       data = reco.monthly.pred)
 summary(reco.monthly.lm)
+reco.monthly.lm.reversed <- lm(reco.sum ~ reco.pred,
+                              data = reco.monthly.pred)
+summary(reco.monthly.lm.reversed)
+
+reco.monthly.loc.slope <- as.numeric(sqrt(reco.monthly.lm$coefficients[2] * 
+                                reco.monthly.lm.reversed$coefficients[2]))
+reco.monthly.loc.intercept <- as.numeric(((reco.monthly.lm$coefficients[1] * 
+                                 reco.monthly.lm.reversed$coefficients[2] - 
+                                 reco.monthly.lm.reversed$coefficients[1] * 
+                                 reco.monthly.lm$coefficients[2]) / 
+                                (reco.monthly.lm.reversed$coefficients[2] - 
+                                   reco.monthly.lm$coefficients[2])) - 
+  reco.monthly.loc.slope * ((reco.monthly.lm.reversed$coefficients[1] - 
+                              reco.monthly.lm$coefficients[1]) / 
+                             (reco.monthly.lm$coefficients[2] -  
+                                reco.monthly.lm.reversed$coefficients[2])))
+
 reco.monthly.r2 <- summary(reco.monthly.lm)$r.squared
 reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(reco.monthly.r2[1], 2))
 
 reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 10, y = 255, label = reco.monthly.r2.label,
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = reco.monthly.loc.intercept, slope = reco.monthly.loc.slope, color = 'black') +
+  geom_text(x = 10, y = 215, label = reco.monthly.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -1243,13 +1342,31 @@ mean(gpp.monthly.pred$gpp.resid^2)
 gpp.monthly.lm <- lm(gpp.pred ~ gpp.sum,
                       data = gpp.monthly.pred)
 summary(gpp.monthly.lm)
+gpp.monthly.lm.reversed <- lm(gpp.sum ~ gpp.pred,
+                              data = gpp.monthly.pred)
+summary(gpp.monthly.lm.reversed)
+
+gpp.monthly.loc.slope <- as.numeric(sqrt(gpp.monthly.lm$coefficients[2] * 
+                                gpp.monthly.lm.reversed$coefficients[2]))
+gpp.monthly.loc.intercept <- as.numeric(((gpp.monthly.lm$coefficients[1] * 
+                                 gpp.monthly.lm.reversed$coefficients[2] - 
+                                 gpp.monthly.lm.reversed$coefficients[1] * 
+                                 gpp.monthly.lm$coefficients[2]) / 
+                                (gpp.monthly.lm.reversed$coefficients[2] - 
+                                   gpp.monthly.lm$coefficients[2])) - 
+  gpp.monthly.loc.slope * ((gpp.monthly.lm.reversed$coefficients[1] - 
+                              gpp.monthly.lm$coefficients[1]) / 
+                             (gpp.monthly.lm$coefficients[2] -  
+                                gpp.monthly.lm.reversed$coefficients[2])))
+
 gpp.monthly.r2 <- summary(gpp.monthly.lm)$r.squared
 gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
 
 gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
-  geom_smooth(method = 'lm', color = 'black') +
-  geom_text(x = 0, y = 285, label = gpp.monthly.r2.label,
+  # geom_smooth(method = 'lm', color = 'black') +
+  geom_abline(intercept = gpp.monthly.loc.intercept, slope = gpp.monthly.loc.slope, color = 'black') +
+  geom_text(x = 0, y = 275, label = gpp.monthly.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -1359,8 +1476,13 @@ gpp.monthly.pd.plot
 get_inset <- function(data.df, fit.df){
   p <- ggplot(data.df, aes(x = flux.measured, y = flux.pred)) +
     geom_abline(slope = 1, intercept = 0, linetype = 'dashed') +
-    geom_point() +
-    geom_smooth(method = 'lm', color = 'black') +
+    geom_point(color = 'gray20') +
+    # geom_smooth(method = 'lm', color = 'black') +
+    # geom_abline(data = fit.df, aes(intercept = intercept, slope = slope)) +
+    geom_segment(data = fit.df, aes(x = xmin,
+                                    y = intercept + slope * xmin,
+                                    xend = xmax,
+                                    yend = intercept + slope * xmax)) +
     geom_text(data = fit.df,
               aes(x = x, y = y, label = label), 
               hjust = 0,
@@ -1426,6 +1548,18 @@ model.fit.seasonal <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
   mutate(label = c(gpp.seasonal.r2.label,
                    nee.seasonal.r2.label,
                    reco.seasonal.r2.label),
+         intercept = c(gpp.seasonal.loc.intercept,
+                       nee.seasonal.loc.intercept,
+                       reco.seasonal.loc.intercept),
+         slope = c(gpp.seasonal.loc.slope,
+                   nee.seasonal.loc.slope,
+                   reco.seasonal.loc.slope),
+         xmin = c(min(gpp.seasonal.pred$gpp.sum),
+                  min(nee.seasonal.pred$nee.sum),
+                  min(reco.seasonal.pred$reco.sum)),
+         xmax = c(max(gpp.seasonal.pred$gpp.sum),
+                  max(nee.seasonal.pred$nee.sum),
+                  max(reco.seasonal.pred$reco.sum)),
          x = c(50, -70, 100),
          y = c(760, 245, 600))
 
@@ -1449,6 +1583,18 @@ model.fit.monthly <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
   mutate(label = c(gpp.monthly.r2.label,
                    nee.monthly.r2.label,
                    reco.monthly.r2.label),
+         intercept = c(gpp.monthly.loc.intercept,
+                       nee.monthly.loc.intercept,
+                       reco.monthly.loc.intercept),
+         slope = c(gpp.monthly.loc.slope,
+                   nee.monthly.loc.slope,
+                   reco.monthly.loc.slope),
+         xmin = c(min(gpp.monthly.pred$gpp.sum),
+                  min(nee.monthly.pred$nee.sum),
+                  min(reco.monthly.pred$reco.sum)),
+         xmax = c(max(gpp.monthly.pred$gpp.sum),
+                  max(nee.monthly.pred$nee.sum),
+                  max(reco.monthly.pred$reco.sum)),
          x = c(0, -60, 10),
          y = c(295, 128, 265))
 
@@ -1735,6 +1881,12 @@ flux.eddy <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files
                  na.strings = c('-9999'),
                  quote = "\"'")
 flux.eddy <- data.table(flux.eddy)
+flux.eddy.2018.2019 <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/US-EML_HH_201804302330_201904302330.csv',
+                             na.strings = c('-9999'))
+flux.eddy.2019.2020 <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/US-EML_HH_201904302330_202004292330.csv',
+                             na.strings = c('-9999'))
+flux.eddy <- rbind(flux.eddy, flux.eddy.2018.2019, flux.eddy.2019.2020,
+                   use.names = TRUE, fill = TRUE)
 co2.2015.2016 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2015-2016/AK15_Carbon_new_30Apr2019.Rdata")
 load("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2016-2017/AK16_Carbon_new_30Apr2019.Rdata")
 co2.2016.2017 <- export
@@ -1758,6 +1910,21 @@ flux.eddy[, month := month(ts)]
 flux.eddy[, date := parse_date_time(paste(year(ts), month(ts), day(ts), sep = '-'), orders = c('Y!-m!*-d!'))]
 flux.eddy[, ts.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), ' ', hour(ts), ':', minute(ts), ':', second(ts), sep = ''), orders = c('Y!-m!*-d! H!:M!:S!'))]
 flux.eddy[, date.2 := parse_date_time(paste('0000-', month(ts), '-', day(ts), sep = ''), orders = c('Y!-m!*-d!'))]
+flux.soil.eddy <- flux.eddy[, .(ts, ts.2, date, date.2, month, year,
+                                CO2_measured = FC, TA, PPFD_IN,
+                                TS_1_1_1, TS_1_2_1, TS_1_3_1, TS_1_4_1,
+                                TS_2_1_1, TS_2_2_1, TS_2_3_1, TS_2_4_1)]
+ggplot(flux.soil.eddy[month %in% c(10, 11, 12, 1, 2, 3, 4)], aes(x = ts)) +
+  geom_line(aes(y = TS_1_1_1, color = "Sensor 1")) +
+  geom_line(aes(y = TS_2_1_1, color = "Sensor 2")) +
+  facet_wrap(~ year, scales = "free", ncol = 2)
+ggplot(flux.soil.eddy[month %in% c(10, 11, 12, 1, 2, 3, 4) & CO2_measured > 0 & PPFD_IN < 5], 
+       aes(x = TS_2_1_1, y = CO2_measured, color = month)) +
+  geom_point()
+ggplot(flux.soil.eddy[month %in% c(10, 11, 12, 1, 2, 3, 4) & CO2_measured > 0 & PPFD_IN < 5], 
+       aes(x = TS_1_1_1, y = CO2_measured, color = month)) +
+  geom_point()
+
 flux.eddy <- flux.eddy[, .(ts, ts.2, date, date.2, month, year,
                            CO2_measured = FC, NEP = NEE_PI_F,
                            Reco = RECO_PI_F,GEP = GPP_PI_F,
@@ -1813,9 +1980,34 @@ flux.eddy[, ch4.balance := factor(ifelse(CH4_measured >= 0,
                              levels = c('release', 'uptake'))]
 
 # Model EC winter respiration using soil temperature response
-# only use 2015-2021 to be consistent about soil temperature
+# TS_1_1_1 (first sensor, depth = 5 cm)
+ggplot(winter.flux, 
+       aes(x = TS_1_1_1, y = CO2_measured, color = factor(month))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+ggplot(winter.flux, 
+       aes(x = TS_1_1_1, y = CO2_measured, color = factor(year))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+
+# TS_2_1_1 (second sensor, depth = 5) 
+# has a wider range of temperatures to constrain model - will use this one
+ggplot(winter.flux, 
+       aes(x = TS_2_1_1, y = CO2_measured, color = factor(month))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+ggplot(winter.flux, 
+       aes(x = TS_2_1_1, y = CO2_measured, color = factor(year))) +
+  geom_point() +
+  scale_color_viridis(discrete = TRUE)
+
+winter.flux <- flux.soil.eddy[month %in% c(10, 11, 12, 1, 2, 3, 4) & 
+                                CO2_measured >= 0 & PPFD_IN < 5]
+# convert from micromol/m2/s to g/m2/half hour
+winter.flux[, CO2_measured := CO2_measured * 12.0107 * 1800 / 1000000]
+
 m <- function(df){
-  mod <- nls(CO2_measured ~ a * exp( b * tsoil),
+  mod <- nls(CO2_measured ~ a * exp( b * TS_2_1_1),
              start = list(a=0.1, b=0.1),
              control = nls.control(maxiter = 1000,
                                    tol = 1e-05,
@@ -1829,86 +2021,78 @@ m <- function(df){
             TSS = sum((df$CO2_measured - mean(df$CO2_measured^2)))))
 }
 
-winter.co2 <- co2[month %in% c(10, 11, 12, 1, 2, 3, 4) & tsoil < 5 & 
-                    CO2_measured >= 0 & ppfd < 5]
-winter.tsoil.curve <- m(winter.co2)
-ggplot(winter.co2, 
-       aes(x = tsoil, y = CO2_measured, color = factor(month))) +
-  geom_point() +
-  scale_color_viridis(discrete = TRUE)
-ggplot(winter.co2, 
-       aes(x = tsoil, y = CO2_measured, color = factor(month))) +
-  geom_point() +
-  scale_color_viridis(discrete = TRUE) +
-  facet_grid(month ~ .)
-ggplot(winter.co2, 
-       aes(x = tsoil, y = CO2_measured, color = factor(year))) +
-  geom_point() +
-  scale_color_viridis(discrete = TRUE)
+winter.tsoil.curve <- m(winter.flux)
 
 # estimate winter fluxes
+### Need to run the model with 10 cm depths from the 2nd eddy tower or use a spline to estimate 10 cm soil temp at the eddy tower
 load('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
-flux[month %in% c(10, 11, 12, 1, 2, 3, 4),
-     ':=' (nee = winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t10)*-1,
-           reco = winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t10),
-           winter.filled = 1)]
-ggplot(flux[month %in% c(10, 11, 12, 1, 2, 3, 4)], 
-       aes(x = t10, y = nee)) +
+flux[,
+     flux.year := fifelse(month >= 10,
+                         year + 1,
+                         year)]
+ggplot(flux, aes(x = t5, y = nee)) +
   geom_point()
 
-flux[is.na(t10), .N, by = .(fence, plot)]
-flux[is.na(t10), .N, by = .(flux.year)]
-View(flux[is.na(t10)])
-flux.winter.filled <- flux[,
-                           .(nee.sum.winter = sum(nee),
-                             reco.sum.winter = sum(reco),
-                             gpp.sum.winter = sum(gpp)),
-                           by = .(flux.year, fence, plot, treatment, plot.id)]
+# Should I only include the winter dates in this data.table and then add NGS
+# sums to the GS sums separately?
+flux[month %in% c(10, 11, 12, 1, 2, 3, 4),
+     ':=' (nee = (winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t5))*-1,
+           reco = winter.tsoil.curve$a * exp(winter.tsoil.curve$b * t5),
+           gpp = 0,
+           winter.filled = 1)]
+ggplot(flux[month %in% c(10, 11, 12, 1, 2, 3, 4)], 
+       aes(x = t5, y = nee)) +
+  geom_point()
+
+###
+### Will need to remove na.rm from these to get valid results! ###
+###
+
+flux.winter.filled.monthly <- flux[month %in% c(10, 11, 12, 1, 2, 3, 4),
+                                  .(nee.sum = sum(nee, na.rm = TRUE),
+                                    reco.sum = sum(reco, na.rm = TRUE),
+                                    gpp.sum = sum(gpp, na.rm = TRUE)),
+                                  by = .(flux.year, month, fence, plot, treatment, plot.id)]
+
+# need to fill in 2018 October here, by interpolation between Sept. and Nov.
+
+
+flux.winter.filled.annual <- flux.winter.filled.monthly[,
+                                  .(nee.sum = sum(nee.sum, na.rm = TRUE),
+                                    reco.sum = sum(reco.sum, na.rm = TRUE),
+                                    gpp.sum = sum(gpp.sum, na.rm = TRUE)),
+                                  by = .(flux.year, fence, plot, treatment, plot.id)]
 flux.winter.filled[is.na(nee.sum.winter), .N, by = .(fence, plot)]
 flux.winter.filled[is.na(reco.sum.winter), .N, by = .(fence, plot)]
 flux.winter.filled[is.na(gpp.sum.winter), .N, by = .(fence, plot)]
 
-# Winter Sum
-flux.eddy.winter <- flux.eddy[
-  month %in% c(seq(1, 4), seq(10, 12)) & flux.year >= 2010
-][
-  ,
-  year := NULL
-  ]
-flux.eddy.winter <- flux.eddy.winter[
-  , 
-                                     lapply(.SD, sum), 
-                                     by = .(flux.year), 
-                                     .SDcols = !c('ts', 'ts.2', 'date', 'date.2', 'month', 'c.balance', 'ch4.balance')
-  ][
-    ,
-    c('CO2_measured', 'CH4_measured') := NULL]
-rm(ch4, ch4.2018.2019, ch4.2019.2020, co2, co2.2018.2019, co2.2019.2020,
-   flux.eddy, flux.eddy.recent)
+ggplot(flux.winter.filled[flux.year >= 2010], aes(x = flux.year, y = nee.sum.annual)) +
+  geom_point() +
+  facet_grid(. ~ treatment)
 
-# Add winter ec fluxes to growing season chamber fluxes
-flux.seasonal.filled <- flux.seasonal.filled %>%
-  full_join(flux.eddy.winter, by = c('flux.year'))
-
-flux.seasonal.filled <- flux.seasonal.filled %>%
-  mutate(nee.annual = nee.sum - NEP,
-         reco.annual = reco.sum + Reco,
-         gpp.annual = gpp.sum - GEP,
-         treatment = factor(treatment,
-                            levels = c('Control',
-                                       'Air Warming',
-                                       'Soil Warming',
-                                       'Air + Soil Warming'))) %>%
-  group_by(fence, plot) %>%
-  mutate(sub.group = factor(case_when(min(subsidence.annual) > -20 ~ '<20 cm Subsidence',
-                                      min(subsidence.annual) > -40 ~ '20-40 cm Subsidence',
-                                      min(subsidence.annual) > -60 ~ '40-60 cm Subsidence',
-                                      min(subsidence.annual) <= -60 ~ '>=60 cm Subsidence'),
-                   levels = c('<20 cm Subsidence', '20-40 cm Subsidence', 
-                              '40-60 cm Subsidence', '>=60 cm Subsidence')))
-flux.seasonal.filled <- as.data.table(flux.seasonal.filled)
-
-flux.seasonal.filled.plotting <- flux.seasonal.filled[flux.year >= 2010]
+# # Add winter ec fluxes to growing season chamber fluxes
+# flux.seasonal.filled <- flux.seasonal.filled %>%
+#   full_join(flux.eddy.winter, by = c('flux.year'))
+# 
+# flux.seasonal.filled <- flux.seasonal.filled %>%
+#   mutate(nee.annual = nee.sum - NEP,
+#          reco.annual = reco.sum + Reco,
+#          gpp.annual = gpp.sum - GEP,
+#          treatment = factor(treatment,
+#                             levels = c('Control',
+#                                        'Air Warming',
+#                                        'Soil Warming',
+#                                        'Air + Soil Warming'))) %>%
+#   group_by(fence, plot) %>%
+#   mutate(sub.group = factor(case_when(min(subsidence.annual) > -20 ~ '<20 cm Subsidence',
+#                                       min(subsidence.annual) > -40 ~ '20-40 cm Subsidence',
+#                                       min(subsidence.annual) > -60 ~ '40-60 cm Subsidence',
+#                                       min(subsidence.annual) <= -60 ~ '>=60 cm Subsidence'),
+#                    levels = c('<20 cm Subsidence', '20-40 cm Subsidence', 
+#                               '40-60 cm Subsidence', '>=60 cm Subsidence')))
+# flux.seasonal.filled <- as.data.table(flux.seasonal.filled)
+# 
+# flux.seasonal.filled.plotting <- flux.seasonal.filled[flux.year >= 2010]
 
 ### Plot
 ### growing season
