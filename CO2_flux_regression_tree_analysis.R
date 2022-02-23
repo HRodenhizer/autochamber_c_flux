@@ -34,6 +34,7 @@ flux.seasonal[, treatment := factor(treatment,
                                                'Air Warming',
                                                'Soil Warming',
                                                'Air + Soil Warming'))]
+
 newgroups <- as.data.table(read.table("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/Logistics/LabMeetings/Fall2018/2018_datajam_groupings.csv",
                                       sep=",", dec=".", header=TRUE))
 newgroups.join <- newgroups[!is.na(as.numeric(plot)), .(ID, fence, plot)]
@@ -172,7 +173,7 @@ train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Auto
 
 # ### NEE GBM
 # # figure out good parameters to use
-# grid <- expand.grid(.n.trees=seq(200, 800, by = 200),
+# grid <- expand.grid(.n.trees=seq(600, 1200, by = 200),
 #                   .interaction.depth=seq(1,6,by=1),
 #                   .shrinkage=c(.001,.01,.1),
 #                   .n.minobsinnode=c(5, 10))
@@ -187,9 +188,9 @@ train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Auto
 # nee.seasonal.gbm <- gbm(nee.sum~.,
 #                data = nee.seasonal[train.nee.seasonal,],
 #                distribution = "gaussian",
-#                n.trees = 400,
+#                n.trees = 800,
 #                shrinkage = 0.01,
-#                interaction.depth = 6,
+#                interaction.depth = 5,
 #                n.minobsinnode = 5)
 # summary(nee.seasonal.gbm)
 # saveRDS(nee.seasonal.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_gbm.rds')
@@ -328,10 +329,10 @@ nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.m
 nee.seasonal.plot.2
 
 nee.seasonal.pd.gwc.mean <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.mean", n.trees = nee.seasonal.gbm$n.trees,
+  pdp::partial(pred.var = "t10.sd", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
 nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.mean,
-                                predictor = 'gwc.mean', response = 'nee.sum',
+                                predictor = 't10.sd', response = 'nee.sum',
                                 color.var = 'flux.year', shape.var = 'treatment')# +
   # geom_point(data = example.plots.seasonal,
   #            aes(x = gwc.sd, y = nee.sum),
@@ -346,10 +347,10 @@ nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.m
 nee.seasonal.plot.3
 
 nee.seasonal.pd.wtd.sd <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "wtd.sd", n.trees = nee.seasonal.gbm$n.trees,
+  pdp::partial(pred.var = "gwc.sd", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
 nee.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.wtd.sd,
-                                predictor = 'wtd.sd', response = 'nee.sum',
+                                predictor = 'gwc.sd', response = 'nee.sum',
                                 color.var = 'flux.year', shape.var = 'treatment')# +
   # geom_point(data = example.plots.seasonal,
   #            aes(x = gwc.mean, y = nee.sum),
