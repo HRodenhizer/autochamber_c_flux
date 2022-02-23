@@ -458,56 +458,65 @@ weather.f <- weather.f[, .(date, hourmin, flux.year, Tair, par, precip, rh,
 # 
 # ########  GAPFILL THE FULL DATASET, FIRST BY FILLING SMALL GAPS BY LINEAR
 # ########  INTERPOLATION, THEN BY FILLING LARGER GAPS USING MEDIAN
-# ########  PREDICTION FROM AN ENSEMBLE OF REGRESSIONS WITH OTHER SENSORS 
-#
+# ########  PREDICTION FROM AN ENSEMBLE OF REGRESSIONS WITH OTHER SENSORS
+# 
 # 
 # ##Fill small datagaps using linear interpolation between observations.
-# soil.sensor[, 
+# soil.sensor[,
 #             ':=' (t5 = na.approx(t5, maxgap = 4),
 #                   t10 = na.approx(t10, maxgap = 4),
 #                   t20 = na.approx(t20, maxgap = 4),
 #                   t40 = na.approx(t40, maxgap = 4)),
 #             by = .(fence, plot)]
-# 
+# #
 # ###Create a new DF ("meas") of all sensors and fill all gaps based on ensemble predictions
-# meas <- dcast(melt(soil.sensor, 
-#                    id.vars = c('ts', 'plot.id'), 
+# meas <- dcast(melt(soil.sensor,
+#                    id.vars = c('ts', 'plot.id'),
 #                    measure.vars = c('t5', 't10', 't20', 't40'),
-#                    variable.name = 'depth', 
-#                    value.name = 'tsoil'), 
+#                    variable.name = 'depth',
+#                    value.name = 'tsoil'),
 #               ts ~ depth + plot.id, value.var = 'tsoil')
-# meas <- data.frame(meas[, ts := NULL])##Double check you have all sensor data, but no other colums (e.g. time, month)
-# mods <- data.frame(meas[,]==NA)
-# R2s <- data.frame(NA)
-# fits <- data.frame(names(meas))
+# meas <- data.frame(meas)##Double check you have all sensor data, but no other columns (e.g. time, month)
+# mods <- data.frame(meas)
+# mods <- mods %>%
+#   mutate(across(t5_1_1:t40_6_8, ~ as.numeric(NA)))
+# mods[, 'ts'] <- meas[, 'ts']
+# R2s <- data.frame(matrix(nrow = length(names(meas)) - 1, ncol = length(names(meas))))
+# colnames(R2s) <- c('gap.filled.sensor', names(meas)[2:length(names(meas))])
+# R2s[, 1] <- names(meas)[2:length(names(meas))]
+# fits <- data.frame(names(meas)[2:length(names(meas))])
 # fits$R2s <- NA
 # fits$N.models <- NA
 # #This loop makes a matrix of all univariate predictions with an R2 over 89.5
-# for(j in 1:ncol(meas)) {
-#   
-#   for(i in 1:ncol(meas)) {
-#     print(paste0('j = ', j, ', i = ', i))
-#     b<-lm(meas[,j]~meas[,i])
-#     mods[,i]<-(b$coefficients[1]+(b$coefficients[2]*meas[,i]))
-#     R2s[i]<-(summary(b)$r.squared)
-#     if (R2s[i]<0.895) {mods[,i]=NA}
-#     if (R2s[i]<0.895) {R2s[,i]=NA}
+# for(j in 2:ncol(meas)) {
+#   print(paste0('j = ', j))
+# 
+#   for(i in 2:ncol(meas)) {
+#     b <- lm(meas[,j] ~ meas[,i])
+# 
+#     if (summary(b)$r.squared < 0.8) {
+#       mods[,i] <- (b$coefficients[1] + (b$coefficients[2]*meas[,i]))
+#       R2s[j, i] <- (summary(b)$r.squared)
+#     }
+# 
 #   }
-#   mods$med<-apply(mods,1,median, na.rm=T) #Take the median prediction of all models for all timestamps
-#   fits[j,2]<-(summary(lm(mods[,j]~mods$med))$r.squared)
-#   print(summary(lm(mods[,j]~mods$med))) #Compare prediction of ensemble models to observed values
+#   mods$med <- apply(select(mods, t5_1_1:t40_6_8), 1, median, na.rm = TRUE) #Take the median prediction of all models for all timestamps
+#   fits[j-1, 2] <- (summary(lm(meas[,j] ~ mods$med))$r.squared) # calculate the fit of the predicted values
+#   fits[j-1, 3] <- length(as.numeric(R2s[j,])[!is.na(as.numeric(R2s[j,]))])
+#   print(summary(lm(meas[,j] ~ mods$med))) #Compare prediction of ensemble models to observed values
 #   meas[,j] <- ifelse(is.na(meas[,j]), mods$med, meas[,j])#Replace NA's in the "measured" dataset with model predictions
+# 
 # }
 # 
-# #Replace columns in "all" with gapfilled columns in "meas"
-# dates <- dcast(melt(soil.sensor, 
-#                     id.vars = c('ts', 'plot.id'), 
+# # #Replace columns in "all" with gapfilled columns in "meas"
+# dates <- dcast(melt(soil.sensor,
+#                     id.vars = c('ts', 'plot.id'),
 #                     measure.vars = c('t5', 't10', 't20', 't40'),
-#                     variable.name = 'depth', 
-#                     value.name = 'tsoil'), 
+#                     variable.name = 'depth',
+#                     value.name = 'tsoil'),
 #                ts ~ depth + plot.id, value.var = 'tsoil')[, .(ts)]
-# soil.sensor.ensemble <- melt(cbind(dates, data.table(meas)),
-#                              measure.vars = c(colnames(meas)),
+# soil.sensor.ensemble <- melt(data.table(meas),
+#                              measure.vars = c(colnames(meas)[2:ncol(meas)]),
 #                              variable.name = 'id',
 #                              value.name = 'tsoil')
 # soil.sensor.ensemble[,
@@ -520,20 +529,21 @@ weather.f <- weather.f[, .(date, hourmin, flux.year, Tair, par, precip, rh,
 #                               value.var = 'tsoil')
 # soil.sensor.ensemble <- soil.sensor.ensemble[, .(ts, fence, plot, t5.filled = t5, t10.filled = t10,
 #                                                  t20.filled = t20, t40.filled = t40)]
-# soil.sensor <- merge(soil.sensor, soil.sensor.ensemble,
+# soil.sensor.filled <- merge(soil.sensor, soil.sensor.ensemble,
 #                      all = TRUE,
 #                      by = c('ts', 'fence', 'plot'))
 # 
-# # write.csv(soil.sensor,
+# # write.csv(soil.sensor.filled,
 # #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv',
 # #           row.names = FALSE)
+# 
+# View(soil.sensor[is.na(t10), .N, by = .(year)])
+# View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
+# View(soil.sensor.filled[is.na(t5.filled), .N, by = .(year)])
+# View(soil.sensor.filled[is.na(t10.filled), .N, by = .(year)])
+# View(soil.sensor.filled[is.na(t10.filled), .N, by = .(year, plot.id)])
 
 soil.sensor <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/soil_sensors/soil_sensor_ensemble_filled.csv')
-
-View(soil.sensor[is.na(t10), .N, by = .(year)])
-View(soil.sensor[is.na(t10), .N, by = .(year, plot.id)])
-View(soil.sensor[is.na(t10.filled), .N, by = .(year)])
-View(soil.sensor[is.na(t10.filled), .N, by = .(year, plot.id)])
 
 ggplot(soil.sensor[year == 2009], aes(x = ts)) +
   geom_point(aes(y = t10.filled, color = "gap filled"), alpha = 0.2) +
@@ -2488,7 +2498,7 @@ ggplot(flux.weekly[plot.id == '4_6'],
   facet_grid(fence~plot) +
   ggtitle('Weekly VWC')
 
-ggplot(flux.daily[year == 2010 & plot.id == '4_6'],
+ggplot(flux.weekly[year == 2010 & plot.id == '4_6'],
        aes(x = date)) +
   geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
   geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
@@ -2679,7 +2689,7 @@ hydrology <- merge(hydrology, precip.f, by = 'date',
 
 # Join subsidence to hydrology
 hydrology[, plot := as.numeric(str_sub(plot.id, start = 3))]
-hydrology <- merge(hydrology, sub, by = c('year', 'fence', 'plot', 'treatment'),
+hydrology <- merge(hydrology, sub[, year := flux.year], by = c('year', 'fence', 'plot', 'treatment'),
                    all.x = TRUE)
 
 # # save data
