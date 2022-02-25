@@ -77,11 +77,12 @@ param.2016.2020 <- rbind(param.2016[, .(date, year, month, DOY, half.hour,
 # load 2019 hobo data
 hobo.2019 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Weather data (HOBO)/2019/Processed/HOBO_2018-10-01_to_2019-09-30_half_hourly.Rdata')
 hobo.2020 <- loadRData('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/Weather data (HOBO)/2020/Processed/HOBO_2019-10-01_to_2020-09-30_half_hourly.Rdata')
-hobo.2019 <- rbind(hobo.2019, hobo.2020)[ts >= as_date('2019-01-01') & ts < as_date('2020-01-01'), .(year, DOY, half.hour, Tair.hobo = Tair, PAR.hobo = PAR)]
+hobo.2019 <- rbind(hobo.2019, hobo.2020)[ts >= as_date('2019-01-01') & ts < as_date('2020-01-01'), .(year, doy = DOY, hourmin = half.hour, Tair.hobo = Tair, PAR.hobo = PAR)]
 
 data <- loadRData('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
+data[, month := month(ts)]
 
-# try modeling annual sum only
+# try modeling with GBM
 flux.seasonal <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv')
 nee.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_seasonal_gbm.rds')
 reco.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_gbm.rds')
@@ -105,51 +106,56 @@ data[tair > 30, .N]
 frame.2019 <- expand_grid(year = 2019,
                           fence = seq(1, 6),
                           plot = seq(1, 11),
-                          DOY = seq(min(data[year == 2019 & !is.na(nee)]$doy), 
+                          doy = seq(min(data[year == 2019 & !is.na(nee)]$doy), 
                                     max(data[year == 2019 & !is.na(nee)]$doy)),
-                          half.hour = seq(0, 23.5, by = 0.5))
+                          hourmin = seq(0, 23.5, by = 0.5))
 frame.2019 <- data.table(frame.2019)
-frame.2019[, date := as_date('2018-12-31') + days(DOY)]
+frame.2019[, date := as_date('2018-12-31') + days(doy)]
 frame.2019[,
-           timestamp := parse_date_time(paste(date, 
-                                              paste(str_pad(as.character(floor(half.hour)), 
-                                                            side = "left", 
-                                                            pad = '0',
-                                                            width = 2), 
-                                                    str_pad(as.character(half.hour%%1*60),
-                                                            side = 'left',
-                                                            pad = '0',
-                                                            width = 2), 
-                                                    sep = ':')),
-                                        orders = c('Y!-m!-d! H!:M!'))]
+           ts := parse_date_time(paste(date, 
+                                       paste(str_pad(as.character(floor(hourmin)), 
+                                                     side = "left", 
+                                                     pad = '0',
+                                                     width = 2), 
+                                             str_pad(as.character(hourmin%%1*60),
+                                                     side = 'left',
+                                                     pad = '0',
+                                                     width = 2), 
+                                             sep = ':')),
+                                 orders = c('Y!-m!-d! H!:M!'))]
 frame.2019[,
-           month := month(timestamp)]
+           month := month(ts)]
 # add air temperature
 frame.2019 <- merge(frame.2019, hobo.2019, 
-                    by = c('year', 'DOY', 'half.hour'),
+                    by = c('year', 'doy', 'hourmin'),
                     all.x = TRUE)
 # add parameters
-param.2019 <- unique(data[year == 2019 & !is.na(a), .(fence, plot, year, month,
-                                                      a, GPmax, R)])
-frame.2019 <- merge(frame.2019, param.2019, by = c('fence', 'plot', 'year', 'month'),
+# param.2019 <- unique(data[year == 2019 & !is.na(a), .(fence, plot, year, month,
+#                                                       a, GPmax, R)])
+param.2019[, month := month(date)]
+param.2019.unique <- unique(param.2019[!is.na(a), 
+                                       .(fence, plot, year, month, a, GPmax, R)])
+frame.2019 <- merge(frame.2019, param.2019.unique, by = c('fence', 'plot', 'year', 'month'),
                     all.x = TRUE)
 
+data[, date := as_date(date)]
 filled <- merge(data, 
                 frame.2019, 
-                by = c('fence', 'plot','timestamp', 'date', 'year', 'month', 
-                       'DOY', 'half.hour', 'a', 'GPmax', 'R'),
+                by = c('fence', 'plot','ts', 'date', 'year', 'month', 
+                       'doy', 'hourmin'),
                 all = TRUE)
 filled[, plot.id := paste(fence, plot, sep = '_')]
-filled[is.na(Tair),
-       Tair := Tair.hobo]
-filled[is.na(PAR),
-       PAR := PAR.hobo]
-filled[is.na(Tair), .N]
-filled[is.na(PAR), .N]
+filled[is.na(tair),
+       tair := Tair.hobo]
+filled[is.na(par),
+       par := PAR.hobo]
+filled[is.na(tair), .N]
+filled[is.na(par), .N]
+filled[is.na(t.chamb.filled), .N]
 
 # model chambT using Tair on a plot by plot basis
 model.chambT.lm <- function(df) {
-  fit <- lm(chambT ~ Tair, data=df)
+  fit <- lm(t.chamb ~ tair, data=df)
   return(list(chambT.intercept=coef(fit)[1], 
               chambT.slope=coef(fit)[2],
               chambT.r2 = summary(fit)$r.squared))
@@ -510,18 +516,30 @@ flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %
                                                                                newdata = .SD,
                                                                                n.trees = nee.monthly.gbm$n.trees),
                                                              filled.gbm = 1)]
+flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(nee.sum),
+                         .N]
 # Reco
 flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(reco.sum),
                                                        ':=' (reco.sum = predict(reco.monthly.gbm,
                                                                                 newdata = .SD,
                                                                                 n.trees = reco.monthly.gbm$n.trees),
                                                              filled.gbm = 1)]
+flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(reco.sum),
+                         .N]
 # GPP
 flux.monthly.filled.2019 <- flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(gpp.sum),
                                                        ':=' (gpp.sum = predict(gpp.monthly.gbm,
                                                                                newdata = .SD,
                                                                                n.trees = gpp.monthly.gbm$n.trees),
                                                              filled.gbm = 1)]
+flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(gpp.sum),
+                         .N]
+
+flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(flux.year),
+                         .N]
+flux.monthly.filled.2019[flux.year == 2019 & month %in% seq(5,9) & is.na(filled.gbm),
+                         .N]
+
 
 # Plot output
 ggplot(flux.monthly.filled.2019[month %in% seq(5,9)],
