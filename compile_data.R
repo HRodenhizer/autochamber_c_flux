@@ -17,6 +17,7 @@ library(readxl)
 library(sf)
 library(tidyselect)
 library(zoo)
+library(viridis)
 library(tidyverse)
 #############################################################################################################################
 
@@ -700,8 +701,8 @@ soil.sensor[, date := parse_date_time(date, orders = c('Y!-m!-d!'))]
 
 # Neaten
 soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
-                               treatment, fence, plot, plot.id, t5 = t5.filled,
-                               t10 = t10.filled, t20 = t20.filled, t40 = t40.filled,
+                               treatment, fence, plot, plot.id, t5, t5.filled,
+                               t10, t10.filled, t20, t20.filled, t40, t40.filled,
                                vwc, gwc)]
 ###########################################################################################
 
@@ -1443,7 +1444,8 @@ flux[is.na(tp.to.date), .N, by = 'year'] # missing a lot - but not during growin
 ### Create Summaries and Derived Variables ################################################
 flux.final <- flux[, .(ts, date, year, season, month, week, doy, hour, hourmin, block,
                        fence, plot, plot.id, treatment, deployed, filled, nee,
-                       reco, gpp, r2, par, tair, t5, t10, t20, t40, vwc, gwc,
+                       reco, gpp, r2, par, tair, t5, t10, t20, t40, 
+                       t5.filled, t10.filled, t20.filled, t40.filled, vwc, gwc,
                        wtd, td, biomass, ndvi, ndvi.date, precip, rh, subsidence, alt,
                        alt.date, tp, tp.to.date, snow.depth)]
 ### Daily Summary
@@ -1472,24 +1474,40 @@ flux.daily <- flux.final[,
                            t5.sd = fifelse(all(is.na(t5)),
                                            NaN,
                                            sd(t5, na.rm = TRUE)),
+                           t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                           t5.filled.sd = fifelse(all(is.na(t5.filled)),
+                                           NaN,
+                                           sd(t5.filled, na.rm = TRUE)),
                            t10.max = max(t10, na.rm = TRUE),
                            t10.mean = mean(t10, na.rm = TRUE),
                            t10.min = min(t10, na.rm = TRUE),
                            t10.sd = fifelse(all(is.na(t10)),
                                             NaN,
                                             sd(t10, na.rm = TRUE)),
+                           t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                           t10.filled.sd = fifelse(all(is.na(t10.filled)),
+                                                  NaN,
+                                                  sd(t10.filled, na.rm = TRUE)),
                            t20.max = max(t20, na.rm = TRUE),
                            t20.mean = mean(t20, na.rm = TRUE),
                            t20.min = min(t20, na.rm = TRUE),
                            t20.sd = fifelse(all(is.na(t20)),
                                             NaN,
                                             sd(t20, na.rm = TRUE)),
+                           t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                           t20.filled.sd = fifelse(all(is.na(t20.filled)),
+                                                   NaN,
+                                                   sd(t20.filled, na.rm = TRUE)),
                            t40.max = max(t40, na.rm = TRUE),
                            t40.mean = mean(t40, na.rm = TRUE),
                            t40.min = min(t40, na.rm = TRUE),
                            t40.sd = fifelse(all(is.na(t40)),
                                             NaN,
                                             sd(t40, na.rm = TRUE)),
+                           t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                           t40.filled.sd = fifelse(all(is.na(t40.filled)),
+                                                   NaN,
+                                                   sd(t40.filled, na.rm = TRUE)),
                            vwc.max = max(vwc, na.rm = TRUE),
                            vwc.mean = mean(vwc, na.rm = TRUE),
                            vwc.min = min(vwc, na.rm = TRUE),
@@ -1565,27 +1583,6 @@ flux.daily[,
                  precip.6d = frollsum(precip, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
                  precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
                  precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
-                 rh.mean.2d = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
-                 rh.mean.3d = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
-                 rh.mean.4d = frollmean(rh.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
-                 rh.mean.5d = frollmean(rh.mean, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
-                 rh.mean.6d = frollmean(rh.mean, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
-                 rh.mean.1w = frollmean(rh.mean, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
-                 rh.mean.2w = frollmean(rh.mean, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
-                 rh.max.2d = frollapply(rh.max, n = 2, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
-                 rh.max.3d = frollapply(rh.max, n = 3, align = 'right', FUN = max, na.rm = TRUE), # 2 days prior + current day
-                 rh.max.4d = frollapply(rh.max, n = 4, align = 'right', FUN = max, na.rm = TRUE), # 3 days prior + current day
-                 rh.max.5d = frollapply(rh.max, n = 5, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
-                 rh.max.6d = frollapply(rh.max, n = 6, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
-                 rh.max.1w = frollapply(rh.max, n = 7, align = 'right', FUN = max, na.rm = TRUE), # full week prior including current day
-                 rh.max.2w = frollapply(rh.max, n = 14, align = 'right', FUN = max, na.rm = TRUE), # 2 weeks prior including current day
-                 rh.min.2d = frollapply(rh.min, n = 2, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
-                 rh.min.3d = frollapply(rh.min, n = 3, align = 'right', FUN = min, na.rm = TRUE), # 2 days prior + current day
-                 rh.min.4d = frollapply(rh.min, n = 4, align = 'right', FUN = min, na.rm = TRUE), # 3 days prior + current day
-                 rh.min.5d = frollapply(rh.min, n = 5, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
-                 rh.min.6d = frollapply(rh.min, n = 6, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
-                 rh.min.1w = frollapply(rh.min, n = 7, align = 'right', FUN = min, na.rm = TRUE), # full week prior including current day
-                 rh.min.2w = frollapply(rh.min, n = 14, align = 'right', FUN = min, na.rm = TRUE), # 2 weeks prior including current day
                  vwc.mean.2d = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
                  vwc.mean.3d = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
                  vwc.mean.4d = frollmean(vwc.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
@@ -1739,6 +1736,10 @@ flux.weekly <- flux.daily[,
                             t5.sd = fifelse(all(is.na(t5.sd)),
                                             NaN,
                                             sqrt(sum(t5.sd, na.rm = TRUE)/.N)),
+                            t5.filled.mean = mean(t5.filled.mean, na.rm = TRUE),
+                            t5.filled.sd = fifelse(all(is.na(t5.filled.sd)),
+                                            NaN,
+                                            sqrt(sum(t5.filled.sd, na.rm = TRUE)/.N)),
                             max.t10.max = max(t10.max, na.rm = TRUE),
                             mean.t10.max = mean(t10.max, na.rm = TRUE),
                             t10.mean = mean(t10.mean, na.rm = TRUE),
@@ -1747,6 +1748,10 @@ flux.weekly <- flux.daily[,
                             t10.sd = fifelse(all(is.na(t10.sd)),
                                              NaN,
                                              sqrt(sum(t10.sd, na.rm = TRUE)/.N)),
+                            t10.filled.mean = mean(t10.filled.mean, na.rm = TRUE),
+                            t10.filled.sd = fifelse(all(is.na(t10.filled.sd)),
+                                                   NaN,
+                                                   sqrt(sum(t10.filled.sd, na.rm = TRUE)/.N)),
                             max.t20.max = max(t20.max, na.rm = TRUE),
                             mean.t20.max = mean(t20.max, na.rm = TRUE),
                             t20.mean = mean(t20.mean, na.rm = TRUE),
@@ -1755,6 +1760,10 @@ flux.weekly <- flux.daily[,
                             t20.sd = fifelse(all(is.na(t20.sd)),
                                              NaN,
                                              sqrt(sum(t20.sd, na.rm = TRUE)/.N)),
+                            t20.filled.mean = mean(t20.filled.mean, na.rm = TRUE),
+                            t20.filled.sd = fifelse(all(is.na(t20.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t20.filled.sd, na.rm = TRUE)/.N)),
                             max.t40.max = max(t40.max, na.rm = TRUE),
                             mean.t40.max = mean(t40.max, na.rm = TRUE),
                             t40.mean = mean(t40.mean, na.rm = TRUE),
@@ -1763,6 +1772,10 @@ flux.weekly <- flux.daily[,
                             t40.sd = fifelse(all(is.na(t40.sd)),
                                              NaN,
                                              sqrt(sum(t40.sd, na.rm = TRUE)/.N)),
+                            t40.filled.mean = mean(t40.filled.mean, na.rm = TRUE),
+                            t40.filled.sd = fifelse(all(is.na(t40.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t40.filled.sd, na.rm = TRUE)/.N)),
                             max.vwc.max = max(vwc.max, na.rm = TRUE),
                             mean.vwc.max = mean(vwc.max, na.rm = TRUE),
                             vwc.mean = mean(vwc.mean, na.rm = TRUE),
@@ -1820,21 +1833,6 @@ flux.weekly[,
                  precip.2w = frollsum(precip, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
                  precip.3w = frollsum(precip, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
                  precip.1m = frollsum(precip, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 rh.mean.2w = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 rh.mean.3w = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 rh.mean.1m = frollmean(rh.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 max.rh.max.2w = frollmean(max.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 max.rh.max.3w = frollmean(max.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 max.rh.max.1m = frollmean(max.rh.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 mean.rh.max.2w = frollmean(mean.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 mean.rh.max.3w = frollmean(mean.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 mean.rh.max.1m = frollmean(mean.rh.max, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 min.rh.min.2w = frollmean(min.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 min.rh.min.3w = frollmean(min.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 min.rh.min.1m = frollmean(min.rh.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
-                 mean.rh.min.2w = frollmean(mean.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                 mean.rh.min.3w = frollmean(mean.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                 mean.rh.min.1m = frollmean(mean.rh.min, n = 4, align = 'right', na.rm = TRUE), # full month including current week
                  vwc.mean.2w = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
                  vwc.mean.3w = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
                  vwc.mean.1m = frollmean(vwc.mean, n = 4, align = 'right', na.rm = TRUE), # full month including current week
@@ -1915,6 +1913,10 @@ flux.monthly <- flux.daily[,
                             t5.sd = fifelse(all(is.na(t5.sd)),
                                             NaN,
                                             sqrt(sum(t5.sd, na.rm = TRUE)/.N)),
+                            t5.filled.mean = mean(t5.filled.mean, na.rm = TRUE),
+                            t5.filled.sd = fifelse(all(is.na(t5.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t5.filled.sd, na.rm = TRUE)/.N)),
                             max.t10.max = max(t10.max, na.rm = TRUE),
                             mean.t10.max = mean(t10.max, na.rm = TRUE),
                             t10.mean = mean(t10.mean, na.rm = TRUE),
@@ -1923,6 +1925,10 @@ flux.monthly <- flux.daily[,
                             t10.sd = fifelse(all(is.na(t10.sd)),
                                              NaN,
                                              sqrt(sum(t10.sd, na.rm = TRUE)/.N)),
+                            t10.filled.mean = mean(t10.filled.mean, na.rm = TRUE),
+                            t10.filled.sd = fifelse(all(is.na(t10.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t10.filled.sd, na.rm = TRUE)/.N)),
                             max.t20.max = max(t20.max, na.rm = TRUE),
                             mean.t20.max = mean(t20.max, na.rm = TRUE),
                             t20.mean = mean(t20.mean, na.rm = TRUE),
@@ -1931,6 +1937,10 @@ flux.monthly <- flux.daily[,
                             t20.sd = fifelse(all(is.na(t20.sd)),
                                              NaN,
                                              sqrt(sum(t20.sd, na.rm = TRUE)/.N)),
+                            t20.filled.mean = mean(t20.filled.mean, na.rm = TRUE),
+                            t20.filled.sd = fifelse(all(is.na(t20.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t20.filled.sd, na.rm = TRUE)/.N)),
                             max.t40.max = max(t40.max, na.rm = TRUE),
                             mean.t40.max = mean(t40.max, na.rm = TRUE),
                             t40.mean = mean(t40.mean, na.rm = TRUE),
@@ -1939,6 +1949,10 @@ flux.monthly <- flux.daily[,
                             t40.sd = fifelse(all(is.na(t40.sd)),
                                              NaN,
                                              sqrt(sum(t40.sd, na.rm = TRUE)/.N)),
+                            t40.filled.mean = mean(t40.filled.mean, na.rm = TRUE),
+                            t40.filled.sd = fifelse(all(is.na(t40.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t40.filled.sd, na.rm = TRUE)/.N)),
                             max.vwc.max = max(vwc.max, na.rm = TRUE),
                             mean.vwc.max = mean(vwc.max, na.rm = TRUE),
                             vwc.mean = mean(vwc.mean, na.rm = TRUE),
@@ -1993,16 +2007,6 @@ flux.monthly[,
                   fdd.3m = frollsum(fdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
                   precip.2m = frollsum(precip, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
                   precip.3m = frollsum(precip, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                  rh.mean.2m = frollmean(rh.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                  rh.mean.3m = frollmean(rh.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                  max.rh.max.2m = frollmean(max.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                  max.rh.max.3m = frollmean(max.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                  mean.rh.max.2m = frollmean(mean.rh.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                  mean.rh.max.3m = frollmean(mean.rh.max, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                  min.rh.min.2m = frollmean(min.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                  min.rh.min.3m = frollmean(min.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
-                  mean.rh.min.2m = frollmean(mean.rh.min, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
-                  mean.rh.min.3m = frollmean(mean.rh.min, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
                   vwc.mean.2m = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
                   vwc.mean.3m = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
                   max.vwc.max.2m = frollmean(max.vwc.max, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
@@ -2070,6 +2074,10 @@ flux.annual <- flux.weekly[season == 1,
                             t5.sd = fifelse(all(is.na(t5.sd)),
                                             NaN,
                                             sqrt(sum(t5.sd, na.rm = TRUE)/.N)),
+                            t5.filled.mean = mean(t5.filled.mean, na.rm = TRUE),
+                            t5.filled.sd = fifelse(all(is.na(t5.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t5.filled.sd, na.rm = TRUE)/.N)),
                             max.t10.max = max(max.t10.max, na.rm = TRUE),
                             mean.t10.max = mean(mean.t10.max, na.rm = TRUE),
                             t10.mean = mean(t10.mean, na.rm = TRUE),
@@ -2078,6 +2086,10 @@ flux.annual <- flux.weekly[season == 1,
                             t10.sd = fifelse(all(is.na(t10.sd)),
                                              NaN,
                                              sqrt(sum(t10.sd, na.rm = TRUE)/.N)),
+                            t10.filled.mean = mean(t10.filled.mean, na.rm = TRUE),
+                            t10.filled.sd = fifelse(all(is.na(t10.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t10.filled.sd, na.rm = TRUE)/.N)),
                             max.t20.max = max(max.t20.max, na.rm = TRUE),
                             mean.t20.max = mean(mean.t20.max, na.rm = TRUE),
                             t20.mean = mean(t20.mean, na.rm = TRUE),
@@ -2086,6 +2098,10 @@ flux.annual <- flux.weekly[season == 1,
                             t20.sd = fifelse(all(is.na(t20.sd)),
                                              NaN,
                                              sqrt(sum(t20.sd, na.rm = TRUE)/.N)),
+                            t20.filled.mean = mean(t20.filled.mean, na.rm = TRUE),
+                            t20.filled.sd = fifelse(all(is.na(t20.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t20.filled.sd, na.rm = TRUE)/.N)),
                             max.t40.max = max(max.t40.max, na.rm = TRUE),
                             mean.t40.max = mean(mean.t40.max, na.rm = TRUE),
                             t40.mean = mean(t40.mean, na.rm = TRUE),
@@ -2094,6 +2110,10 @@ flux.annual <- flux.weekly[season == 1,
                             t40.sd = fifelse(all(is.na(t40.sd)),
                                              NaN,
                                              sqrt(sum(t40.sd, na.rm = TRUE)/.N)),
+                            t40.filled.mean = mean(t40.filled.mean, na.rm = TRUE),
+                            t40.filled.sd = fifelse(all(is.na(t40.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t40.filled.sd, na.rm = TRUE)/.N)),
                             max.vwc.max = max(max.vwc.max, na.rm = TRUE),
                             mean.vwc.max = mean(mean.vwc.max, na.rm = TRUE),
                             vwc.mean = mean(vwc.mean, na.rm = TRUE),
@@ -2146,6 +2166,128 @@ flux.annual <- merge(flux.annual,
 # write.csv(flux.annual, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv',
 #           row.names = FALSE)
 
+flux.annual.winter <- flux.weekly[,
+                           .(nee.sum = fifelse(all(is.na(nee.sum)),
+                                               NaN,
+                                               sum(nee.sum, na.rm = TRUE)),
+                             reco.sum = fifelse(all(is.na(reco.sum)),
+                                                NaN,
+                                                sum(reco.sum, na.rm = TRUE)),
+                             gpp.sum = fifelse(all(is.na(gpp.sum)),
+                                               NaN,
+                                               sum(gpp.sum, na.rm = TRUE)),
+                             max.tair.max = max(max.tair.max, na.rm = TRUE),
+                             mean.tair.max = mean(mean.tair.max, na.rm = TRUE),
+                             tair.mean = mean(tair.mean, na.rm = TRUE),
+                             mean.tair.min = mean(mean.tair.min, na.rm = TRUE),
+                             min.tair.min = min(min.tair.min, na.rm = TRUE),
+                             tair.sd = fifelse(all(is.na(tair.sd)),
+                                               NaN,
+                                               sqrt(sum(tair.sd, na.rm = TRUE)/.N)),
+                             max.tair.spread = max(max.tair.spread, na.rm = TRUE),
+                             mean.tair.spread = mean(mean.tair.spread, na.rm = TRUE),
+                             min.tair.spread = min(min.tair.spread, na.rm = TRUE),
+                             gdd = max(gdd, na.rm = TRUE),
+                             fdd = max(fdd, na.rm = TRUE),
+                             max.t5.max = max(max.t5.max, na.rm = TRUE),
+                             mean.t5.max = mean(mean.t5.max, na.rm = TRUE),
+                             t5.mean = mean(t5.mean, na.rm = TRUE),
+                             mean.t5.min = mean(mean.t5.min, na.rm = TRUE),
+                             min.t5.min = min(min.t5.min, na.rm = TRUE),
+                             t5.sd = fifelse(all(is.na(t5.sd)),
+                                             NaN,
+                                             sqrt(sum(t5.sd, na.rm = TRUE)/.N)),
+                             t5.filled.mean = mean(t5.filled.mean, na.rm = TRUE),
+                             t5.filled.sd = fifelse(all(is.na(t5.filled.sd)),
+                                                    NaN,
+                                                    sqrt(sum(t5.filled.sd, na.rm = TRUE)/.N)),
+                             max.t10.max = max(max.t10.max, na.rm = TRUE),
+                             mean.t10.max = mean(mean.t10.max, na.rm = TRUE),
+                             t10.mean = mean(t10.mean, na.rm = TRUE),
+                             mean.t10.min = mean(mean.t10.min, na.rm = TRUE),
+                             min.t10.min = min(min.t10.min, na.rm = TRUE),
+                             t10.sd = fifelse(all(is.na(t10.sd)),
+                                              NaN,
+                                              sqrt(sum(t10.sd, na.rm = TRUE)/.N)),
+                             t10.filled.mean = mean(t10.filled.mean, na.rm = TRUE),
+                             t10.filled.sd = fifelse(all(is.na(t10.filled.sd)),
+                                                     NaN,
+                                                     sqrt(sum(t10.filled.sd, na.rm = TRUE)/.N)),
+                             max.t20.max = max(max.t20.max, na.rm = TRUE),
+                             mean.t20.max = mean(mean.t20.max, na.rm = TRUE),
+                             t20.mean = mean(t20.mean, na.rm = TRUE),
+                             mean.t20.min = mean(mean.t20.min, na.rm = TRUE),
+                             min.t20.min = min(min.t20.min, na.rm = TRUE),
+                             t20.sd = fifelse(all(is.na(t20.sd)),
+                                              NaN,
+                                              sqrt(sum(t20.sd, na.rm = TRUE)/.N)),
+                             t20.filled.mean = mean(t20.filled.mean, na.rm = TRUE),
+                             t20.filled.sd = fifelse(all(is.na(t20.filled.sd)),
+                                                     NaN,
+                                                     sqrt(sum(t20.filled.sd, na.rm = TRUE)/.N)),
+                             max.t40.max = max(max.t40.max, na.rm = TRUE),
+                             mean.t40.max = mean(mean.t40.max, na.rm = TRUE),
+                             t40.mean = mean(t40.mean, na.rm = TRUE),
+                             mean.t40.min = mean(mean.t40.min, na.rm = TRUE),
+                             min.t40.min = min(min.t40.min, na.rm = TRUE),
+                             t40.sd = fifelse(all(is.na(t40.sd)),
+                                              NaN,
+                                              sqrt(sum(t40.sd, na.rm = TRUE)/.N)),
+                             t40.filled.mean = mean(t40.filled.mean, na.rm = TRUE),
+                             t40.filled.sd = fifelse(all(is.na(t40.filled.sd)),
+                                                     NaN,
+                                                     sqrt(sum(t40.filled.sd, na.rm = TRUE)/.N)),
+                             max.vwc.max = max(max.vwc.max, na.rm = TRUE),
+                             mean.vwc.max = mean(mean.vwc.max, na.rm = TRUE),
+                             vwc.mean = mean(vwc.mean, na.rm = TRUE),
+                             mean.vwc.min = mean(mean.vwc.min, na.rm = TRUE),
+                             min.vwc.min = min(min.vwc.min, na.rm = TRUE),
+                             vwc.sd = fifelse(all(is.na(vwc.sd)),
+                                              NaN,
+                                              sqrt(sum(vwc.sd, na.rm = TRUE)/.N)),
+                             max.gwc.max = max(max.gwc.max, na.rm = TRUE),
+                             mean.gwc.max = mean(mean.gwc.max, na.rm = TRUE),
+                             gwc.mean = mean(gwc.mean, na.rm = TRUE),
+                             mean.gwc.min = mean(mean.gwc.min, na.rm = TRUE),
+                             min.gwc.min = min(min.gwc.min, na.rm = TRUE),
+                             gwc.sd = fifelse(all(is.na(gwc.sd)),
+                                              NaN,
+                                              sqrt(sum(gwc.sd, na.rm = TRUE)/.N)),
+                             wtd.mean = mean(wtd.mean, na.rm = TRUE),
+                             wtd.sd = fifelse(all(is.na(wtd.mean)),
+                                              NaN,
+                                              sd(wtd.mean, na.rm = TRUE)),
+                             wtd.n = sum(wtd.n),
+                             max.rh.max = max(max.rh.max, na.rm = TRUE),
+                             mean.rh.max = mean(mean.rh.max, na.rm = TRUE),
+                             rh.mean = mean(rh.mean, na.rm = TRUE),
+                             mean.rh.min = mean(mean.rh.min, na.rm = TRUE),
+                             min.rh.min = min(min.rh.min, na.rm = TRUE),
+                             rh.sd = fifelse(all(is.na(rh.sd)),
+                                             NaN,
+                                             sqrt(sum(rh.sd, na.rm = TRUE)/.N)),
+                             precip.sum = sum(precip, na.rm = TRUE),
+                             subsidence.annual = last(subsidence.annual),
+                             alt = first(alt.annual),
+                             alt.doy = first(alt.doy),
+                             tp = first(tp.annual),
+                             biomass.annual = last(biomass.annual),
+                             ndvi = max(ndvi, na.rm = TRUE),
+                             ndvi.doy = ndvi.doy[which(first(ndvi == max(ndvi, na.rm = TRUE)))],
+                             winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
+                           by = c('flux.year', 'season', 'block', 'fence',
+                                  'plot', 'plot.id', 'treatment')]
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.annual.winter <- flux.annual.winter[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.annual.winter <- flux.annual.winter[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# merge with winter data
+flux.annual.winter <- merge(flux.annual.winter,
+                            env.winter,
+                            by = c('flux.year', 'block', 'fence', 'plot', 'plot.id', 'treatment'))
+
+# write.csv(flux.annual.winter, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_with_winter.csv',
+#           row.names = FALSE)
 ###########################################################################################
 
 ### Plot to Check Merge and Summaries Went Properly #######################################
