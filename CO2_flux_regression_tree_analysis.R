@@ -1864,8 +1864,7 @@ monthly.pdp
 ################################################################################
 
 ### Time Series Analysis #######################################################
-flux.seasonal.filled <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv')
-pca.scores <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_output.csv')
+flux.seasonal.filled <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv')
 
 # Add in eddy covariance estimate for winter
 # a function to load and return a file
@@ -2060,13 +2059,13 @@ flux.winter.filled.monthly[is.na(reco.sum), .N]
 flux.winter.filled.monthly[is.na(gpp.sum), .N]
 
 flux.winter.filled.seasonal <- flux.winter.filled.monthly[,
-                                  .(nee.sum = sum(nee.sum, na.rm = TRUE),
-                                    reco.sum = sum(reco.sum, na.rm = TRUE),
-                                    gpp.sum = sum(gpp.sum, na.rm = TRUE)),
+                                  .(nee.sum.winter = sum(nee.sum, na.rm = TRUE),
+                                    reco.sum.winter = sum(reco.sum, na.rm = TRUE),
+                                    gpp.sum.winter = sum(gpp.sum, na.rm = TRUE)),
                                   by = .(flux.year, fence, plot, treatment, plot.id)]
-flux.winter.filled.seasonal[is.na(nee.sum), .N, by = .(fence, plot)]
-flux.winter.filled.seasonal[is.na(reco.sum), .N, by = .(fence, plot)]
-flux.winter.filled.seasonal[is.na(gpp.sum), .N, by = .(fence, plot)]
+flux.winter.filled.seasonal[is.na(nee.sum.winter), .N, by = .(fence, plot)]
+flux.winter.filled.seasonal[is.na(reco.sum.winter), .N, by = .(fence, plot)]
+flux.winter.filled.seasonal[is.na(gpp.sum.winter), .N, by = .(fence, plot)]
 
 ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = nee.sum)) +
   geom_point() +
@@ -2079,47 +2078,60 @@ ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = gp
   facet_grid(. ~ treatment)
 
 # # Add winter ec fluxes to growing season chamber fluxes
-# flux.seasonal.filled <- flux.seasonal.filled %>%
-#   full_join(flux.eddy.winter, by = c('flux.year'))
-# 
-# flux.seasonal.filled <- flux.seasonal.filled %>%
-#   mutate(nee.annual = nee.sum - NEP,
-#          reco.annual = reco.sum + Reco,
-#          gpp.annual = gpp.sum - GEP,
-#          treatment = factor(treatment,
-#                             levels = c('Control',
-#                                        'Air Warming',
-#                                        'Soil Warming',
-#                                        'Air + Soil Warming'))) %>%
-#   group_by(fence, plot) %>%
-#   mutate(sub.group = factor(case_when(min(subsidence.annual) > -20 ~ '<20 cm Subsidence',
-#                                       min(subsidence.annual) > -40 ~ '20-40 cm Subsidence',
-#                                       min(subsidence.annual) > -60 ~ '40-60 cm Subsidence',
-#                                       min(subsidence.annual) <= -60 ~ '>=60 cm Subsidence'),
-#                    levels = c('<20 cm Subsidence', '20-40 cm Subsidence', 
-#                               '40-60 cm Subsidence', '>=60 cm Subsidence')))
-# flux.seasonal.filled <- as.data.table(flux.seasonal.filled)
-# 
-# flux.seasonal.filled.plotting <- flux.seasonal.filled[flux.year >= 2010]
+flux.winter.filled.seasonal[, season := 0]
+flux.seasonal.filled.winter <- flux.seasonal.filled[, .(flux.year, fence, plot, treatment, plot.id, season,
+                         nee.sum, reco.sum, gpp.sum)]
+flux.seasonal.filled.winter <- merge(flux.seasonal.filled.winter, flux.winter.filled.seasonal,
+                              by = c('flux.year', 'fence', 'plot', 'treatment',
+                                     'plot.id', 'season'),
+                              all = TRUE)
+
+flux.seasonal.filled.winter[,
+                     ':=' (nee.sum = fifelse(is.na(nee.sum),
+                                             nee.sum.winter,
+                                             nee.sum),
+                           reco.sum = fifelse(is.na(reco.sum),
+                                              reco.sum.winter,
+                                              reco.sum),
+                           gpp.sum = fifelse(is.na(gpp.sum),
+                                             gpp.sum.winter,
+                                             gpp.sum))]
+
+flux.seasonal.filled.winter[is.na(nee.sum), .N]
+flux.seasonal.filled.winter[is.na(reco.sum), .N]
+flux.seasonal.filled.winter[is.na(gpp.sum), .N]
+
+flux.annual.filled <- flux.seasonal.filled.winter[,
+                                           .(nee.sum.annual = sum(nee.sum),
+                                             reco.sum.annual = sum(reco.sum),
+                                             gpp.sum.annual = sum(gpp.sum)),
+                                           by = c('flux.year', 'fence', 'plot', 
+                                                  'treatment',  'plot.id')]
+
+flux.seasonal.filled <- flux.seasonal.filled[,
+                                             ':=' (nee.sum.gs = nee.sum,
+                                                   reco.sum.gs = reco.sum,
+                                                   gpp.sum.gs = gpp.sum)]
+flux.seasonal.filled <- flux.seasonal.filled[,
+                                             ':=' (nee.sum = NULL,
+                                                   reco.sum = NULL,
+                                                   gpp.sum = NULL)]
+flux.annual.filled.plotting <- merge(flux.annual.filled, flux.seasonal.filled,
+                                       by = c('flux.year', 'fence', 'plot', 
+                                              'treatment',  'plot.id'))
+flux.annual.filled.plotting <- flux.annual.filled.plotting[flux.year >= 2010]
+flux.annual.filled.plotting[,
+                              treatment := factor(treatment, 
+                                                  levels = c('Control', 'Air Warming',
+                                                             'Soil Warming', 'Air + Soil Warming'))]
+
 
 ### Plot
 ### growing season
 # NEE
-# 2019 not filled
-ggplot(flux.seasonal.filled.plotting[filled.gbm == 0],
-       aes(x = flux.year, y = nee.sum, color = subsidence.annual)) +
-  geom_hline(yintercept = 0) +
-  geom_point() +
-  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
-  facet_wrap(~ treatment, ncol = 4) +
-  theme_bw() +
-  theme(axis.title.x = element_blank())
 # 2019 filled
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = nee.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2133,8 +2145,8 @@ ggplot(flux.seasonal.filled.plotting,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-nee.trajectory <- ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.sum, color = biomass.annual, shape = factor(filled.gbm))) +
+nee.trajectory.gs <- ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = nee.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2148,10 +2160,27 @@ nee.trajectory <- ggplot(flux.seasonal.filled.plotting,
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 90))
+nee.trajectory.gs
+
+nee.trajectory <- ggplot(flux.annual.filled.plotting,
+                            aes(x = flux.year, y = nee.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_y_continuous(name = expression('Annual NEE (gC m'^-2*')')) +
+  facet_grid('NEE' ~ treatment) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90))
 nee.trajectory
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = nee.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2166,8 +2195,8 @@ ggplot(flux.seasonal.filled.plotting,
   theme(axis.title.x = element_blank())
 
 # Reco
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = reco.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2181,8 +2210,8 @@ ggplot(flux.seasonal.filled.plotting,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-reco.trajectory <- ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.sum, color = biomass.annual, shape = factor(filled.gbm))) +
+reco.trajectory.gs <- ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = reco.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2197,10 +2226,28 @@ reco.trajectory <- ggplot(flux.seasonal.filled.plotting,
   theme(axis.title.x = element_blank(),
         axis.title.y = element_text(margin = margin(r = 7)),
         axis.text.x = element_text(angle = 90))
+reco.trajectory.gs
+
+reco.trajectory <- ggplot(flux.annual.filled.plotting,
+                          aes(x = flux.year, y = reco.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_y_continuous(name = expression('Annual Reco (gC m'^-2*')')) +
+  facet_grid('Reco' ~ treatment) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7)),
+        axis.text.x = element_text(angle = 90))
 reco.trajectory
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = reco.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2215,8 +2262,8 @@ ggplot(flux.seasonal.filled.plotting,
   theme(axis.title.x = element_blank())
 
 # GPP
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = gpp.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2230,8 +2277,8 @@ ggplot(flux.seasonal.filled.plotting,
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-gpp.trajectory <- ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.sum, color = biomass.annual, shape = factor(filled.gbm))) +
+gpp.trajectory.gs <- ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = gpp.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2246,10 +2293,28 @@ gpp.trajectory <- ggplot(flux.seasonal.filled.plotting,
   theme(axis.title.x = element_blank(),
         axis.title.y = element_text(margin = margin(r = 7)),
         axis.text.x = element_text(angle = 90))
+gpp.trajectory.gs
+
+gpp.trajectory <- ggplot(flux.annual.filled.plotting,
+                            aes(x = flux.year, y = gpp.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_y_continuous(name = expression('Annual GPP (gC m'^-2*')')) +
+  facet_grid('GPP' ~ treatment) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7)),
+        axis.text.x = element_text(angle = 90))
 gpp.trajectory
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.sum, color = subsidence.annual, shape = factor(filled.gbm))) +
+ggplot(flux.annual.filled.plotting,
+       aes(x = flux.year, y = gpp.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2265,6 +2330,34 @@ ggplot(flux.seasonal.filled.plotting,
 
 
 ### All fluxes in same plot
+flux.trajectory.gs <- ggarrange(gpp.trajectory.gs +
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks.x = element_blank()),
+                             nee.trajectory.gs +
+                               theme(strip.background.x = element_blank(),
+                                     strip.text.x = element_blank(),
+                                     axis.text.x = element_blank(),
+                                     axis.ticks.x = element_blank()),
+                             reco.trajectory.gs +
+                               theme(strip.background.x = element_blank(),
+                                     strip.text.x = element_blank()),
+                             ncol = 1,
+                             heights = c(1, 0.9, 0.9),
+                             widths = c(1, 0.85, 0.85, 0.88),
+                             common.legend = TRUE,
+                             legend = 'right')
+flux.trajectory.gs
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory_gs.jpg',
+#        flux.trajectory.gs,
+#        height = 7,
+#        width = 7,
+#        bg = 'white')
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory_gs.pdf',
+#        flux.trajectory.gs,
+#        height = 7,
+#        width = 7,
+#        bg = 'white')
+
 flux.trajectory <- ggarrange(gpp.trajectory +
                                theme(axis.text.x = element_blank(),
                                      axis.ticks.x = element_blank()),
@@ -2282,134 +2375,160 @@ flux.trajectory <- ggarrange(gpp.trajectory +
                              common.legend = TRUE,
                              legend = 'right')
 flux.trajectory
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory_annual.jpg',
 #        flux.trajectory,
 #        height = 7,
 #        width = 7,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_trajectory_annual.pdf',
 #        flux.trajectory,
 #        height = 7,
 #        width = 7,
 #        bg = 'white')
 
+### Flux Treatment Difference Plot
+flux.annual.treat.diff <- flux.annual.filled.plotting[, .(flux.year, block, fence, plot, plot.id, treatment,
+                                                          nee.sum.gs, reco.sum.gs, gpp.sum.gs)]
+flux.annual.treat.diff <- melt(flux.annual.treat.diff,
+                               id.vars = c('flux.year', 'treatment'),
+                               measure.vars = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
+                               value.name = 'flux')
+flux.annual.treat.diff <- flux.annual.treat.diff[,
+                                                 .(flux = mean(flux)),
+                                                 by = c('flux.year', 'treatment', 'variable')]
+flux.annual.treat.diff <- dcast(flux.annual.treat.diff,
+                                flux.year + variable ~ treatment,
+                                value.var = 'flux')
+flux.annual.treat.diff[,
+                       ':=' (flux.diff = `Soil Warming` - Control,
+                             variable = factor(fifelse(variable == 'nee.sum.gs',
+                                                       'NEE',
+                                                       fifelse(variable == 'reco.sum.gs',
+                                                               'Reco',
+                                                               'GPP')),
+                                               levels = c('NEE', 'Reco', 'GPP')))]
 
-# annual estimate
-# NEE
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
-  geom_hline(yintercept = 0) +
+flux.colors <- c('NEE' = '#00CCFF', 'GPP' = '#009933', 'Reco' = '#663300')
+
+# fluxes match Marguerite's graph through 2018, but error bars are a bit smaller
+flux.treat.plot.2019.filled <- ggplot(flux.annual.treat.diff,
+       aes(x = variable, y = flux.diff, fill = variable)) +
+  geom_col(width = 1) +
+  # geom_errorbar(aes(ymax = flux.diff + flux.diff.se, ymin = flux.diff - flux.diff.se),
+  #               width = 0.25) +
+  geom_hline(yintercept = 0, size = 0.5) +
+  facet_grid(. ~ flux.year) +
+  scale_y_continuous(name = expression(Delta ~ 'Growing Season C Flux (Soil Warming - Control; g C ' ~ m^2 ~ ')')) +
+  scale_fill_manual(values = flux.colors, 
+                    breaks = c('NEE', 'Reco', 'GPP')) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.001, 0.999),
+        legend.justification = c(0, 1),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        panel.spacing.x = unit(0, 'cm'))
+flux.treat.plot.2019.filled
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_treatment_difference_plot_2019_filled.jpg',
+#        flux.treat.plot.2019.filled,
+#        height = 9,
+#        width = 12)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_treatment_difference_plot_2019_filled.pdf',
+#        flux.treat.plot.2019.filled,
+#        height = 9,
+#        width = 12)
+################################################################################
+
+### Fluxes and PCA Results #####################################################
+pca.scores <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_output.csv')
+
+flux.annual.filled.plotting <- merge(flux.annual.filled.plotting, 
+                                     pca.scores[, .(flux.year, block, fence, plot, plot.id, treatment,
+                                                    nee.sum.gs = nee.sum, reco.sum.gs = reco.sum, gpp.sum.gs = gpp.sum,
+                                                    PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10,
+                                                    PC11, PC12, PC13, PC14, PC15, PC16, PC17, PC18, PC19, PC20,
+                                                    PC21, PC22, PC23)],
+                                     by = c('flux.year', 'block', 'fence', 'plot', 'plot.id', 'treatment',
+                                            'nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'))
+
+# plot nee by principle components
+nee.pc1.plot <- ggplot(flux.annual.filled.plotting, aes(x = PC1, y = nee.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+nee.pc1.plot
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
-  geom_hline(yintercept = 0) +
+ggplot(flux.annual.filled.plotting, aes(x = PC2, y = nee.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS NEE (gC m'^-2*')')) +
+scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.annual, color = subsidence.annual)) +
+# plot reco by principle components
+reco.pc1.plot <- ggplot(flux.annual.filled.plotting, aes(x = PC1, y = reco.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS Reco (gC m'^-2*')')) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+reco.pc1.plot
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = nee.annual, color = biomass.annual)) +
+ggplot(flux.annual.filled.plotting, aes(x = PC2, y = reco.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS Reco (gC m'^-2*')')) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
 
-# Reco
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
-  geom_hline(yintercept = 0) +
+# plot gpp by principle components
+gpp.pc1.plot <- ggplot(flux.annual.filled.plotting, aes(x = PC1, y = gpp.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS GPP (gC m'^-2*')')) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+gpp.pc1.plot
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
-  geom_hline(yintercept = 0) +
+ggplot(flux.annual.filled.plotting, aes(x = PC2, y = gpp.sum.gs, color = factor(flux.year))) +
   geom_point() +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
+  scale_y_continuous(name = expression('GS GPP (gC m'^-2*')')) +
+  scale_color_viridis(discrete = TRUE,
+                      direction = -1) +
+  theme_bw() +
+  theme(legend.title = element_blank())
 
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.annual, color = subsidence.annual)) +
-  geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = reco.annual, color = biomass.annual)) +
-  geom_point() +
-  geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
-# GPP
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
-  geom_hline(yintercept = 0) +
-  geom_point() +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
-
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
-  # geom_hline(yintercept = 0) +
-  geom_point() +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_wrap(~ treatment) +
-  theme_bw()
-
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.annual, color = subsidence.annual)) +
-  geom_point() +
-  # geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
-ggplot(flux.seasonal.filled.plotting,
-       aes(x = flux.year, y = gpp.annual, color = biomass.annual)) +
-  geom_point() +
-  # geom_hline(yintercept = 0) +
-  scale_color_viridis(name = 'Biomass') +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
-  facet_grid(fence ~ plot) +
-  theme_bw()
-
+# combine
+flux.pc1.plot <- ggarrange(gpp.pc1.plot,
+                           nee.pc1.plot,
+                           reco.pc1.plot,
+                           ncol = 1,
+                           legend = 'right',
+                           common.legend = TRUE)
+flux.pc1.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_pc1.jpg',
+#        flux.pc1.plot,
+#        height = 7,
+#        width = 4,
+#        bg = 'white')
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/flux_pc1.pdf',
+#        flux.pc1.plot,
+#        height = 7,
+#        width = 4,
+#        bg = 'white')
 ################################################################################
 
 ### Investigate relationship between soil moisture variables and biomass #######
-biomass.hydrology.plot.1 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.1 <- ggplot(flux.seasonal, 
        aes(x = subsidence.annual*-1, biomass.annual,
            color = flux.year)) +
   geom_point(aes(shape = treatment)) +
@@ -2423,7 +2542,7 @@ biomass.hydrology.plot.1 <- ggplot(flux.seasonal.filled.plotting,
                       guide = guide_legend(order = 2)) +
   theme_bw() +
   theme(legend.title = element_blank())
-biomass.hydrology.plot.2 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.2 <- ggplot(flux.seasonal, 
        aes(x = wtd.mean*-1, biomass.annual, 
            color = flux.year)) +
   geom_vline(xintercept = 0, linetype = 'dashed') +
@@ -2438,7 +2557,7 @@ biomass.hydrology.plot.2 <- ggplot(flux.seasonal.filled.plotting,
                       guide = guide_legend(order = 2)) +
   theme_bw() +
   theme(legend.title = element_blank())
-biomass.hydrology.plot.3 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.3 <- ggplot(flux.seasonal, 
        aes(x = vwc.mean, biomass.annual, 
            color = flux.year)) +
   geom_point(aes(shape = treatment)) +
@@ -2452,7 +2571,7 @@ biomass.hydrology.plot.3 <- ggplot(flux.seasonal.filled.plotting,
                       guide = guide_legend(order = 2)) +
   theme_bw() +
   theme(legend.title = element_blank())
-biomass.hydrology.plot.4 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.4 <- ggplot(flux.seasonal, 
        aes(x = gwc.mean, biomass.annual, 
            color = flux.year)) +
   geom_point(aes(shape = treatment)) +
@@ -2467,7 +2586,7 @@ biomass.hydrology.plot.4 <- ggplot(flux.seasonal.filled.plotting,
   theme_bw() +
   theme(legend.title = element_blank())
 
-biomass.hydrology.plot.5 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.5 <- ggplot(flux.seasonal, 
                                    aes(x = wtd.sd, biomass.annual, 
                                        color = flux.year)) +
   geom_point(aes(shape = treatment)) +
@@ -2481,7 +2600,7 @@ biomass.hydrology.plot.5 <- ggplot(flux.seasonal.filled.plotting,
                       guide = guide_legend(order = 2)) +
   theme_bw() +
   theme(legend.title = element_blank())
-biomass.hydrology.plot.6 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.6 <- ggplot(flux.seasonal, 
                                    aes(x = vwc.sd, biomass.annual, 
                                        color = flux.year)) +
   geom_point(aes(shape = treatment)) +
@@ -2495,12 +2614,13 @@ biomass.hydrology.plot.6 <- ggplot(flux.seasonal.filled.plotting,
                       guide = guide_legend(order = 2)) +
   theme_bw() +
   theme(legend.title = element_blank())
-biomass.hydrology.plot.7 <- ggplot(flux.seasonal.filled.plotting, 
+biomass.hydrology.plot.7 <- ggplot(flux.seasonal, 
                                    aes(x = gwc.sd, biomass.annual, 
                                        color = flux.year)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'SD GWC (%)') +
+  scale_x_continuous(name = 'SD GWC (%)',
+                     breaks = seq(0.5, 1, by = 0.25)) +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
@@ -2520,7 +2640,8 @@ biomass.hydrology.plot <- ggarrange(biomass.hydrology.plot.4,
                                     ncol = 2,
                                     nrow = 3,
                                     common.legend = TRUE,
-                                    legend = "right")
+                                    legend = "right",
+                                    labels = LETTERS[1:6])
 biomass.hydrology.plot
 
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.jpg',
@@ -2552,6 +2673,7 @@ tk.edges.cip <- crop(tk.edges, cip.bnd)
 # adjust edges to be both the cells immediately outside the thermokarst depression
 # and immediately inside
 tk.centers.cip <- tk.edges.cip
+edges.inner.cip <- tk.edges.cip
 for (years.n in 1:nlayers(tk.edges.cip)) {
   tk.centers.cip[[years.n]][tk.centers.cip[[years.n]] != 1] <- NA
   plot(tk.centers.cip[[years.n]])
@@ -2567,7 +2689,9 @@ ggplot(tk.edges.cip %>%
          as.data.frame(xy = TRUE),
        aes(x = x, y = y, color = karst_edges_1, fill = karst_edges_1)) +
   geom_tile() +
-  geom_sf(data = plots, inherit.aes = FALSE)
+  geom_sf(data = plots, inherit.aes = FALSE) +
+  scale_fill_viridis() +
+  scale_color_viridis()
 
 plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE) %>%
   as.data.frame() %>%
@@ -2667,7 +2791,7 @@ nee.tk.class.plot <- ggplot(flux.tk.mean,
   geom_text(aes(x = c(1, 2, 3, 4), y = rep(-150, 4), label = c('a', 'b', 'bc', 'ac')),
             inherit.aes = FALSE,
             size = 3) +
-  scale_y_continuous(name = expression('Flux (gC' ~ m^-2*')')) +
+  scale_y_continuous(name = expression('GS NEE (gC' ~ m^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank()) +
@@ -2682,11 +2806,11 @@ gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum), size 
   geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
             size = 3) +
-  scale_y_continuous(name = '') +
+  scale_y_continuous(name = expression('GS GPP (gC' ~ m^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
-        axis.title.y = element_text(margin = margin(r = 14, unit = 'pt'))) +
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
   facet_grid('GPP' ~ .)
 
 reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum), size = 2) +
@@ -2698,10 +2822,10 @@ reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum), siz
   geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
             size = 3) +
-  scale_y_continuous(name = '') +
+  scale_y_continuous(name = expression('GS Reco (gC' ~ m^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(margin = margin(r = 14, unit = 'pt'))) +
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
   facet_grid('Reco' ~ .)
 
 # should facet plots and then have the y-axis label be for flux

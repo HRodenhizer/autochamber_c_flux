@@ -2085,7 +2085,8 @@ wtd.transect.plot <- ggarrange(transect.plot,
           ncol = 2,
           widths = c(1.75, 1),
           common.legend = TRUE,
-          legend = 'bottom')
+          legend = 'bottom',
+          labels = LETTERS[2:3])
 wtd.transect.plot
 
 precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)], 
@@ -2097,7 +2098,7 @@ precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)],
   geom_vline(aes(xintercept = as_date('2018-08-10'), color = 'TD'), linetype = 'dashed') +
   geom_text(aes(x = as_date('2018-07-28'), y = 28, label = 'Dry'), size = 3) +
   geom_text(aes(x = as_date('2018-08-09'), y = 28, label = 'Wet'), size = 3) +
-  scale_y_continuous(name = 'Precipitation (mm)') +
+  scale_y_continuous(name = 'Precip (mm)') +
   scale_color_manual(name = 'Measurement\nDates',
                      breaks = c('WTD', 'TD'),
                      values = c('#3399CC', '#660000')) +
@@ -2108,7 +2109,8 @@ precip.plot
 wtd.transect.plot.precip <- ggarrange(precip.plot,
                                wtd.transect.plot,
                                ncol = 1,
-                               heights = c(0.25, 1))
+                               heights = c(0.25, 1),
+                               labels = LETTERS[1])
 wtd.transect.plot.precip
 
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.jpg',
