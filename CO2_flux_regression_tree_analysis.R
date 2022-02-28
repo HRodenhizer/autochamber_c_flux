@@ -2125,6 +2125,47 @@ flux.annual.filled.plotting[,
                                                   levels = c('Control', 'Air Warming',
                                                              'Soil Warming', 'Air + Soil Warming'))]
 
+### Create a table with GS, NGS, and annual values
+flux.summary.winter <- copy(flux.seasonal.filled.winter)
+flux.summary.winter[, ':=' (nee.sum.winter = NULL,
+                            reco.sum.winter = NULL,
+                            gpp.sum.winter = NULL)]
+flux.summary.winter <- flux.summary.winter[, .(nee.sum = mean(nee.sum),
+                        reco.sum = mean(reco.sum),
+                        gpp.sum = mean(gpp.sum)),
+                    by = .(flux.year, season, treatment)]
+flux.summary.winter <- dcast(melt(flux.summary.winter, 
+                                  id.vars = c('flux.year', 'season', 'treatment'),
+                                  value.vars = c('nee.sum', 'reco.sum', 'gpp.sum'),
+                                  variable.name = 'type',
+                                  value.name = 'flux'),
+                             flux.year + treatment ~ type + season, 
+                             value.var = 'flux',
+                             sep = '.')
+flux.summary.winter[,
+                    ':=' (nee.sum.annual = nee.sum.0 + nee.sum.1,
+                          reco.sum.annual = reco.sum.0 + reco.sum.1,
+                          gpp.sum.annual = gpp.sum.0 + gpp.sum.1,
+                          treatment = factor(treatment,
+                                              levels = c('Control', 'Air Warming',
+                                                         'Soil Warming', 'Air + Soil Warming')))]
+flux.summary.winter <- flux.summary.winter[,
+                    lapply(.SD, round, 0),
+                    .SD = c('nee.sum.1', 'nee.sum.0', 'nee.sum.annual', 
+                            'reco.sum.1', 'reco.sum.0', 'reco.sum.annual',
+                            'gpp.sum.1', 'gpp.sum.0', 'gpp.sum.annual'),
+                    by = .(flux.year, treatment)]
+flux.summary.winter <- flux.summary.winter[order(flux.year, treatment)]
+flux.summary.winter <- flux.summary.winter[, .(Year = flux.year, Treatment = treatment, 
+                        `GS NEE` = nee.sum.1, `NGS NEE` = nee.sum.0,
+                        `Annual NEE` = nee.sum.annual,
+                        `GS Reco` = reco.sum.1, `NGS Reco` = reco.sum.0,
+                        `Annual Reco` = reco.sum.annual,
+                        `GS GPP` = gpp.sum.1, `NGS GPP` = gpp.sum.0,
+                        `Annual GPP` = gpp.sum.annual)]
+# write.csv(flux.summary.winter,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/flux_summary.csv',
+#           row.names = FALSE)
 
 ### Plot
 ### growing season
@@ -2390,7 +2431,7 @@ flux.trajectory
 flux.annual.treat.diff <- flux.annual.filled.plotting[, .(flux.year, block, fence, plot, plot.id, treatment,
                                                           nee.sum.gs, reco.sum.gs, gpp.sum.gs)]
 flux.annual.treat.diff <- melt(flux.annual.treat.diff,
-                               id.vars = c('flux.year', 'treatment'),
+                               id.vars = c('flux.year', 'treatment', 'fence', 'plot'),
                                measure.vars = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
                                value.name = 'flux')
 flux.annual.treat.diff <- flux.annual.treat.diff[,
