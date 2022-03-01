@@ -2121,9 +2121,12 @@ flux.annual.filled.plotting <- merge(flux.annual.filled, flux.seasonal.filled,
                                               'treatment',  'plot.id'))
 flux.annual.filled.plotting <- flux.annual.filled.plotting[flux.year >= 2010]
 flux.annual.filled.plotting[,
-                              treatment := factor(treatment, 
-                                                  levels = c('Control', 'Air Warming',
-                                                             'Soil Warming', 'Air + Soil Warming'))]
+                             ':=' (treatment = factor(treatment, 
+                                                      levels = c('Control', 'Air Warming',
+                                                                 'Soil Warming', 'Air + Soil Warming')),
+                                   nee.sum.ngs = nee.sum.annual - nee.sum.gs,
+                                   reco.sum.ngs = reco.sum.annual - reco.sum.gs,
+                                   gpp.sum.ngs = gpp.sum.annual - gpp.sum.gs)]
 
 ### Create a table with GS, NGS, and annual values
 flux.summary.winter <- copy(flux.seasonal.filled.winter)
@@ -2768,16 +2771,28 @@ plots.tk.class[fence %in% c(4, 5) & plot == 6,
                tk.class := factor('TK Center')]
 
 
-flux.tk <- merge(flux.seasonal[flux.year == 2010 | 
-                                 flux.year >= 2017 & flux.year <= 2019], 
+flux.tk <- merge(flux.annual.filled.plotting[flux.year == 2010 | 
+                                               flux.year >= 2017 & flux.year <= 2019], 
                  plots.tk.class,
                  by = c('flux.year', 'fence', 'plot'))
-flux.tk.mean <- flux.tk[, .(nee.sum = mean(nee.sum, na.rm = TRUE),
-                            nee.se = sd(nee.sum, na.rm = TRUE)/sqrt(.N),
-                            gpp.sum = mean(gpp.sum, na.rm = TRUE),
-                            gpp.se = sd(gpp.sum, na.rm = TRUE)/sqrt(.N),
-                            reco.sum = mean(reco.sum, na.rm = TRUE),
-                            reco.se = sd(reco.sum, na.rm = TRUE)/sqrt(.N),
+flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
+                            nee.se.gs = sd(nee.sum.gs, na.rm = TRUE)/sqrt(.N),
+                            gpp.sum.gs = mean(gpp.sum.gs, na.rm = TRUE),
+                            gpp.se.gs = sd(gpp.sum.gs, na.rm = TRUE)/sqrt(.N),
+                            reco.sum.gs = mean(reco.sum.gs, na.rm = TRUE),
+                            reco.se.gs = sd(reco.sum.gs, na.rm = TRUE)/sqrt(.N),
+                            nee.sum.ngs = mean(nee.sum.ngs, na.rm = TRUE),
+                            nee.se.ngs = sd(nee.sum.ngs, na.rm = TRUE)/sqrt(.N),
+                            gpp.sum.ngs = mean(gpp.sum.ngs, na.rm = TRUE),
+                            gpp.se.ngs = sd(gpp.sum.ngs, na.rm = TRUE)/sqrt(.N),
+                            reco.sum.ngs = mean(reco.sum.ngs, na.rm = TRUE),
+                            reco.se.ngs = sd(reco.sum.ngs, na.rm = TRUE)/sqrt(.N),
+                            nee.sum.annual = mean(nee.sum.annual, na.rm = TRUE),
+                            nee.se.annual = sd(nee.sum.annual, na.rm = TRUE)/sqrt(.N),
+                            gpp.sum.annual = mean(gpp.sum.annual, na.rm = TRUE),
+                            gpp.se.annual = sd(gpp.sum.annual, na.rm = TRUE)/sqrt(.N),
+                            reco.sum.annual = mean(reco.sum.annual, na.rm = TRUE),
+                            reco.se.annual = sd(reco.sum.annual, na.rm = TRUE)/sqrt(.N),
                             wtd.mean = mean(wtd.mean),
                             wtd.se = sd(wtd.mean)/sqrt(.N),
                             alt.mean = mean(alt.annual),
@@ -2787,47 +2802,48 @@ flux.tk.mean <- flux.tk[, .(nee.sum = mean(nee.sum, na.rm = TRUE),
                         by = c('tk.class')]
 
 flux.tk[, .N, by = c('tk.class')]
-histogram(flux.tk[tk.class == 'Pre-Thaw']$nee.sum)
-histogram(flux.tk[tk.class == 'Non-TK']$nee.sum)
-histogram(flux.tk[tk.class == 'TK Edge']$nee.sum)
-histogram(flux.tk[tk.class == 'TK Center']$nee.sum)
+histogram(flux.tk[tk.class == 'Pre-Thaw']$nee.sum.gs)
+histogram(flux.tk[tk.class == 'Non-TK']$nee.sum.gs)
+histogram(flux.tk[tk.class == 'TK Edge']$nee.sum.gs)
+histogram(flux.tk[tk.class == 'TK Center']$nee.sum.gs)
 
-histogram(flux.tk[tk.class == 'Pre-Thaw']$gpp.sum)
-histogram(flux.tk[tk.class == 'Non-TK']$gpp.sum)
-histogram(flux.tk[tk.class == 'TK Edge']$gpp.sum)
-histogram(flux.tk[tk.class == 'TK Center']$gpp.sum)
+histogram(flux.tk[tk.class == 'Pre-Thaw']$gpp.sum.gs)
+histogram(flux.tk[tk.class == 'Non-TK']$gpp.sum.gs)
+histogram(flux.tk[tk.class == 'TK Edge']$gpp.sum.gs)
+histogram(flux.tk[tk.class == 'TK Center']$gpp.sum.gs)
 
-histogram(flux.tk[tk.class == 'Pre-Thaw']$reco.sum)
-histogram(flux.tk[tk.class == 'Non-TK']$reco.sum)
-histogram(flux.tk[tk.class == 'TK Edge']$reco.sum)
-histogram(flux.tk[tk.class == 'TK Center']$reco.sum)
+histogram(flux.tk[tk.class == 'Pre-Thaw']$reco.sum.gs)
+histogram(flux.tk[tk.class == 'Non-TK']$reco.sum.gs)
+histogram(flux.tk[tk.class == 'TK Edge']$reco.sum.gs)
+histogram(flux.tk[tk.class == 'TK Center']$reco.sum.gs)
 
 # will use kruskall wallis test for small sample size and perhaps non-normal distribution
 # NEE
-kruskal.test(nee.sum ~ tk.class, data = flux.tk)
+kruskal.test(nee.sum.gs ~ tk.class, data = flux.tk)
 pairwise.wilcox.test(flux.tk$nee.sum, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # GPP
-kruskal.test(gpp.sum ~ tk.class, data = flux.tk)
+kruskal.test(gpp.sum.gs ~ tk.class, data = flux.tk)
 pairwise.wilcox.test(flux.tk$gpp.sum, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # Reco
-kruskal.test(reco.sum ~ tk.class, data = flux.tk)
+kruskal.test(reco.sum.gs ~ tk.class, data = flux.tk)
 # Wilcoxon Rank Sum test with p-value adjustment
 pairwise.wilcox.test(flux.tk$reco.sum, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
-# Plot
+# Plot GS differences
 nee.tk.class.plot <- ggplot(flux.tk.mean, 
-                            aes (x = tk.class, y = nee.sum), 
-                            size = 2) +
+                            aes (x = tk.class)) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class, y = nee.sum), 
+  geom_point(data = flux.tk, aes(x = tk.class, y = nee.sum.gs), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
-  geom_point() +
-  geom_errorbar(aes(ymin = nee.sum - nee.se, ymax = nee.sum + nee.se),
+  geom_point(aes(y = nee.sum.gs), 
+             size = 2) +
+  geom_errorbar(aes(ymin = nee.sum.gs - nee.se.gs, 
+                    ymax = nee.sum.gs + nee.se.gs),
                 width = 0.2) +
   geom_text(aes(x = c(1, 2, 3, 4), y = rep(-150, 4), label = c('a', 'b', 'bc', 'ac')),
             inherit.aes = FALSE,
@@ -2838,11 +2854,11 @@ nee.tk.class.plot <- ggplot(flux.tk.mean,
         axis.text.x = element_blank()) +
   facet_grid('NEE' ~ .)
 
-gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class, y = gpp.sum), 
+gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum.gs), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = gpp.sum.gs), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
-  geom_errorbar(aes(ymin = gpp.sum - gpp.se, ymax = gpp.sum + gpp.se),
+  geom_errorbar(aes(ymin = gpp.sum.gs - gpp.se.gs, ymax = gpp.sum.gs + gpp.se.gs),
                 width = 0.2) +
   geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
@@ -2854,16 +2870,127 @@ gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum), size 
         axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
   facet_grid('GPP' ~ .)
 
-reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class, y = reco.sum), 
+reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum.gs), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = reco.sum.gs), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
-  geom_errorbar(aes(ymin = reco.sum - reco.se, ymax = reco.sum + reco.se),
+  geom_errorbar(aes(ymin = reco.sum.gs - reco.se.gs, ymax = reco.sum.gs + reco.se.gs),
                 width = 0.2) +
   geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = expression('GS Reco (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
+  facet_grid('Reco' ~ .)
+
+# Plot NGS differences
+nee.tk.class.plot.ngs <- ggplot(flux.tk.mean, 
+                            aes (x = tk.class)) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_point(data = flux.tk, aes(x = tk.class, y = nee.sum.ngs), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point(aes(y = nee.sum.ngs), 
+             size = 2) +
+  geom_errorbar(aes(ymin = nee.sum.ngs - nee.se.ngs, 
+                    ymax = nee.sum.ngs + nee.se.ngs),
+                width = 0.2) +
+  # geom_text(aes(x = c(1, 2, 3, 4), y = rep(-150, 4), label = c('a', 'b', 'bc', 'ac')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('NGS NEE (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  facet_grid('NEE' ~ .)
+
+gpp.tk.class.plot.ngs <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum.ngs), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = gpp.sum.ngs), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point() +
+  geom_errorbar(aes(ymin = gpp.sum.ngs - gpp.se.ngs, ymax = gpp.sum.ngs + gpp.se.ngs),
+                width = 0.2) +
+  # geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('NGS GPP (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
+  facet_grid('GPP' ~ .)
+
+reco.tk.class.plot.ngs <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum.gs), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = reco.sum.gs), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point() +
+  geom_errorbar(aes(ymin = reco.sum.gs - reco.se.gs, ymax = reco.sum.gs + reco.se.gs),
+                width = 0.2) +
+  # geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('NGS Reco (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
+  facet_grid('Reco' ~ .)
+
+# Plot Annual differences
+nee.tk.class.plot.annual <- ggplot(flux.tk.mean, 
+                                aes (x = tk.class)) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_point(data = flux.tk, aes(x = tk.class, y = nee.sum.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point(aes(y = nee.sum.annual), 
+             size = 2) +
+  geom_errorbar(aes(ymin = nee.sum.annual - nee.se.annual, 
+                    ymax = nee.sum.annual + nee.se.annual),
+                width = 0.2) +
+  # geom_text(aes(x = c(1, 2, 3, 4), y = rep(-150, 4), label = c('a', 'b', 'bc', 'ac')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('Annual NEE (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank()) +
+  facet_grid('NEE' ~ .)
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/annual_nee_tk_class.jpg',
+#        nee.tk.class.plot.annual,
+#        height = 3,
+#        width = 3.5,
+#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/annual_nee_tk_class.pdf',
+#        nee.tk.class.plot.annual,
+#        height = 3,
+#        width = 3.5)
+
+gpp.tk.class.plot.annual <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum.annual), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = gpp.sum.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point() +
+  geom_errorbar(aes(ymin = gpp.sum.annual - gpp.se.annual, ymax = gpp.sum.annual + gpp.se.annual),
+                width = 0.2) +
+  # geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('Annual GPP (gC' ~ m^-2*')')) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
+  facet_grid('GPP' ~ .)
+
+reco.tk.class.plot.annual <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum.gs), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = reco.sum.gs), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_point() +
+  geom_errorbar(aes(ymin = reco.sum.gs - reco.se.gs, ymax = reco.sum.gs + reco.se.gs),
+                width = 0.2) +
+  # geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
+  #           inherit.aes = FALSE,
+  #           size = 3) +
+  scale_y_continuous(name = expression('Annual Reco (gC' ~ m^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.title.y = element_text(margin = margin(r = 7.5, unit = 'pt'))) +
@@ -2889,13 +3016,13 @@ tk.class.plot
 
 # plot WTD
 wtd.tk.class <- ggplot(flux.tk.mean, 
-       aes (x = tk.class, y = wtd.mean), 
+       aes (x = tk.class, y = wtd.mean*-1), 
        size = 2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class, y = wtd.mean), 
+  geom_point(data = flux.tk, aes(x = tk.class, y = wtd.mean*-1), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
   geom_point() +
-  geom_errorbar(aes(ymin = wtd.mean - wtd.se, ymax = wtd.mean + wtd.se),
+  geom_errorbar(aes(ymin = wtd.mean*-1 - wtd.se, ymax = wtd.mean*-1 + wtd.se),
                 width = 0.2) +
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
