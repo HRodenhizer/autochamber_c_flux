@@ -74,7 +74,8 @@ weather.annual <- weather[flux.year >= 2009,
                    .(tair.mean = mean(Tair, na.rm = TRUE),
                      tair.min = min(Tair, na.rm = TRUE),
                      tair.max = max(Tair, na.rm = TRUE),
-                     precip = sum(precip, na.rm = TRUE)),
+                     precip = sum(precip, na.rm = TRUE),
+                     par = mean(par, na.rm = TRUE)),
                    by = .(flux.year)]
 
 # Snow depth
@@ -543,6 +544,8 @@ weather.seasonal.plot
 
 ### Create a table of environmental variables by year
 env.summary <- weather.seasonal[, .(flux.year, group = season, tair.mean, par, precip)]
+env.summary <- rbind(env.summary,
+                     weather.annual[, .(flux.year, group = 'Annual', tair.mean, par, precip)])
 env.summary[, ':=' (tair.mean = round(tair.mean, 2),
                     par = round(par, 2),
                     precip = round(precip, 2))]
