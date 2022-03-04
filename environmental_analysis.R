@@ -361,7 +361,7 @@ weather.annual <- weather.annual %>%
          tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
          tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
          precip.z = (precip - mean(precip))/sd(precip))
-annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip, color = tair.min)) +
+annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
              size = 0.1) +
   geom_vline(xintercept = mean(weather.annual$tair.mean),
@@ -383,8 +383,6 @@ annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip, colo
             color = 'black', 
             size = 3,
             position = position_nudge(x = 0, y = 12)) +
-  scale_color_viridis(name = expression(# atop('Min Temperature', ~(degree*C))
-    'Min Temp' ~ (degree*C))) +
   scale_linetype_manual(name = NULL,
                         breaks = c('Mean', '1 SD'),
                         values = c('solid', 'dashed')) +
@@ -426,11 +424,18 @@ tair.max.outliers.warm <- subset(weather.annual,
 ### Unusual Years with Seasonal Information
 snow.depth.control <- snow.depth %>%
   filter(exp == 'CiPEHR' & treatment == 'c') %>%
-  mutate(flux.year = year,
-         snow.free = yday(parse_date_time(date, orders = c('m!/d!/Y!')))) %>%
+  mutate(flux.year = year) %>%
+  left_join(snow.free %>% 
+              filter(treatment %in% c('Control', 'Air Warming')) %>%
+              mutate(plot = as.character(plot)) %>%
+              select(-treatment), 
+            by = c('flux.year', 'fence', 'plot')) %>%
   group_by(flux.year) %>%
   summarise(snow.depth = mean(snow.depth, na.rm = TRUE),
-            snow.free.date = mean(snow.free, na.rm = TRUE))
+            snow.free.date = mean(doy.snow.free, na.rm = TRUE)) %>%
+  mutate(snow.free.date = ifelse(is.nan(snow.free.date),
+                                 NA,
+                                 snow.free.date))
 
 weather.seasonal.wide <- weather.seasonal %>%
   select(-c(tair.min, tair.max)) %>%
@@ -441,7 +446,7 @@ weather.seasonal.wide <- weather.seasonal %>%
   mutate(ngs.precip.percent = precip.ngs/precip) %>%
   full_join(snow.depth.control, by = 'flux.year') %>%
   mutate(across(tair.mean.ngs:snow.free.date, 
-                ~(.x - mean(.x))/sd(.x),
+                ~(.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE),
                 .names = '{col}.z'))
 
 mean.temp <- mean(weather.annual$tair.mean)
