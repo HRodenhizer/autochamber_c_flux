@@ -2752,6 +2752,7 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
   select(flux.year, fence, plot, tk.class) %>%
   rbind.data.frame(plots %>%
                      st_drop_geometry() %>%
+                     filter(plot %in% c(2, 4)) %>%
                      mutate(flux.year = as.integer(2010),
                             tk.class = factor('Pre-Thaw')) %>%
                      select(flux.year, fence, plot, tk.class)) %>%
@@ -2820,18 +2821,18 @@ histogram(flux.tk[tk.class == 'TK Center']$reco.sum.gs)
 # will use kruskall wallis test for small sample size and perhaps non-normal distribution
 # NEE
 kruskal.test(nee.sum.gs ~ tk.class, data = flux.tk)
-pairwise.wilcox.test(flux.tk$nee.sum, flux.tk$tk.class,
+pairwise.wilcox.test(flux.tk$nee.sum.gs, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # GPP
 kruskal.test(gpp.sum.gs ~ tk.class, data = flux.tk)
-pairwise.wilcox.test(flux.tk$gpp.sum, flux.tk$tk.class,
+pairwise.wilcox.test(flux.tk$gpp.sum.gs, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # Reco
 kruskal.test(reco.sum.gs ~ tk.class, data = flux.tk)
 # Wilcoxon Rank Sum test with p-value adjustment
-pairwise.wilcox.test(flux.tk$reco.sum, flux.tk$tk.class,
+pairwise.wilcox.test(flux.tk$reco.sum.gs, flux.tk$tk.class,
                      p.adjust.method = "BH")
 
 # Plot GS differences
@@ -2860,7 +2861,7 @@ gpp.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = gpp.sum.gs), si
   geom_point() +
   geom_errorbar(aes(ymin = gpp.sum.gs - gpp.se.gs, ymax = gpp.sum.gs + gpp.se.gs),
                 width = 0.2) +
-  geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'b')),
+  geom_text(aes(x = c(1, 2, 3, 4), y = rep(0, 4), label = c('a', 'b', 'c', 'bc')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = expression('GS GPP (gC' ~ m^-2*')')) +
@@ -2876,7 +2877,7 @@ reco.tk.class.plot <- ggplot(flux.tk.mean, aes (x = tk.class, y = reco.sum.gs), 
   geom_point() +
   geom_errorbar(aes(ymin = reco.sum.gs - reco.se.gs, ymax = reco.sum.gs + reco.se.gs),
                 width = 0.2) +
-  geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'b')),
+  geom_text(aes(x = seq(1, 4), y = rep(50, 4), label = c('a', 'b', 'c', 'bc')),
             inherit.aes = FALSE,
             size = 3) +
   scale_y_continuous(name = expression('GS Reco (gC' ~ m^-2*')')) +
@@ -3028,31 +3029,44 @@ wtd.tk.class <- ggplot(flux.tk.mean,
   theme_bw() +
   theme(axis.title.x = element_blank())
 wtd.tk.class
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_tk_class.jpg',
-#        wtd.tk.class,
-#        height = 3.5,
-#        width = 3.5) # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_tk_class.pdf',
-#        wtd.tk.class,
-#        height = 3.5,
-#        width = 3.5)
 
 # plot ALT
-ggplot(flux.tk.mean, aes (x = tk.class, y = alt.mean), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class, y = alt.annual), 
+alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class, y = alt.mean*-1), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = alt.annual*-1), 
              inherit.aes = FALSE, color = 'gray50', size = 1) +
   geom_point() +
-  geom_errorbar(aes(ymin = alt.mean - alt.se, ymax = alt.mean + alt.se),
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_errorbar(aes(ymin = alt.mean*-1 - alt.se, ymax = alt.mean*-1 + alt.se),
                 width = 0.2) +
-  scale_y_continuous(name = '') +
-  theme_bw()
-  
-ggplot(flux.tk.mean, aes (x = tk.class, y = tp.mean), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class, y = tp.annual), 
+  scale_y_continuous(name = 'ALT (cm)') +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+alt.tk.class
+
+tp.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class, y = tp.mean*-1), size = 2) +
+  geom_point(data = flux.tk, aes(x = tk.class, y = tp.annual*-1), 
              inherit.aes = FALSE, color = 'gray50', size = 1) +
   geom_point() +
-  geom_errorbar(aes(ymin = tp.mean - tp.se, ymax = tp.mean + tp.se),
+  geom_errorbar(aes(ymin = tp.mean*-1 - tp.se, ymax = tp.mean*-1 + tp.se),
                 width = 0.2) +
-  scale_y_continuous(name = '') +
-  theme_bw()
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  scale_y_continuous(name = 'Thaw Penetration (cm)') +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+tp.tk.class
+
+wtd.tp.tk.class <- ggarrange(tp.tk.class,
+                             wtd.tk.class,
+                             ncol = 1)
+wtd.tp.tk.class
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tp_wtd_tk_class.jpg',
+#        wtd.tp.tk.class,
+#        height = 5.5,
+#        width = 3.5) # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tp_wtd_tk_class.pdf',
+#        wtd.tp.tk.class,
+#        height = 5.5,
+#        width = 3.5)
 ################################################################################
