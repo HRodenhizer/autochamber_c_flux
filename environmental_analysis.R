@@ -21,6 +21,7 @@ library(gstat)
 library(stars)
 library(automap)
 library(ggnewscale)
+library(magick)
 library(tidyverse)
 ################################################################################
 
@@ -326,6 +327,137 @@ autoplot(pca.annual.norm, data = env.annual.plot, colour = 'gpp.sum',
 autoplot(pca.annual.norm, data = env.annual.plot, colour = 'reco.sum',
          loadings = TRUE, loadings.label = TRUE) +
   scale_color_viridis()
+################################################################################
+
+### WTD TD Plot ################################################################
+wtd.alt.data <- flux.annual %>%
+  select(flux.year, fence, plot, treatment, alt, wtd.mean) %>%
+  mutate(year = as.numeric(as.character(flux.year)),
+         treatment = factor(case_when(treatment %in% c('Control', 'Air Warming') ~ 'Control',
+                               treatment %in% c('Soil Warming', 'Air + Soil Warming') ~ 'Soil Warming')))
+
+wtd.alt.data.2021 <-  wtd.alt.data %>%
+  filter(year == 2009 | year == 2021)
+alt.start <- wtd.alt.data %>%
+  filter(year == 2009) %>%
+  summarise(alt = mean(alt, na.rm = TRUE)) %>%
+  as.numeric()
+arrows <- data.frame(xmin = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/3, 
+                              max(wtd.alt.data$alt)),
+                     xmax = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/15, 
+                              max(wtd.alt.data$alt)),
+                     ymin = c(min(wtd.alt.data$wtd.mean*-1), 
+                              min(wtd.alt.data$wtd.mean*-1) - (min(wtd.alt.data$wtd.mean*-1) - max(wtd.alt.data$wtd.mean*-1))/15),
+                     ymax = c(min(wtd.alt.data$wtd.mean*-1), 
+                              min(wtd.alt.data$wtd.mean*-1) - (min(wtd.alt.data$wtd.mean*-1) - max(wtd.alt.data$wtd.mean*-1))/3))
+labels <- data.frame(x = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/5, 
+                           max(wtd.alt.data$alt)),
+                     y = c(min(wtd.alt.data$wtd.mean*-1), 
+                           min(wtd.alt.data$wtd.mean*-1) - (min(wtd.alt.data$wtd.mean*-1) - max(wtd.alt.data$wtd.mean*-1))/5),
+                     labels = c('Warmer',
+                                'Wetter'),
+                     angles = c(0, 90))
+
+wtd.alt.plot <- ggplot(wtd.alt.data.2021,
+       aes(x = alt, y = wtd.mean*-1, 
+           color = treatment,
+           shape = flux.year)) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_vline(xintercept = alt.start, linetype = 'dashed') +
+  geom_segment(data = arrows,
+               aes(x = xmin, y = ymin, xend = xmax, yend = ymax),
+               inherit.aes = FALSE,
+               arrow = arrow(length = unit(0.25, 'cm'))) +
+  geom_text(data = labels,
+            aes(x = x, y = y, label = labels, angle = angles),
+            inherit.aes = FALSE,
+            hjust = 0.5,
+            vjust = -0.5) +
+  geom_point(size = 2) +
+  scale_x_continuous(name = 'Active Layer Thickness (cm)') +
+  scale_y_continuous(name = 'Mean Water Table Depth (cm)') +
+  scale_color_manual(name = 'Treatment',
+                     values = c('#33AAFF', '#DD0000'),
+                     labels = c('Control', 'Soil\nWarming')) +
+  scale_shape_manual(name = 'Year',
+                     values = c(1, 16)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+wtd.alt.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.jpg',
+#        wtd.alt.plot,
+#        height =3.5,
+#        width = 4)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.pdf',
+#        wtd.alt.plot,
+#        height = 3.5,
+#        width = 4)
+
+# gif of changing soil conditions at CiPEHR
+plots <- list()
+for (n.year in seq(min(wtd.alt.data$year), max(wtd.alt.data$year))) {
+  
+  data <- wtd.alt.data %>%
+    filter(flux.year == 2009 | flux.year == n.year)
+  
+  plots[[n.year - 2008]] <- ggplot(data,
+         aes(x = alt, y = wtd.mean*-1, 
+             color = treatment,
+             shape = flux.year)) +
+    geom_hline(yintercept = 0, linetype = 'dashed') +
+    geom_vline(xintercept = alt.start, linetype = 'dashed') +
+    geom_segment(data = arrows,
+                 aes(x = xmin, y = ymin, xend = xmax, yend = ymax),
+                 inherit.aes = FALSE,
+                 arrow = arrow(length = unit(0.25, 'cm'))) +
+    geom_text(data = labels,
+              aes(x = x, y = y, label = labels, angle = angles),
+              inherit.aes = FALSE,
+              hjust = 0.5,
+              vjust = -0.5) +
+    geom_point(size = 2) +
+    scale_x_continuous(name = 'Active Layer Thickness (cm)',
+                       limits = c(min(wtd.alt.data$alt), max(wtd.alt.data$alt))) +
+    scale_y_continuous(name = 'Mean Water Table Depth (cm)',
+                       limits = c(min(wtd.alt.data$wtd.mean*-1), max(wtd.alt.data$wtd.mean*-1))) +
+    scale_color_manual(name = 'Treatment',
+                       values = c('#33AAFF', '#DD0000'),
+                       labels = c('Control', 'Soil\nWarming')) +
+    scale_shape_manual(name = 'Year',
+                       values = c(1, 16)) +
+    theme_bw() +
+    ggtitle(paste(n.year)) +
+    theme(legend.title = element_blank(),
+          plot.title = element_text(hjust = 0.5)) +
+    guides(color = guide_legend(order = 1),
+           shape = guide_legend(order = 2))
+}
+
+# repeat first and last images for longer viewing
+plots.long <- list()
+for (n in 1:length(plots)) {
+  
+  if (n == 1 | n == length(plots)) {
+    for (rep in 1:5) {
+      plots.long <- append(plots.long, plots[n])
+    }
+    
+  } else {
+    plots.long <- append(plots.long, plots[n])
+  }
+  
+}
+
+
+img <- image_graph(400, 350, res = 96)
+map(plots.long,
+    ~ print(.x))
+dev.off()
+wtd.alt.gif <- image_animate(img, delay = 50, loop = 1)
+
+# # save gif
+# image_write(image = wtd.alt.gif,
+#             path = '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.gif')
 ################################################################################
 
 ### Annual Variability #########################################################
