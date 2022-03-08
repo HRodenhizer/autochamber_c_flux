@@ -2128,6 +2128,11 @@ flux.annual.filled.plotting[,
                                    reco.sum.ngs = reco.sum.annual - reco.sum.gs,
                                    gpp.sum.ngs = gpp.sum.annual - gpp.sum.gs)]
 
+# write.csv(flux.annual.filled.plotting,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv',
+#           row.names = FALSE)
+flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
+
 ### Create a table with GS, NGS, and annual values
 flux.summary.winter <- copy(flux.seasonal.filled.winter)
 flux.summary.winter[, ':=' (nee.sum.winter = NULL,
@@ -3058,7 +3063,8 @@ tp.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class, y = tp.mean*-1), size = 2
 tp.tk.class
 
 wtd.tp.tk.class <- ggarrange(tp.tk.class,
-                             wtd.tk.class,
+                             wtd.tk.class +
+                               theme(axis.title.y = element_text(margin = margin(r = 7, unit = 'pt'))),
                              ncol = 1)
 wtd.tp.tk.class
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tp_wtd_tk_class.jpg',
@@ -3069,4 +3075,32 @@ wtd.tp.tk.class
 #        wtd.tp.tk.class,
 #        height = 5.5,
 #        width = 3.5)
+################################################################################
+
+### Compare Extreme Thaw and WTD trajectories ##################################
+### Shallow dry (2021): 4-2, 4-3
+### Deep dry (2021): 4-4, 3-6
+### Deep wet (2021): 4-6, 4-7
+flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
+
+flux.extreme <- flux.annual.filled.plotting %>%
+  filter(flux.year == 2021 & plot.id %in% c('4_2', '4_3', '4_4', '3_6', '4_6', '4_7')) %>%
+  mutate(group = factor(case_when(plot.id %in% c('4_2', '4_3') ~ 'Shallow Dry',
+                           plot.id %in% c('4_4', '3_6') ~ 'Deep Dry',
+                           plot.id %in% c('4_6', '4_7') ~ 'Deep Wet'),
+                        levels = c('Shallow Dry', 'Deep Dry', 'Deep Wet')))
+
+ggplot(flux.extreme, aes(x = group, y = nee.sum.gs)) +
+  geom_point()
+ggplot(flux.extreme, aes(x = group, y = gpp.sum.gs)) +
+  geom_point()
+ggplot(flux.extreme, aes(x = group, y = reco.sum.gs)) +
+  geom_point()
+
+ggplot(flux.extreme, aes(x = group, y = nee.sum.annual)) +
+  geom_point()
+ggplot(flux.extreme, aes(x = group, y = gpp.sum.annual)) +
+  geom_point()
+ggplot(flux.extreme, aes(x = group, y = reco.sum.annual)) +
+  geom_point()
 ################################################################################
