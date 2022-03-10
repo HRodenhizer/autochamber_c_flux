@@ -2492,6 +2492,7 @@ flux.treat.plot.2019.filled
 ################################################################################
 
 ### Fluxes and PCA Results #####################################################
+# flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
 pca.scores <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_output.csv')
 
 flux.annual.filled.plotting <- merge(flux.annual.filled.plotting, 

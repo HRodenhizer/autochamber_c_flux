@@ -415,7 +415,7 @@ for (n.year in seq(min(wtd.alt.data$year), max(wtd.alt.data$year))) {
               inherit.aes = FALSE,
               hjust = 0.5,
               vjust = -0.5) +
-    geom_point(size = 2) +
+    geom_point(size = 3) +
     scale_x_continuous(name = 'Active Layer Thickness (cm)',
                        limits = c(min(wtd.alt.data$alt), max(wtd.alt.data$alt))) +
     scale_y_continuous(name = 'Mean Water Table Depth (cm)',
@@ -428,7 +428,8 @@ for (n.year in seq(min(wtd.alt.data$year), max(wtd.alt.data$year))) {
     theme_bw() +
     ggtitle(paste(n.year)) +
     theme(legend.title = element_blank(),
-          plot.title = element_text(hjust = 0.5)) +
+          plot.title = element_text(hjust = 0.5),
+          text = element_text(size = 16)) +
     guides(color = guide_legend(order = 1),
            shape = guide_legend(order = 2))
 }
@@ -449,7 +450,7 @@ for (n in 1:length(plots)) {
 }
 
 
-img <- image_graph(400, 350, res = 96)
+img <- image_graph(800, 700, res = 96)
 map(plots.long,
     ~ print(.x))
 dev.off()
