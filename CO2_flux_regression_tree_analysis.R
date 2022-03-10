@@ -16,6 +16,7 @@ library(ggnewscale)
 library(raster)
 library(sf)
 library(zoo)
+library(ggrepel)
 library(tidyverse)
 #############################################################################################################################
 
@@ -3088,19 +3089,36 @@ flux.extreme <- flux.annual.filled.plotting %>%
   mutate(group = factor(case_when(plot.id %in% c('4_2', '4_3') ~ 'Shallow Dry',
                            plot.id %in% c('4_4', '3_6') ~ 'Deep Dry',
                            plot.id %in% c('4_6', '4_7') ~ 'Deep Wet'),
-                        levels = c('Shallow Dry', 'Deep Dry', 'Deep Wet')))
+                        levels = c('Shallow Dry', 'Deep Dry', 'Deep Wet')),
+         reco.sum.gs = reco.sum.gs*-1) %>%
+  group_by(group) %>%
+  mutate(rep = 1:n()) %>%
+  select(flux.year, fence, plot, treatment, plot.id, group, rep, nee.sum.gs:gpp.sum.gs) %>%
+  pivot_longer(nee.sum.gs:gpp.sum.gs, names_to = 'flux.type', values_to = 'flux')
 
-ggplot(flux.extreme, aes(x = group, y = nee.sum.gs)) +
-  geom_point()
-ggplot(flux.extreme, aes(x = group, y = gpp.sum.gs)) +
-  geom_point()
-ggplot(flux.extreme, aes(x = group, y = reco.sum.gs)) +
-  geom_point()
+flux.colors <- c('nee.sum.gs' = '#00CCFF', 'gpp.sum.gs' = '#009933', 'reco.sum.gs' = '#663300')
 
-ggplot(flux.extreme, aes(x = group, y = nee.sum.annual)) +
-  geom_point()
-ggplot(flux.extreme, aes(x = group, y = gpp.sum.annual)) +
-  geom_point()
-ggplot(flux.extreme, aes(x = group, y = reco.sum.annual)) +
-  geom_point()
+extreme.plots.flux.plot <- ggplot(flux.extreme, 
+                                  aes(x = group, y = flux, color = flux.type, shape = factor(rep))) +
+  geom_point(size = 2, position = position_dodge(width = 0.1)) +
+  # geom_text_repel(aes(label = plot.id), color = 'black') +
+  scale_y_continuous(name = expression('Flux (gC' ~ m^-2*')')) +
+  scale_color_manual(name = '',
+                     breaks = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
+                     labels = c('NEE', 'Reco', 'GPP'),
+                     values = flux.colors) +
+  scale_shape_manual(name = 'Replicate\nPlot',
+                     values = c(1, 16)) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+extreme.plots.flux.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/extreme_plots_flux_plot.jpg',
+#        extreme.plots.flux.plot,
+#        height = 3.5,
+#        width = 4)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/extreme_plots_flux_plot.pdf',
+#        extreme.plots.flux.plot,
+#        height = 3.5,
+#        width = 4)
 ################################################################################
+
