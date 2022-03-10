@@ -235,7 +235,7 @@ env.annual.subset <- env.annual %>%
          w.t20.min = winter.min.t20.min, 
          w.t40.min = winter.min.t40.min)
 env.annual.subset.norm <- env.annual.subset %>%
-  mutate(across(all_of(colnames(.)), ~(.x - mean(.x))/mean(.x)))
+  mutate(across(all_of(colnames(.)), ~(.x - mean(.x))/sd(.x)))
 # pca.annual.norm <- prcomp(as.matrix(env.annual.subset.norm))
 # saveRDS(pca.annual.norm,
 #         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/env_pca_normalized.rds')
@@ -281,8 +281,8 @@ pca.plot.norm.zoom <- autoplot(pca.annual.norm, data = env.annual.plot,
                       breaks = seq(2009, 2021)) +
   scale_shape_manual(name = '',
                      values = c(1, 0, 16, 15)) +
-  scale_y_continuous(limits = c(-0.04, 0.04)) +
-  scale_x_continuous(limits = c(-0.025, 0.025)) +
+  scale_y_continuous(limits = c(-0.05, 0.05)) +
+  scale_x_continuous(limits = c(-0.05, 0.05)) +
   coord_fixed() +
   theme_bw()
 pca.plot.norm.zoom
