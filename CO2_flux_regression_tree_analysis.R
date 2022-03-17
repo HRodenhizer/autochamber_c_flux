@@ -2706,7 +2706,7 @@ biomass.hydrology.plot
 #        width = 6.5)
 ################################################################################
 
-### Impact of TK Classification on 2018 fluxes #################################
+### Impact of TK Classification on 2017-2019 fluxes ############################
 cip.bnd <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/CiPEHR_bnd_NAD83.shp')
 tk.edges <- brick(stack(raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_1.tif'),
                         raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_2.tif'),
@@ -2755,13 +2755,13 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
          tk.class = factor(case_when(tk.class == 1 ~ 'TK Center',
                                      tk.class == 2 ~ 'TK Edge',
                                      tk.class == 0 ~ 'Non-TK'),
-                           levels = c('Pre-Thaw', 'Non-TK', 'TK Edge', 'TK Center'))) %>%
+                           levels = c('Initial', 'Non-TK', 'TK Edge', 'TK Center'))) %>%
   select(flux.year, fence, plot, tk.class) %>%
   rbind.data.frame(plots %>%
                      st_drop_geometry() %>%
                      filter(plot %in% c(2, 4)) %>%
                      mutate(flux.year = as.integer(2010),
-                            tk.class = factor('Pre-Thaw')) %>%
+                            tk.class = factor('Initial')) %>%
                      select(flux.year, fence, plot, tk.class)) %>%
   arrange(fence, plot, flux.year) %>%
   as.data.table()
@@ -2778,7 +2778,7 @@ plots.tk.class[fence == 4 & plot == 7 & flux.year == 2018,
 plots.tk.class[fence %in% c(4, 5) & plot == 6,
                tk.class := factor('TK Center')]
 
-
+# flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
 flux.tk <- merge(flux.annual.filled.plotting[flux.year == 2010 | 
                                                flux.year >= 2017 & flux.year <= 2019], 
                  plots.tk.class,
@@ -2810,17 +2810,17 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                         by = c('tk.class')]
 
 flux.tk[, .N, by = c('tk.class')]
-histogram(flux.tk[tk.class == 'Pre-Thaw']$nee.sum.gs)
+histogram(flux.tk[tk.class == 'Initial']$nee.sum.gs)
 histogram(flux.tk[tk.class == 'Non-TK']$nee.sum.gs)
 histogram(flux.tk[tk.class == 'TK Edge']$nee.sum.gs)
 histogram(flux.tk[tk.class == 'TK Center']$nee.sum.gs)
 
-histogram(flux.tk[tk.class == 'Pre-Thaw']$gpp.sum.gs)
+histogram(flux.tk[tk.class == 'Initial']$gpp.sum.gs)
 histogram(flux.tk[tk.class == 'Non-TK']$gpp.sum.gs)
 histogram(flux.tk[tk.class == 'TK Edge']$gpp.sum.gs)
 histogram(flux.tk[tk.class == 'TK Center']$gpp.sum.gs)
 
-histogram(flux.tk[tk.class == 'Pre-Thaw']$reco.sum.gs)
+histogram(flux.tk[tk.class == 'Initial']$reco.sum.gs)
 histogram(flux.tk[tk.class == 'Non-TK']$reco.sum.gs)
 histogram(flux.tk[tk.class == 'TK Edge']$reco.sum.gs)
 histogram(flux.tk[tk.class == 'TK Center']$reco.sum.gs)
