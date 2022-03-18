@@ -3086,14 +3086,14 @@ wtd.tp.tk.class
 flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
 
 flux.extreme <- flux.annual.filled.plotting %>%
-  filter(flux.year == 2021 & plot.id %in% c('4_2', '4_3', '4_4', '3_6', '4_6', '4_7', '2_7', '5_8')) %>%
+  filter((flux.year == 2020 | flux.year == 2021) & plot.id %in% c('4_2', '4_3', '4_4', '3_6', '4_6', '4_7', '2_7', '5_8')) %>%
   mutate(group = factor(case_when(plot.id %in% c('4_2', '4_3') ~ 'Shallow Dry',
                            plot.id %in% c('4_4', '3_6') ~ 'Deep Dry',
                            plot.id %in% c('4_6', '4_7') ~ 'Deep Wet',
                            plot.id %in% c('2_7', '5_8') ~ 'Shallow Wet'),
                         levels = c('Shallow Dry', 'Shallow Wet', 'Deep Dry', 'Deep Wet')),
          reco.sum.gs = reco.sum.gs*-1) %>%
-  group_by(group) %>%
+  group_by(group, flux.year) %>%
   mutate(rep = 1:n()) %>%
   select(flux.year, fence, plot, treatment, plot.id, group, rep, nee.sum.gs:gpp.sum.gs) %>%
   pivot_longer(nee.sum.gs:gpp.sum.gs, names_to = 'flux.type', values_to = 'flux')
@@ -3111,6 +3111,7 @@ extreme.plots.flux.plot <- ggplot(flux.extreme,
                      values = flux.colors) +
   scale_shape_manual(name = 'Replicate\nPlot',
                      values = c(1, 16)) +
+  facet_grid(flux.type ~ .) +
   theme_bw() +
   theme(axis.title.x = element_blank())
 extreme.plots.flux.plot
