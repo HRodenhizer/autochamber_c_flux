@@ -7,7 +7,8 @@
 library(gbm)
 library(caret)
 library(partykit)
-library(lime)
+library(h2o)
+# library(lime)
 library(data.table)
 library(lubridate)
 library(viridis)
@@ -388,14 +389,17 @@ nee.seasonal.pd.plot
 #        width = 6.5,
 #        bg = 'white')
 
-# # explore a few points using LIME
+# # explore a few points using LIME or SHAP
 # # I'd love to do this, but the example I'm working from online, 
 # # http://uc-r.github.io/gbm_regression, doesn't even work...
-# lime.points <- flux.seasonal[-train.nee.seasonal, ][(fence == 1 & plot == 5 | 
-#                                                        fence == 4 & plot %in% c(1, 6)) &
-#                                                       flux.year == 2019,]
+lime.points <- flux.seasonal[-train.nee.seasonal, ][(fence == 1 & plot == 5 |
+                                                       fence == 4 & plot %in% c(1, 6)) &
+                                                      flux.year == 2019,]
 # explainer <- lime(nee.seasonal[train.nee.seasonal,], nee.seasonal.gbm)
 # explanation <- lime::explain(lime.points, explainer, n_features = 5)
+
+nee.seasonal.gbm.unified <- gbm.unify(nee.seasonal.gbm, nee.seasonal[train.nee.seasonal])
+nee.seasonal.shap <- treeshap(nee.seasonal.gbm.unified, nee.seasonal)
 
 # ### Reco GBM
 # # figure out good parameters to use
