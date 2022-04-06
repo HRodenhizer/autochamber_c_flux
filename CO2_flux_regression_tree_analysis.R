@@ -7,7 +7,7 @@
 library(gbm)
 library(caret)
 library(partykit)
-library(h2o)
+library(treeshap)
 # library(lime)
 library(data.table)
 library(lubridate)
@@ -390,8 +390,114 @@ nee.seasonal.pd.plot
 #        bg = 'white')
 
 # # explore a few points using SHAP
-nee.seasonal.gbm.unified <- gbm.unify(nee.seasonal.gbm, nee.seasonal[train.nee.seasonal])
-nee.seasonal.shap <- treeshap(nee.seasonal.gbm.unified, nee.seasonal)
+nee.seasonal.gbm.unified <- gbm.unify(nee.seasonal.gbm, nee.seasonal)
+nee.seasonal.shap <- treeshap(nee.seasonal.gbm.unified, nee.seasonal)$shaps %>%
+  rename_with(~ paste0(.x, '.shap'))
+nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
+                                   c('flux.year',
+                                     'block',
+                                     'fence',
+                                     'plot',
+                                     'plot.id',
+                                     'treatment',
+                                     'nee.sum',
+                                     'tp.annual',
+                                     'subsidence.annual',
+                                     'alt.annual', 
+                                     'vwc.mean', 'vwc.sd',
+                                     'gwc.mean', 'gwc.sd',
+                                     'wtd.mean', 'wtd.sd',
+                                     'precip.sum', 'winter.snow.depth',
+                                     'winter.min.t10.min',
+                                     't10.mean', 't10.sd',
+                                     'tair.mean', 'tair.sd',
+                                     'biomass.annual')] %>%
+  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+  cbind.data.frame(nee.seasonal.shap) %>%
+  select(-nee.sum.shap) %>%
+  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+               names_to = 'var', 
+               values_to = 'value') %>%
+  mutate(variable.type = ifelse(str_detect(var, 'shap'),
+                                'shap',
+                                'value'),
+         var = ifelse(str_detect(var, 'shap'),
+                      str_sub(var, start = 1, end = -6),
+                      var)) %>%
+  pivot_wider(names_from = 'variable.type',
+              values_from = 'value') %>%
+  mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
+                              var == 'subsidence.annual' ~ 'Subsidence',
+                              var == 'alt.annual' ~ 'ALT', 
+                              var == 'vwc.mean' ~ 'Mean VWC', 
+                              var == 'vwc.sd' ~ 'SD VWC', 
+                              var == 'gwc.mean' ~ 'Mean GWC', 
+                              var == 'gwc.sd' ~ 'SD GWC', 
+                              var == 'wtd.mean' ~ 'Mean WTD', 
+                              var == 'wtd.sd' ~ 'SD WTD', 
+                              var == 'precip.sum' ~ 'Precipitation', 
+                              var == 'winter.snow.depth' ~ 'Snow Depth', 
+                              var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                              var == 't10.mean' ~ 'Mean Soil Temp',  
+                              var == 't10.sd' ~ 'SD Soil Temp', 
+                              var == 'tair.mean' ~ 'Mean Air Temp', 
+                              var == 'tair.sd' ~ 'SD Air Temp', 
+                              var == 'biomass.annual' ~ 'Biomass'),
+                           levels = c('ALT', 
+                                      'Thaw Penetration', 
+                                      'Subsidence', 
+                                      'Biomass',
+                                      'Mean VWC', 
+                                      'SD VWC', 
+                                      'Mean GWC', 
+                                      'SD GWC', 
+                                      'Mean WTD', 
+                                      'SD WTD', 
+                                      'Precipitation', 
+                                      'Snow Depth', 
+                                      'Winter Min Soil Temp', 
+                                      'Mean Soil Temp',  
+                                      'SD Soil Temp', 
+                                      'Mean Air Temp', 
+                                      'SD Air Temp')))
+
+ggplot(nee.seasonal.shap, aes(x = shap, y = variable, color = value)) +
+  geom_point() +
+  scale_color_viridis(name = 'Value Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+
+# Wet
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '4_6' & flux.year == 2020), 
+       aes(x = shap, y = variable)) +
+  geom_col() +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+
+# Dry
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '3_6' & flux.year == 2020), 
+       aes(x = shap, y = variable)) +
+  geom_col() +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '4_4' & flux.year == 2020), 
+       aes(x = shap, y = variable)) +
+  geom_col() +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+
 
 # ### Reco GBM
 # # figure out good parameters to use
