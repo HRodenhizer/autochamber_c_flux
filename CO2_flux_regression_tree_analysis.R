@@ -459,44 +459,104 @@ nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
                                       'Mean Soil Temp',  
                                       'SD Soil Temp', 
                                       'Mean Air Temp', 
-                                      'SD Air Temp')))
+                                      'SD Air Temp')),
+         response = 'NEE') %>%
+  rename(flux.sum = nee.sum)
 
 ggplot(nee.seasonal.shap, aes(x = shap, y = variable, color = value)) +
   geom_point() +
-  scale_color_viridis(name = 'Value Z-Score') +
+  scale_color_viridis(name = 'Z-Score') +
   scale_x_continuous(name = 'Shapley Additive Explanation') +
   scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
   theme_bw() +
-  theme(axis.title.y = element_blank())
+  theme(axis.title.y = element_blank()) +
+  ggtitle('NEE')
 
 # Wet
 ggplot(nee.seasonal.shap %>%
-         filter(plot.id == '4_6' & flux.year == 2020), 
-       aes(x = shap, y = variable)) +
-  geom_col() +
-  scale_x_continuous(name = 'Shapley Additive Explanation') +
+         filter(plot.id == '4_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
   scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
   theme_bw() +
-  theme(axis.title.y = element_blank())
+  theme(axis.title.y = element_blank()) +
+  ggtitle('NEE, Wet')
+
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '4_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('NEE, Wet')
 
 # Dry
 ggplot(nee.seasonal.shap %>%
-         filter(plot.id == '3_6' & flux.year == 2020), 
-       aes(x = shap, y = variable)) +
-  geom_col() +
-  scale_x_continuous(name = 'Shapley Additive Explanation') +
+         filter(plot.id == '3_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
   scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
   theme_bw() +
-  theme(axis.title.y = element_blank())
+  theme(axis.title.y = element_blank()) +
+  ggtitle('NEE, Dry')
+
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '4_4' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('NEE, Dry')
+
+ggplot(nee.seasonal.shap %>%
+         filter(plot.id == '3_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
+  scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('NEE, Dry')
 
 ggplot(nee.seasonal.shap %>%
          filter(plot.id == '4_4' & flux.year == 2020), 
-       aes(x = shap, y = variable)) +
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
   geom_col() +
-  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-75, 45)) +
   scale_y_discrete(limits = rev(levels(nee.seasonal.shap$variable))) +
   theme_bw() +
-  theme(axis.title.y = element_blank())
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('NEE, Dry')
 
 
 # ### Reco GBM
@@ -700,6 +760,175 @@ reco.seasonal.pd.plot
 #        width = 6.5,
 #        bg = 'white')
 
+# # explore a few points using SHAP
+reco.seasonal.gbm.unified <- gbm.unify(reco.seasonal.gbm, reco.seasonal)
+reco.seasonal.shap <- treeshap(reco.seasonal.gbm.unified, reco.seasonal)$shaps %>%
+  rename_with(~ paste0(.x, '.shap'))
+reco.seasonal.shap <- flux.seasonal[!is.na(reco.sum),
+                                   c('flux.year',
+                                     'block',
+                                     'fence',
+                                     'plot',
+                                     'plot.id',
+                                     'treatment',
+                                     'reco.sum',
+                                     'tp.annual',
+                                     'subsidence.annual',
+                                     'alt.annual', 
+                                     'vwc.mean', 'vwc.sd',
+                                     'gwc.mean', 'gwc.sd',
+                                     'wtd.mean', 'wtd.sd',
+                                     'precip.sum', 'winter.snow.depth',
+                                     'winter.min.t10.min',
+                                     't10.mean', 't10.sd',
+                                     'tair.mean', 'tair.sd',
+                                     'biomass.annual')] %>%
+  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+  cbind.data.frame(reco.seasonal.shap) %>%
+  select(-reco.sum.shap) %>%
+  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+               names_to = 'var', 
+               values_to = 'value') %>%
+  mutate(variable.type = ifelse(str_detect(var, 'shap'),
+                                'shap',
+                                'value'),
+         var = ifelse(str_detect(var, 'shap'),
+                      str_sub(var, start = 1, end = -6),
+                      var)) %>%
+  pivot_wider(names_from = 'variable.type',
+              values_from = 'value') %>%
+  mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
+                                     var == 'subsidence.annual' ~ 'Subsidence',
+                                     var == 'alt.annual' ~ 'ALT', 
+                                     var == 'vwc.mean' ~ 'Mean VWC', 
+                                     var == 'vwc.sd' ~ 'SD VWC', 
+                                     var == 'gwc.mean' ~ 'Mean GWC', 
+                                     var == 'gwc.sd' ~ 'SD GWC', 
+                                     var == 'wtd.mean' ~ 'Mean WTD', 
+                                     var == 'wtd.sd' ~ 'SD WTD', 
+                                     var == 'precip.sum' ~ 'Precipitation', 
+                                     var == 'winter.snow.depth' ~ 'Snow Depth', 
+                                     var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                                     var == 't10.mean' ~ 'Mean Soil Temp',  
+                                     var == 't10.sd' ~ 'SD Soil Temp', 
+                                     var == 'tair.mean' ~ 'Mean Air Temp', 
+                                     var == 'tair.sd' ~ 'SD Air Temp', 
+                                     var == 'biomass.annual' ~ 'Biomass'),
+                           levels = c('ALT', 
+                                      'Thaw Penetration', 
+                                      'Subsidence', 
+                                      'Biomass',
+                                      'Mean VWC', 
+                                      'SD VWC', 
+                                      'Mean GWC', 
+                                      'SD GWC', 
+                                      'Mean WTD', 
+                                      'SD WTD', 
+                                      'Precipitation', 
+                                      'Snow Depth', 
+                                      'Winter Min Soil Temp', 
+                                      'Mean Soil Temp',  
+                                      'SD Soil Temp', 
+                                      'Mean Air Temp', 
+                                      'SD Air Temp')),
+         response = 'Reco') %>%
+  rename(flux.sum = reco.sum)
+
+ggplot(reco.seasonal.shap, aes(x = shap, y = variable, color = value)) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('Reco')
+
+# Wet
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '4_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('Reco, Wet')
+
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '4_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('Reco, Wet')
+
+# Dry
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '3_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('Reco, Dry')
+
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '4_4' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('Reco, Dry')
+
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '3_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('reco, Dry')
+
+ggplot(reco.seasonal.shap %>%
+         filter(plot.id == '4_4' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(reco.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('reco, Dry')
+
 # ### GPP GBM
 # # figure out good parameters to use
 # grid <- expand.grid(.n.trees=seq(200, 800, by = 200),
@@ -898,6 +1127,208 @@ gpp.seasonal.pd.plot
 #        height = 6.5,
 #        width = 6.5,
 #        bg = 'white')
+
+# # explore a few points using SHAP
+gpp.seasonal.gbm.unified <- gbm.unify(gpp.seasonal.gbm, gpp.seasonal)
+gpp.seasonal.shap <- treeshap(gpp.seasonal.gbm.unified, gpp.seasonal)$shaps %>%
+  rename_with(~ paste0(.x, '.shap'))
+gpp.seasonal.shap <- flux.seasonal[!is.na(gpp.sum),
+                                    c('flux.year',
+                                      'block',
+                                      'fence',
+                                      'plot',
+                                      'plot.id',
+                                      'treatment',
+                                      'gpp.sum',
+                                      'tp.annual',
+                                      'subsidence.annual',
+                                      'alt.annual', 
+                                      'vwc.mean', 'vwc.sd',
+                                      'gwc.mean', 'gwc.sd',
+                                      'wtd.mean', 'wtd.sd',
+                                      'precip.sum', 'winter.snow.depth',
+                                      'winter.min.t10.min',
+                                      't10.mean', 't10.sd',
+                                      'tair.mean', 'tair.sd',
+                                      'biomass.annual')] %>%
+  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+  cbind.data.frame(gpp.seasonal.shap) %>%
+  select(-gpp.sum.shap) %>%
+  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+               names_to = 'var', 
+               values_to = 'value') %>%
+  mutate(variable.type = ifelse(str_detect(var, 'shap'),
+                                'shap',
+                                'value'),
+         var = ifelse(str_detect(var, 'shap'),
+                      str_sub(var, start = 1, end = -6),
+                      var)) %>%
+  pivot_wider(names_from = 'variable.type',
+              values_from = 'value') %>%
+  mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
+                                     var == 'subsidence.annual' ~ 'Subsidence',
+                                     var == 'alt.annual' ~ 'ALT', 
+                                     var == 'vwc.mean' ~ 'Mean VWC', 
+                                     var == 'vwc.sd' ~ 'SD VWC', 
+                                     var == 'gwc.mean' ~ 'Mean GWC', 
+                                     var == 'gwc.sd' ~ 'SD GWC', 
+                                     var == 'wtd.mean' ~ 'Mean WTD', 
+                                     var == 'wtd.sd' ~ 'SD WTD', 
+                                     var == 'precip.sum' ~ 'Precipitation', 
+                                     var == 'winter.snow.depth' ~ 'Snow Depth', 
+                                     var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                                     var == 't10.mean' ~ 'Mean Soil Temp',  
+                                     var == 't10.sd' ~ 'SD Soil Temp', 
+                                     var == 'tair.mean' ~ 'Mean Air Temp', 
+                                     var == 'tair.sd' ~ 'SD Air Temp', 
+                                     var == 'biomass.annual' ~ 'Biomass'),
+                           levels = c('ALT', 
+                                      'Thaw Penetration', 
+                                      'Subsidence', 
+                                      'Biomass',
+                                      'Mean VWC', 
+                                      'SD VWC', 
+                                      'Mean GWC', 
+                                      'SD GWC', 
+                                      'Mean WTD', 
+                                      'SD WTD', 
+                                      'Precipitation', 
+                                      'Snow Depth', 
+                                      'Winter Min Soil Temp', 
+                                      'Mean Soil Temp',  
+                                      'SD Soil Temp', 
+                                      'Mean Air Temp', 
+                                      'SD Air Temp')),
+         response = 'GPP') %>%
+  rename(flux.sum = gpp.sum)
+
+ggplot(gpp.seasonal.shap, aes(x = shap, y = variable, color = value)) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation') +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('GPP')
+
+# Wet
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '4_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-185, 185)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('GPP, Wet')
+
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '4_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-185, 185)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('GPP, Wet')
+
+# Dry
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '3_6' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-185, 185)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('GPP, Dry')
+
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '4_4' & as.numeric(as.character(flux.year)) >= 2016), 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-185, 185)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank()) +
+  ggtitle('GPP, Dry')
+
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '3_6' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('GPP, Dry')
+
+ggplot(gpp.seasonal.shap %>%
+         filter(plot.id == '4_4' & flux.year == 2020), 
+       aes(x = shap, y = variable, 
+           color = factor(sign(shap)), fill = factor(sign(shap)))) +
+  geom_col() +
+  scale_color_manual(values = c('#cc0000', '#006600')) +
+  scale_fill_manual(values = c('#cc0000', '#006600')) +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-85, 75)) +
+  scale_y_discrete(limits = rev(levels(gpp.seasonal.shap$variable))) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        legend.position = 'none') +
+  ggtitle('GPP, Dry')
+
+# Shapley values for extreme plots and all fluxes
+seasonal.shap <- rbind.data.frame(nee.seasonal.shap,
+                                  reco.seasonal.shap,
+                                  gpp.seasonal.shap)
+
+seasonal.shap.extreme <- seasonal.shap %>%
+  filter(plot.id %in% c('3_6', '4_6') & as.numeric(as.character(flux.year)) >= 2016) %>%
+  mutate(condition = ifelse(plot.id == '3_6',
+                            'Dry',
+                            'Wet'))
+
+shapley.plot <- ggplot(seasonal.shap.extreme, 
+       aes(x = shap, y = variable, color = value)) +
+  geom_vline(xintercept = 0) +
+  geom_point() +
+  scale_color_viridis(name = 'Z-Score') +
+  scale_x_continuous(name = 'Shapley Additive Explanation',
+                     limits = c(-175, 175)) +
+  scale_y_discrete(limits = rev(levels(seasonal.shap$variable))) +
+  facet_grid(response ~ condition) +
+  theme_bw() +
+  theme(axis.title.y = element_blank())
+shapley.plot
+
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot.jpg',
+#        shapley.plot,
+#        height = 6.5,
+#        width = 6.5)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot.pdf',
+#        shapley.plot,
+#        height = 6.5,
+#        width = 6.5)
 
 
 ### Monthly
