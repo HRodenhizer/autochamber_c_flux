@@ -7,7 +7,11 @@
 library(gbm)
 library(caret)
 library(partykit)
+<<<<<<< HEAD
 library(treeshap)
+=======
+library(h2o)
+>>>>>>> 90b6120b31cd6012d457e86a9f2ee8f534107edb
 # library(lime)
 library(data.table)
 library(lubridate)
@@ -389,6 +393,7 @@ nee.seasonal.pd.plot
 #        width = 6.5,
 #        bg = 'white')
 
+<<<<<<< HEAD
 # # explore a few points using SHAP
 nee.seasonal.gbm.unified <- gbm.unify(nee.seasonal.gbm, nee.seasonal)
 nee.seasonal.shap <- treeshap(nee.seasonal.gbm.unified, nee.seasonal)$shaps %>%
@@ -558,6 +563,19 @@ ggplot(nee.seasonal.shap %>%
         legend.position = 'none') +
   ggtitle('NEE, Dry')
 
+=======
+# # explore a few points using LIME or SHAP
+# # I'd love to do this, but the example I'm working from online, 
+# # http://uc-r.github.io/gbm_regression, doesn't even work...
+lime.points <- flux.seasonal[-train.nee.seasonal, ][(fence == 1 & plot == 5 |
+                                                       fence == 4 & plot %in% c(1, 6)) &
+                                                      flux.year == 2019,]
+# explainer <- lime(nee.seasonal[train.nee.seasonal,], nee.seasonal.gbm)
+# explanation <- lime::explain(lime.points, explainer, n_features = 5)
+>>>>>>> 90b6120b31cd6012d457e86a9f2ee8f534107edb
+
+nee.seasonal.gbm.unified <- gbm.unify(nee.seasonal.gbm, nee.seasonal[train.nee.seasonal])
+nee.seasonal.shap <- treeshap(nee.seasonal.gbm.unified, nee.seasonal)
 
 # ### Reco GBM
 # # figure out good parameters to use
