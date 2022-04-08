@@ -3311,6 +3311,11 @@ plots.tk.class[fence %in% c(4, 5) & plot == 6,
                tk.class := factor('TK Center')]
 
 # flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
+# flux.annual.filled.plotting[, treatment := factor(treatment,
+#                                                   levels = c('Control', 
+#                                                              'Air Warming',
+#                                                              'Soil Warming',
+#                                                              'Air + Soil Warming'))]
 # tk class in 2010 and 2017-2019
 flux.tk <- merge(flux.annual.filled.plotting[flux.year == 2010 | 
                                                flux.year >= 2017 & flux.year <= 2019], 
@@ -3335,14 +3340,17 @@ flux.tk.time.series[,
 
 # plot of timeseries with 2019 tk class
 flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
-       aes(x = flux.year, y = flux.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = flux.sum.gs, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
-  geom_point() +
+  geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_color_viridis(name = 'Subsidence (cm)') +
-  scale_shape_manual(name = '',
+  scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
+  scale_alpha_manual(name = '',
                      labels = c('Gap Filled Data', 'Modeled Only'),
-                     values = c(16, 1)) +
+                     values = c(1, 0.3)) +
+  scale_shape_manual(name = '',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 2)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class,
