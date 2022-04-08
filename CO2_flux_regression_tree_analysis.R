@@ -3345,7 +3345,8 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
                      values = c(16, 1)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
-  facet_grid(variable ~ tk.class) +
+  facet_grid(variable ~ tk.class,
+             scales = 'free_y') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 90, vjust = 0.5))
@@ -3353,8 +3354,7 @@ flux.tk.class.timeseries.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries.jpg',
 #        flux.tk.class.timeseries.plot,
 #        height = 6.5,
-#        width = 6.5,
-#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+#        width = 6.5) 
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries.pdf',
 #        flux.tk.class.timeseries.plot,
 #        height = 6.5,
