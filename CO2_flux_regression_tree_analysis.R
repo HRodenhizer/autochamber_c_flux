@@ -3311,10 +3311,56 @@ plots.tk.class[fence %in% c(4, 5) & plot == 6,
                tk.class := factor('TK Center')]
 
 # flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
+# tk class in 2010 and 2017-2019
 flux.tk <- merge(flux.annual.filled.plotting[flux.year == 2010 | 
                                                flux.year >= 2017 & flux.year <= 2019], 
                  plots.tk.class,
                  by = c('flux.year', 'fence', 'plot'))
+# tk class in 2019 applied to all years for time series plot
+flux.tk.time.series <- merge(plots.tk.class[flux.year == 2019][, .(fence, plot, tk.class)],
+                             flux.annual.filled.plotting,
+                             by = c('fence', 'plot'))
+flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, treatment, tk.class, filled.gbm, biomass.annual, subsidence.annual, nee.sum.gs, gpp.sum.gs, reco.sum.gs)],
+                            id.vars = c('flux.year', 'fence', 'plot', 'treatment', 'tk.class', 'filled.gbm', 'biomass.annual', 'subsidence.annual'),
+                            measure.vars = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
+                            variable.name = 'variable',
+                            value.name = 'flux.sum.gs')
+flux.tk.time.series[,
+                    variable := factor(fifelse(str_detect(variable, 'nee'),
+                                               'NEE',
+                                               fifelse(str_detect(variable, 'reco'),
+                                                       'Reco',
+                                                       'GPP')),
+                                       levels = c('GPP', 'NEE', 'Reco'))]
+
+# plot of timeseries with 2019 tk class
+flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
+       aes(x = flux.year, y = flux.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  scale_color_viridis(name = 'Subsidence (cm)') +
+  scale_shape_manual(name = '',
+                     labels = c('Gap Filled Data', 'Modeled Only'),
+                     values = c(16, 1)) +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
+  facet_grid(variable ~ tk.class) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5))
+flux.tk.class.timeseries.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries.jpg',
+#        flux.tk.class.timeseries.plot,
+#        height = 6.5,
+#        width = 6.5,
+#        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries.pdf',
+#        flux.tk.class.timeseries.plot,
+#        height = 6.5,
+#        width = 6.5)
+
+
 flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             nee.se.gs = sd(nee.sum.gs, na.rm = TRUE)/sqrt(.N),
                             gpp.sum.gs = mean(gpp.sum.gs, na.rm = TRUE),
