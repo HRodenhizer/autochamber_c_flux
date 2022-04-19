@@ -2976,31 +2976,45 @@ flux.annual.treat.diff <- melt(flux.annual.treat.diff,
                                measure.vars = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
                                value.name = 'flux')
 flux.annual.treat.diff <- flux.annual.treat.diff[,
-                                                 .(flux = mean(flux)),
+                                                 .(flux = mean(flux),
+                                                   flux.se = sd(flux)/sqrt(.N)),
                                                  by = c('flux.year', 'treatment', 'variable')]
-flux.annual.treat.diff <- dcast(flux.annual.treat.diff,
-                                flux.year + variable ~ treatment,
-                                value.var = 'flux')
+flux.annual.treat.control <- flux.annual.treat.diff[
+  treatment == 'Control'][, 
+                          ':=' (flux.control = flux,
+                                flux.se.control = flux.se)][,
+                                                ':=' (treatment = NULL, 
+                                                      flux = NULL,
+                                                      flux.se = NULL)]
+flux.annual.treat.diff <- flux.annual.treat.diff[treatment != 'Control']
+flux.annual.treat.diff <- merge(flux.annual.treat.diff, 
+                                flux.annual.treat.control,
+                                by = c('flux.year', 'variable'),
+                                all = TRUE)
+
 flux.annual.treat.diff[,
-                       ':=' (flux.diff = `Soil Warming` - Control,
+                       ':=' (flux.diff = flux - flux.control,
+                             flux.diff.se = sqrt(flux.se^2 + flux.se.control^2),
                              variable = factor(fifelse(variable == 'nee.sum.gs',
                                                        'NEE',
                                                        fifelse(variable == 'reco.sum.gs',
                                                                'Reco',
                                                                'GPP')),
-                                               levels = c('NEE', 'Reco', 'GPP')))]
+                                               levels = c('NEE', 'Reco', 'GPP')),
+                             treatment = factor(treatment,
+                                                levels = c('Air Warming', 'Soil Warming', 'Air + Soil Warming')))]
 
 flux.colors <- c('NEE' = '#00CCFF', 'GPP' = '#009933', 'Reco' = '#663300')
 
-# fluxes match Marguerite's graph through 2018, but error bars are a bit smaller
+# 
 flux.treat.plot.2019.filled <- ggplot(flux.annual.treat.diff,
        aes(x = variable, y = flux.diff, fill = variable)) +
   geom_col(width = 1) +
-  # geom_errorbar(aes(ymax = flux.diff + flux.diff.se, ymin = flux.diff - flux.diff.se),
-  #               width = 0.25) +
+  geom_errorbar(aes(ymax = flux.diff + flux.diff.se, ymin = flux.diff - flux.diff.se),
+                width = 0.25) +
   geom_hline(yintercept = 0, size = 0.5) +
-  facet_grid(. ~ flux.year) +
-  scale_y_continuous(name = expression(Delta ~ 'Growing Season C Flux (Soil Warming - Control; g C ' ~ m^2 ~ ')')) +
+  facet_grid(treatment ~ flux.year) +
+  scale_y_continuous(name = expression(Delta ~ 'Growing Season C Flux (g C ' ~ m^2 ~ ')')) +
   scale_fill_manual(values = flux.colors, 
                     breaks = c('NEE', 'Reco', 'GPP')) +
   theme_bw() +
