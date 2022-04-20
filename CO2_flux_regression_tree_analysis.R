@@ -16,6 +16,7 @@ library(ggnewscale)
 library(raster)
 library(sf)
 library(zoo)
+library(thermokarstdetection)
 library(ggrepel)
 library(tidyverse)
 #############################################################################################################################
@@ -3254,37 +3255,125 @@ biomass.hydrology.plot
 
 ### Impact of TK Classification on 2017-2019 fluxes ############################
 cip.bnd <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/CiPEHR_bnd_NAD83.shp')
-tk.edges <- brick(stack(raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_1.tif'),
-                        raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_2.tif'),
-                        raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/analysis/karst_edges_3.tif')))
+tk.2017.2019 <- brick(stack(raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/output/karst_combined_1_raster_final_1.tif'),
+                            raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/output/karst_combined_1_raster_final_2.tif'),
+                            raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/output/karst_combined_1_raster_final_3.tif')))
+elev.2021 <- raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/NEON/DTM_All/NEON_DTM_2021.tif')
 plots <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
 
 cip.bnd <- st_transform(cip.bnd, st_crs(tk.edges))
+cip.bnd.buffer <- st_buffer(cip.bnd, dist = 40)
 plots <- plots %>%
   filter(!is.na(as.numeric(plot))) %>%
   mutate(plot = as.numeric(plot)) %>%
   st_transform(st_crs(tk.edges))
 
-# crop thermokarst edges to cipehr
+# crop thermokarst edges and elev.2021 to cipehr
 tk.edges.cip <- crop(tk.edges, cip.bnd)
-# adjust edges to be both the cells immediately outside the thermokarst depression
-# and immediately inside
-tk.centers.cip <- tk.edges.cip
-edges.inner.cip <- tk.edges.cip
-for (years.n in 1:nlayers(tk.edges.cip)) {
-  tk.centers.cip[[years.n]][tk.centers.cip[[years.n]] != 1] <- NA
-  plot(tk.centers.cip[[years.n]])
-  edges.inner.cip[[years.n]] <- boundaries(tk.centers.cip[[years.n]], directions = 4)
-  edges.inner.cip[[years.n]][is.na(edges.inner.cip[[years.n]])] <- 0
-  plot(edges.inner.cip[[years.n]])
+plot(tk.edges.cip[[1]])
+elev.2021.cip <- crop(elev.2021, cip.bnd.buffer)
+plot(elev.2021.cip)
+
+# classify thermokarst depressions in 2021
+tk.2021 <- tk_detect(elev.2021.cip, radii = c(15, 25, 35), n.cores = 3)
+tk.2021 <- tk.2021[['thermokarst']]
+# fill gaps in classifications
+fill_gaps <- function(raster,
+                      dilate_n = 2,
+                      erode_n = 2,
+                      dilate_kernel = matrix(c(0,1,0, 1,1,1, 0,1,0), nrow = 3),
+                      erode_kernel = matrix(c(0,1,0, 1,1,1, 0,1,0), nrow = 3)) {
+  
+  raster_array <- as.array(
+    matrix(
+      raster[,],
+      nrow = raster@ncols, # the order that data get fed into a vector from an array vs. from a vector into a raster are different, requiring this swap of columns and rows
+      ncol = raster@nrows
+    )
+  )
+  
+  for (i in 1:dilate_n) {
+    raster_array <- mmand::dilate(
+      raster_array,
+      dilate_kernel)
+  }
+  
+  for (i in 1:erode_n) {
+    raster_array <- mmand::erode(
+      raster_array,
+      erode_kernel)
+  }
+  
+  filled_vector <- as.vector(raster_array)
+  filled_raster <- raster
+  filled_raster[,] <- filled_vector
+  
+  return(filled_raster)
 }
 
-tk.edges.cip <- tk.edges.cip + edges.inner.cip
+tk.2021.fill <- map(tk.2021, ~ fill_gaps(.x))
+
+plot(tk.2021[[1]])
+plot(tk.2021.fill[[1]])
+plot(tk.2021[[2]])
+plot(tk.2021.fill[[2]])
+plot(tk.2021[[3]])
+plot(tk.2021.fill[[3]])
+
+tk.2021.fill <- overlay(tk.2021.fill[[1]],
+                        tk.2021.fill[[2]],
+                        tk.2021.fill[[3]],
+                        fun = function(x,y,z){ifelse(x > 0 | y > 0 | z > 0, 1, 0)})
+plot(tk.2021.fill)
+tk.2017.2019[is.na(tk.2017.2019)] <- 0
+tk.cip <- crop(tk.2017.2019, tk.2021.fill)
+tk.cip[[4]] <- tk.2021.fill
+names(tk.cip) <- paste('tk', c(2017, 2018, 2019, 2021), sep = '_')
+
+# Calculate thermokarst edges as both cells immediately outside of and
+# immediately inside of thermokarst depressions
+tk.edges.cip <- tk.cip
+tk.edges.cip[tk.edges.cip != 1] <- NA
+
+# inside edges
+tk.edges.cip.1 <- tk.edges.cip
+for (i in 1:nlayers(tk.edges.cip.1)) {
+  tk.edges.cip.1[[i]] <- boundaries(tk.edges.cip.1[[i]], type = 'inner', directions = 4)
+  
+}
+tk.edges.cip.1[is.na(tk.edges.cip.1)] <- 0
+
+# outside edges
+tk.edges.cip.2 <- tk.edges.cip
+for (i in 1:nlayers(tk.edges.cip.2)) {
+  tk.edges.cip.2[[i]] <- boundaries(tk.edges.cip.2[[i]], type = 'outer', directions = 4)
+  
+}
+tk.edges.cip.2[tk.edges.cip.2 == 1] <- 2
+tk.edges.cip.2[is.na(tk.edges.cip.2)] <- 0
+plot(tk.edges.cip.1)
+plot(tk.edges.cip.2)
+
+# add the edges to the tk classification
+tk.edges.cip <- tk.cip + tk.edges.cip.1 + tk.edges.cip.2
+tk.edges.cip[tk.edges.cip == 1] <- 3
+tk.edges.cip[tk.edges.cip == 2] <- 1
+tk.edges.cip[tk.edges.cip == 3] <- 2
+names(tk.edges.cip) <- paste0('tk_edges_', c(2017, 2018, 2019, 2021))
 plot(tk.edges.cip)
+
+# take a look at the classification
+ggplot(tk.edges.cip %>%
+         as.data.frame(xy = TRUE),
+       aes(x = x, y = y, color = tk_edges_2017, fill = tk_edges_2017)) +
+  geom_tile() +
+  geom_sf(data = plots, inherit.aes = FALSE) +
+  scale_fill_viridis() +
+  scale_color_viridis()
 
 ggplot(tk.edges.cip %>%
          as.data.frame(xy = TRUE),
-       aes(x = x, y = y, color = karst_edges_1, fill = karst_edges_1)) +
+       aes(x = x, y = y, color = tk_edges_2021, fill = tk_edges_2021)) +
   geom_tile() +
   geom_sf(data = plots, inherit.aes = FALSE) +
   scale_fill_viridis() +
@@ -3294,23 +3383,41 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
   as.data.frame() %>%
   rename(tk.class.2017 = 2,
          tk.class.2018 = 3,
-         tk.class.2019 = 4) %>%
+         tk.class.2019 = 4,
+         tk.class.2021 = 5) %>%
   cbind.data.frame(plots) %>%
-  pivot_longer(tk.class.2017:tk.class.2019, names_to = 'flux.year', values_to = 'tk.class') %>%
-  mutate(flux.year = as.integer(str_sub(flux.year, start = 10)),
-         tk.class = factor(case_when(tk.class == 1 ~ 'TK Center',
-                                     tk.class == 2 ~ 'TK Edge',
-                                     tk.class == 0 ~ 'Non-TK'),
-                           levels = c('Initial', 'Non-TK', 'TK Edge', 'TK Center'))) %>%
+  pivot_longer(tk.class.2017:tk.class.2021, names_to = 'flux.year', values_to = 'tk.class') %>%
+  mutate(flux.year = as.integer(str_sub(flux.year, start = 10))) %>%
   select(flux.year, fence, plot, tk.class) %>%
   rbind.data.frame(plots %>%
                      st_drop_geometry() %>%
                      filter(plot %in% c(2, 4)) %>%
                      mutate(flux.year = as.integer(2010),
-                            tk.class = factor('Initial')) %>%
+                            tk.class = 0) %>%
+                     select(flux.year, fence, plot, tk.class)) %>%
+  rbind.data.frame(plots %>%
+                     st_drop_geometry() %>%
+                     mutate(flux.year = as.integer(2020),
+                            tk.class = factor(NA)) %>%
                      select(flux.year, fence, plot, tk.class)) %>%
   arrange(fence, plot, flux.year) %>%
-  as.data.table()
+  group_by(fence, plot) %>%
+  as.data.table() %>%
+  mutate(tk.class = ceiling(na.approx(tk.class)),
+         tk.class = factor(case_when(tk.class == 2 ~ 'TK Center',
+                                     tk.class == 1 ~ 'TK Edge',
+                                     tk.class == 0 ~ 'Non-TK'),
+                           levels = c('Initial', 'Non-TK', 'TK Edge', 'TK Center')),
+         year.factor = factor(flux.year)) %>%
+  ungroup()
+
+
+#### This isn't plotting how I want right now!!!
+# plot the tk classifications through time
+ggplot(filter(plots.tk.class, flux.year >= 2017), 
+       aes(x = tk.class, y = flux.year)) + 
+  geom_line() + 
+  facet_grid(fence~plot)
 
 # PLots 1-5 and 1-6 were edge, center, edge in 2017, 2018, and 2019, respectively
 # Will call them edge for all three years
