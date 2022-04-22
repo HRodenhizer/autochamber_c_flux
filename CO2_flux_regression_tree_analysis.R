@@ -18,6 +18,9 @@ library(sf)
 library(zoo)
 library(thermokarstdetection)
 library(ggrepel)
+library(ggsn)
+library(ggnewscale)
+library(gridExtra)
 library(tidyverse)
 #############################################################################################################################
 
@@ -3260,17 +3263,16 @@ tk.2017.2019 <- brick(stack(raster('/home/heidi/Documents/School/NAU/Schuur Lab/
                             raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/thermokarst_project/output/karst_combined_1_raster_final_3.tif')))
 elev.2021 <- raster('/home/heidi/Documents/School/NAU/Schuur Lab/Remote Sensing/NEON/DTM_All/NEON_DTM_2021.tif')
 plots <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/plot_coordinates_from_2017.shp')
+fences <- st_read('/home/heidi/Documents/School/NAU/Schuur Lab/GPS/All_Points/Site_Summary_Shapefiles/Fences.shp')
 
-cip.bnd <- st_transform(cip.bnd, st_crs(tk.edges))
+cip.bnd <- st_transform(cip.bnd, st_crs(tk.2017.2019))
 cip.bnd.buffer <- st_buffer(cip.bnd, dist = 40)
 plots <- plots %>%
   filter(!is.na(as.numeric(plot))) %>%
   mutate(plot = as.numeric(plot)) %>%
-  st_transform(st_crs(tk.edges))
+  st_transform(st_crs(tk.2017.2019))
 
-# crop thermokarst edges and elev.2021 to cipehr
-tk.edges.cip <- crop(tk.edges, cip.bnd)
-plot(tk.edges.cip[[1]])
+# crop elev.2021 to cipehr
 elev.2021.cip <- crop(elev.2021, cip.bnd.buffer)
 plot(elev.2021.cip)
 
@@ -3351,33 +3353,14 @@ for (i in 1:nlayers(tk.edges.cip.2)) {
 }
 tk.edges.cip.2[tk.edges.cip.2 == 1] <- 2
 tk.edges.cip.2[is.na(tk.edges.cip.2)] <- 0
-plot(tk.edges.cip.1)
-plot(tk.edges.cip.2)
 
 # add the edges to the tk classification
-tk.edges.cip <- tk.cip + tk.edges.cip.1 + tk.edges.cip.2
-tk.edges.cip[tk.edges.cip == 1] <- 3
-tk.edges.cip[tk.edges.cip == 2] <- 1
+tk.edges.cip <- tk.cip + tk.edges.cip.1 + tk.edges.cip.2 + 1
+tk.edges.cip[tk.edges.cip == 2] <- 4
 tk.edges.cip[tk.edges.cip == 3] <- 2
+tk.edges.cip[tk.edges.cip == 4] <- 3
 names(tk.edges.cip) <- paste0('tk_edges_', c(2017, 2018, 2019, 2021))
 plot(tk.edges.cip)
-
-# take a look at the classification
-ggplot(tk.edges.cip %>%
-         as.data.frame(xy = TRUE),
-       aes(x = x, y = y, color = tk_edges_2017, fill = tk_edges_2017)) +
-  geom_tile() +
-  geom_sf(data = plots, inherit.aes = FALSE) +
-  scale_fill_viridis() +
-  scale_color_viridis()
-
-ggplot(tk.edges.cip %>%
-         as.data.frame(xy = TRUE),
-       aes(x = x, y = y, color = tk_edges_2021, fill = tk_edges_2021)) +
-  geom_tile() +
-  geom_sf(data = plots, inherit.aes = FALSE) +
-  scale_fill_viridis() +
-  scale_color_viridis()
 
 plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE) %>%
   as.data.frame() %>%
@@ -3402,34 +3385,191 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
                      select(flux.year, fence, plot, tk.class)) %>%
   arrange(fence, plot, flux.year) %>%
   group_by(fence, plot) %>%
-  as.data.table() %>%
-  mutate(tk.class = ceiling(na.approx(tk.class)),
-         tk.class = factor(case_when(tk.class == 2 ~ 'TK Center',
-                                     tk.class == 1 ~ 'TK Edge',
-                                     tk.class == 0 ~ 'Non-TK'),
-                           levels = c('Initial', 'Non-TK', 'TK Edge', 'TK Center')),
-         year.factor = factor(flux.year)) %>%
-  ungroup()
+  mutate(tk.class = round(na.approx(tk.class)),
+         tk.class.factor = factor(case_when(tk.class == 3 ~ 'TK Center',
+                                            tk.class == 2 ~ 'TK Edge',
+                                            tk.class == 1 ~ 'Non-TK',
+                                            tk.class == 0 ~ 'Initial'),
+                                  levels = c('TK Center', 'TK Edge', 'Non-TK', 'Initial')),
+         year.factor = factor(flux.year),
+         treatment = factor(case_when(plot %in% c(2, 4) ~ 'Control',
+                               plot %in% c(1, 3) ~ 'Air Warming',
+                               plot %in% c(6, 8) ~ 'Soil Warming',
+                               plot %in% c(5, 7) ~ 'Air + Soil Warming'),
+                            levels = c('Control', 'Air Warming',
+                                       'Soil Warming', 'Air + Soil Warming'))) %>%
+  ungroup() %>%
+  full_join(plots %>%
+              select(fence, plot), 
+            by = c('fence', 'plot')) %>%
+  st_as_sf()
 
+# take a look at the classification
+# prep raster data for plotting in ggplot
+tk.edges.cip.df <- tk.edges.cip %>%
+  as.data.frame(xy = TRUE) %>%
+  pivot_longer(tk_edges_2017:tk_edges_2021,
+               names_to = 'layer',
+               values_to = 'tk_edges') %>%
+  mutate(flux.year = as.numeric(str_sub(layer, start = -4, end = -1)),
+         tk_edges = factor(case_when(tk_edges == 0 ~ 'Non-TK',
+                                     tk_edges == 1 ~ 'TK Edge',
+                                     tk_edges == 2 ~ 'TK Center'),
+                                levels = c('Non-TK',
+                                           'TK Edge',
+                                           'TK Center')))
+# clean up
+rm(tk.2017.2019, tk.2021, tk.2021.fill, elev.2021, elev.2021.cip, 
+   tk.edges.cip.1, tk.edges.cip.2, cip.bnd.buffer)
 
-#### This isn't plotting how I want right now!!!
+# create df for annotation
+grayscale.values <- c('gray90', 'gray65', 'gray40')
+a <- data.frame(x = rep(tk.edges.cip@extent@xmin, 2),
+                y = rep(tk.edges.cip@extent@ymax + 70, 2),
+                flux.year = c(2017, 2021),
+                label = c('A', NA))
+
+tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
+       aes(x = x, y = y)) +
+  geom_tile(aes(color = tk_edges, fill = tk_edges)) +
+  geom_sf(data = filter(plots.tk.class, flux.year %in% c(2017, 2021)), 
+          aes(shape = treatment),
+          size = 1,
+          inherit.aes = FALSE) +
+  geom_sf(data = fences, 
+          inherit.aes = FALSE) +
+  geom_text(data = a, aes(x = x, y = y, label = label), inherit.aes = FALSE) +
+  scalebar(location = "bottomleft", 
+           anchor = c('x' = tk.edges.cip@extent@xmin + 5, 'y' = tk.edges.cip@extent@ymin + 10), 
+           dist = 25, dist_unit = 'm', transform = FALSE,
+           st.size = 3, border.size = 0.5,
+           st.dist = 0.03,
+           x.min = tk.edges.cip@extent@xmin,
+           x.max = tk.edges.cip@extent@xmax,
+           y.min = tk.edges.cip@extent@ymin,
+           y.max = tk.edges.cip@extent@ymax) +
+  # scale_fill_viridis(discrete = TRUE,
+  #                    direction = -1,
+  #                    begin = 0.2) +
+  # scale_color_viridis(discrete = TRUE,
+  #                     direction = -1,
+  #                     begin = 0.2) +
+  scale_color_manual(breaks = c('Non-TK', 'TK Edge', 'TK Center'),
+                     values = grayscale.values,
+                     guide = guide_legend(order = 1)) +
+  scale_fill_manual(breaks = c('Non-TK', 'TK Edge', 'TK Center'),
+                    values = grayscale.values,
+                    guide = guide_legend(order = 1)) +
+  scale_shape_manual(values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 2)) +
+  coord_sf(expand = FALSE,
+           clip = 'off',
+           xlim = c(tk.edges.cip@extent@xmin, tk.edges.cip@extent@xmax),
+           ylim = c(tk.edges.cip@extent@ymin, tk.edges.cip@extent@ymax)) +
+  facet_grid(. ~ flux.year) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank())
+tk.class.map
+
+# PLots 6_1 and 6_4 were non, edge, non in 2017, 2018, and 2019, respectively
+# Will call them non for all three years
+# Plot 5_3 started as TK Edge in 2017, then was non-tk for 2018 & 2019
+# will call it non-tk for first 3 years years
+plots.tk.class <- plots.tk.class %>%
+  mutate(tk.class = case_when(!(fence == 6 & plot %in% c(1, 4) & flux.year == 2018) & !(fence == 5 & plot == 3 & flux.year == 2017) ~ tk.class,
+                                     fence == 6 & plot %in% c(1, 4) & flux.year == 2018 ~ 0,
+                                     fence == 5 & plot == 3 & flux.year == 2017 ~ 0),
+         tk.class.factor = case_when(!(fence == 6 & plot %in% c(1, 4) & flux.year == 2018) & !(fence == 5 & plot == 3 & flux.year == 2017) ~ tk.class.factor,
+                              fence == 6 & plot %in% c(1, 4) & flux.year == 2018 ~ factor('Non-TK'),
+                              fence == 5 & plot == 3 & flux.year == 2017 ~ factor('Non-TK')))
+
 # plot the tk classifications through time
 ggplot(filter(plots.tk.class, flux.year >= 2017), 
-       aes(x = tk.class, y = flux.year)) + 
+       aes(x = flux.year, y = tk.class)) + 
   geom_line() + 
+  scale_y_reverse(breaks = c(0, 1, 2),
+                  labels = c('Non-TK', 'TK Edge', 'TK Center')) +
   facet_grid(fence~plot)
 
-# PLots 1-5 and 1-6 were edge, center, edge in 2017, 2018, and 2019, respectively
-# Will call them edge for all three years
-plots.tk.class[fence == 1 & plot %in% c(5, 6) & flux.year == 2018,
-               tk.class := factor('TK Edge')]
-# plot 4-7 was center, edge, center in 2017, 2018, and 2019 respectively
-# Will call it center
-plots.tk.class[fence == 4 & plot == 7 & flux.year == 2018,
-               tk.class := factor('TK Center')]
-# plots 4-6 and 5-6 got classified as edges, but are really centers
-plots.tk.class[fence %in% c(4, 5) & plot == 6,
-               tk.class := factor('TK Center')]
+# histogram of number of plots in each category through time
+b <- data.frame(x = 2014.9,
+                y = 58,
+                label = c('B'))
+
+tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
+       aes(x = flux.year, fill = tk.class.factor)) +
+  geom_bar(width = 0.95) +
+  geom_text(data = b, aes(x = x, y = y, label = label),
+            inherit.aes = FALSE) +
+  scale_fill_manual(breaks = c('Non-TK', 'TK Edge', 'TK Center'),
+                    values = grayscale.values) +
+  scale_y_continuous(name = 'Count',
+                     breaks = c(0, 12, 24, 36, 48)) +
+  coord_cartesian(clip = 'off',
+                  expand = FALSE,
+                  xlim = c(2016.5, 2021.5),
+                  ylim = c(0, 48)) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  facet_grid(. ~ 'Total')
+tk.class.histogram
+
+c <- data.frame(x = rep(2015.5, 4),
+                y = rep(14.5, 4),
+                treatment = factor(c('Control', 'Air Warming', 
+                                     'Soil Warming', 'Air + Soil Warming'),
+                                   levels = c('Control', 'Air Warming', 
+                                              'Soil Warming', 'Air + Soil Warming')),
+                label = c('C', NA, NA, NA))
+
+tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
+       aes(x = flux.year, fill = tk.class.factor)) +
+  geom_bar(width = 0.95) +
+  geom_text(data = c, aes(x = x, y = y, label = label),
+            inherit.aes = FALSE) +
+  scale_fill_manual(breaks = c('Non-TK', 'TK Edge', 'TK Center'),
+                    values = grayscale.values) +
+  scale_y_continuous(name = 'Count',
+                     breaks = c(0, 3, 6, 9, 12)) +
+  coord_cartesian(clip = 'off',
+                  expand = FALSE,
+                  xlim = c(2016.5, 2021.5),
+                  ylim = c(0, 12)) +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  facet_grid(. ~ treatment)
+tk.class.histogram.treat
+
+## TK Class Figure
+tk.class.figure <- grid.arrange(tk.class.map +
+                                  theme(legend.position = 'top',
+                                        legend.box = 'vertical',
+                                        legend.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
+                                        legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt'))),
+                                tk.class.histogram +
+                                  theme(legend.position = 'none'),
+                                tk.class.histogram.treat +
+                                  theme(legend.position = 'none',
+                                        axis.title.y = element_blank()),
+                                layout_matrix = matrix(c(1,1,2, 1,1,3, 
+                                                         1,1,3, 1,1,3), 
+                                                       ncol = 4))
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.jpg',
+#        tk.class.figure,
+#        height = 6.5,
+#        width = 6.5) 
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.pdf',
+#        tk.class.figure,
+#        height = 6.5,
+#        width = 6.5)
+
 
 # flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
 # flux.annual.filled.plotting[, treatment := factor(treatment,
@@ -3438,28 +3578,47 @@ plots.tk.class[fence %in% c(4, 5) & plot == 6,
 #                                                              'Soil Warming',
 #                                                              'Air + Soil Warming'))]
 # tk class in 2010 and 2017-2019
-flux.tk <- merge(flux.annual.filled.plotting[flux.year == 2010 | 
-                                               flux.year >= 2017 & flux.year <= 2019], 
-                 plots.tk.class,
-                 by = c('flux.year', 'fence', 'plot'))
+flux.tk <- merge(plots.tk.class,
+                 flux.annual.filled.plotting[flux.year == 2010 | 
+                                               flux.year >= 2017], 
+                 by = c('flux.year', 'fence', 'plot', 'treatment'))
 # tk class in 2019 applied to all years for time series plot
-flux.tk.time.series <- merge(plots.tk.class[flux.year == 2019][, .(fence, plot, tk.class)],
+flux.tk.time.series <- merge(plots.tk.class %>%
+                               filter(flux.year == 2021) %>%
+                               select(fence, plot, tk.class.factor),
                              flux.annual.filled.plotting,
-                             by = c('fence', 'plot'))
-flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, treatment, tk.class, filled.gbm, biomass.annual, subsidence.annual, nee.sum.gs, gpp.sum.gs, reco.sum.gs)],
-                            id.vars = c('flux.year', 'fence', 'plot', 'treatment', 'tk.class', 'filled.gbm', 'biomass.annual', 'subsidence.annual'),
+                             by = c('fence', 'plot')) %>%
+  st_drop_geometry() %>%
+  as.data.table()
+flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, 
+                                                    treatment, tk.class.factor, 
+                                                    filled.gbm, alt.annual,
+                                                    subsidence.annual, biomass.annual, 
+                                                    wtd.mean, wtd.sd,
+                                                    vwc.mean, vwc.sd,
+                                                    gwc.mean, gwc.sd,
+                                                    nee.sum.gs, gpp.sum.gs, reco.sum.gs)],
+                            id.vars = c('flux.year', 'fence', 'plot', 
+                                        'treatment', 'tk.class.factor', 
+                                        'filled.gbm', 'alt.annual', 
+                                        'subsidence.annual', 'biomass.annual', 
+                                        'wtd.mean', 'wtd.sd',
+                                        'vwc.mean', 'vwc.sd',
+                                        'gwc.mean', 'gwc.sd'),
                             measure.vars = c('nee.sum.gs', 'reco.sum.gs', 'gpp.sum.gs'),
                             variable.name = 'variable',
                             value.name = 'flux.sum.gs')
 flux.tk.time.series[,
-                    variable := factor(fifelse(str_detect(variable, 'nee'),
+                    ':=' (variable = factor(fifelse(str_detect(variable, 'nee'),
                                                'NEE',
                                                fifelse(str_detect(variable, 'reco'),
                                                        'Reco',
                                                        'GPP')),
-                                       levels = c('GPP', 'NEE', 'Reco'))]
+                                       levels = c('GPP', 'NEE', 'Reco')),
+                          tk.class.factor = factor(tk.class.factor,
+                                                   levels = c('Initial', 'Non-TK', 'TK Edge', 'TK Center')))]
 
-# plot of timeseries with 2019 tk class
+# plot of timeseries with 2021 tk class
 flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
        aes(x = flux.year, y = flux.sum.gs, color = biomass.annual)) +
   geom_hline(yintercept = 0) +
@@ -3474,7 +3633,7 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
                      guide = guide_legend(order = 2)) +
   scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
-  facet_grid(variable ~ tk.class,
+  facet_grid(variable ~ tk.class.factor,
              scales = 'free_y') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3510,11 +3669,19 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             reco.se.annual = sd(reco.sum.annual, na.rm = TRUE)/sqrt(.N),
                             wtd.mean = mean(wtd.mean),
                             wtd.se = sd(wtd.mean)/sqrt(.N),
+                            vwc.mean = mean(vwc.mean),
+                            vwc.se = sd(vwc.mean)/sqrt(.N),
+                            gwc.mean = mean(gwc.mean),
+                            gwc.se = sd(gwc.mean)/sqrt(.N),
                             alt.mean = mean(alt.annual),
                             alt.se = sd(alt.annual)/sqrt(.N),
+                            subsidence.mean = mean(subsidence.annual),
+                            subsidence.se = sd(subsidence.annual)/sqrt(.N),
                             tp.mean = mean(tp.annual),
-                            tp.se = sd(tp.annual)/sqrt(.N)),
-                        by = c('tk.class')]
+                            tp.se = sd(tp.annual)/sqrt(.N),
+                            biomass.mean = mean(biomass.annual),
+                            biomass.se = sd(biomass.annual)/sqrt(.N)),
+                        by = c('tk.class.factor')]
 
 flux.tk[, .N, by = c('tk.class')]
 histogram(flux.tk[tk.class == 'Initial']$nee.sum.gs)
