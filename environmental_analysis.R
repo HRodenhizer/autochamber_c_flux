@@ -384,11 +384,37 @@ wtd.alt.plot <- ggplot(wtd.alt.data.2021,
   theme_bw() +
   theme(legend.title = element_blank())
 wtd.alt.plot
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.jpg',
+wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
+                       aes(x = alt, y = wtd.mean*-1, 
+                           color = treatment,
+                           shape = flux.year)) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_vline(xintercept = alt.start, linetype = 'dashed') +
+  geom_segment(data = arrows,
+               aes(x = xmin, y = ymin, xend = xmax, yend = ymax),
+               inherit.aes = FALSE,
+               arrow = arrow(length = unit(0.25, 'cm'))) +
+  geom_text(data = labels,
+            aes(x = x, y = y, label = labels, angle = angles),
+            inherit.aes = FALSE,
+            hjust = 0.5,
+            vjust = -0.5) +
+  geom_point(size = 2) +
+  scale_x_continuous(name = 'Active Layer Thickness (cm)') +
+  scale_y_continuous(name = 'Mean Water Table Depth (cm)') +
+  scale_color_manual(name = 'Treatment',
+                     values = c('gray65', 'black'),
+                     labels = c('Control', 'Soil\nWarming')) +
+  scale_shape_manual(name = 'Year',
+                     values = c(1, 16)) +
+  theme_bw() +
+  theme(legend.title = element_blank())
+wtd.alt.plot.bw
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory_bw.jpg',
 #        wtd.alt.plot,
 #        height =3.5,
 #        width = 4)
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory_bw.pdf',
 #        wtd.alt.plot,
 #        height = 3.5,
 #        width = 4)
@@ -819,6 +845,13 @@ ggplot(subset(flux.annual, flux.year == 2020), aes(x = subsidence.annual, y = mt
 # and differences in measurements or precipitation across years can be included
 # in the residuals
 
+# read in thermokarst class data
+plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/thermokarst_classes.csv') %>%
+  filter(flux.year == 2021) %>%
+  select(fence, plot, tk.class.factor) %>%
+  mutate(tk.class.factor = factor(tk.class.factor,
+                                  levels = c('Non-TK', 'TK Margin', 'TK Center')))
+
 sub.moisture <- flux.annual %>%
   mutate(treatment = factor(treatment,
                             levels = c('Control',
@@ -834,6 +867,7 @@ sub.moisture <- flux.annual %>%
               select(flux.year, precip, precip.z) %>%
               mutate(flux.year = factor(flux.year)),
             by = 'flux.year') %>%
+  full_join(plots.tk.class, by = c('fence', 'plot')) %>%
   mutate(precip = precip/10, # convert to cm
          precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
                                   precip.z > -0.75 ~ 'average',
