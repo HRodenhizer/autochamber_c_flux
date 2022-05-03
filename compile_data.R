@@ -1539,7 +1539,7 @@ flux.daily <- flux.final[,
                            biomass.annual = first(biomass),
                            ndvi = first(ndvi),
                            ndvi.doy = yday(first(ndvi.date)),
-                           winter.snow.depth = max(snow.depth, na.rm = TRUE)),
+                           winter.snow.depth = last(snow.depth)),
                          by = c('date', 'year', 'season', 'month', 'week',
                                 'doy', 'block', 'fence', 'plot', 'plot.id',
                                 'treatment')]
@@ -1816,7 +1816,7 @@ flux.weekly <- flux.daily[,
                             biomass.annual = first(biomass.annual),
                             ndvi = max(ndvi),
                             ndvi.doy = first(ndvi.doy),
-                            winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
+                            winter.snow.depth = last(winter.snow.depth)),
                           by = c('flux.year', 'week', 'block', 'fence',
                                  'plot', 'plot.id', 'treatment')]
 # remove NaN, -Inf, and Inf introduced by calculations
@@ -1993,7 +1993,7 @@ flux.monthly <- flux.daily[,
                             biomass.annual = first(biomass.annual),
                             ndvi = max(ndvi),
                             ndvi.doy = first(ndvi.doy),
-                            winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
+                            winter.snow.depth = last(winter.snow.depth)),
                           by = c('flux.year', 'month', 'block', 'fence',
                                  'plot', 'plot.id', 'treatment')]
 # remove NaN, -Inf, and Inf introduced by calculations
@@ -2151,7 +2151,7 @@ flux.annual <- flux.weekly[season == 1,
                             biomass.annual = last(biomass.annual),
                             ndvi = max(ndvi, na.rm = TRUE),
                             ndvi.doy = ndvi.doy[which(first(ndvi == max(ndvi, na.rm = TRUE)))],
-                            winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
+                            winter.snow.depth = last(winter.snow.depth)),
                           by = c('flux.year', 'season', 'block', 'fence',
                                  'plot', 'plot.id', 'treatment')]
 # remove NaN, -Inf, and Inf introduced by calculations
@@ -2274,7 +2274,7 @@ flux.annual.winter <- flux.weekly[,
                              biomass.annual = last(biomass.annual),
                              ndvi = max(ndvi, na.rm = TRUE),
                              ndvi.doy = ndvi.doy[which(first(ndvi == max(ndvi, na.rm = TRUE)))],
-                             winter.snow.depth = max(winter.snow.depth, na.rm = TRUE)),
+                             winter.snow.depth = last(winter.snow.depth)),
                            by = c('flux.year', 'season', 'block', 'fence',
                                   'plot', 'plot.id', 'treatment')]
 # remove NaN, -Inf, and Inf introduced by calculations
