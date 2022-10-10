@@ -406,16 +406,19 @@ wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
                      values = c('gray65', 'black'),
                      labels = c('Control', 'Soil\nWarming')) +
   scale_shape_manual(name = 'Year',
+                     labels = c('0', '12'),
                      values = c(1, 16)) +
   theme_bw() +
-  theme(legend.title = element_blank())
+  guides(color = guide_legend(order = 1),
+         shape = guide_legend(order = 2))
+  # theme(legend.title = element_blank())
 wtd.alt.plot.bw
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory_bw.jpg',
-#        wtd.alt.plot,
+#        wtd.alt.plot.bw,
 #        height =3.5,
 #        width = 4)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory_bw.pdf',
-#        wtd.alt.plot,
+#        wtd.alt.plot.bw,
 #        height = 3.5,
 #        width = 4)
 
@@ -519,7 +522,9 @@ weather.annual <- weather.annual %>%
   mutate(tair.mean.z = (tair.mean - mean(tair.mean))/sd(tair.mean),
          tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
          tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
-         precip.z = (precip - mean(precip))/sd(precip))
+         precip.z = (precip - mean(precip))/sd(precip),
+         year.label = paste0(flux.year - 2009, ' (', flux.year, ')'))
+
 annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
              size = 0.1) +
@@ -538,14 +543,15 @@ annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip)) +
              size = 0.1,
              linetype = 'dashed') +
   geom_point() +
-  geom_text(aes(label = flux.year), 
+  geom_text(aes(label = year.label), 
             color = 'black', 
-            size = 3,
+            size = 2.5,
             position = position_nudge(x = 0, y = 12)) +
   scale_linetype_manual(name = NULL,
                         breaks = c('Mean', '1 SD'),
                         values = c('solid', 'dashed')) +
-  scale_x_continuous(name = expression('Mean Temp' ~ (degree*C))) +
+  scale_x_continuous(name = expression('Mean Temp' ~ (degree*C)),
+                     limits = c(-4.33, 1.33)) +
   scale_y_continuous(name = expression('Precip (mm)')) +
   theme_bw()
 annual.temp.precip
@@ -867,7 +873,9 @@ sub.moisture <- flux.annual %>%
               select(flux.year, precip, precip.z) %>%
               mutate(flux.year = factor(flux.year)),
             by = 'flux.year') %>%
-  full_join(plots.tk.class, by = c('fence', 'plot')) %>%
+  full_join(plots.tk.class %>%
+              mutate(flux.year = factor(flux.year)), 
+            by = c('fence', 'plot', 'flux.year', 'treatment')) %>%
   mutate(precip = precip/10, # convert to cm
          precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
                                   precip.z > -0.75 ~ 'average',
@@ -880,6 +888,7 @@ sub.moisture <- flux.annual %>%
                             levels = c('<15 cm Subsidence', '15-30 cm Subsidence', 
                                        '30-45 cm Subsidence', '>=45 cm Subsidence')),
          time = factor(as.numeric(flux.year)),
+         year.label = factor(as.numeric(as.character(flux.year)) - 2009),
          fence = as.factor(fence),
          block.f = as.factor(case_when(fence %in% c(1, 2) ~ 1,
                                        fence %in% c(3, 4) ~ 2,
@@ -985,7 +994,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   geom_line(aes(x = subsidence, y = wtd.fit), color = 'black') +
   geom_line(data = wtd.model.fit, aes(x = subsidence, y = fit), color = 'red') +
   geom_text(aes(x = 100, y = -35,
-                label = wtd.r2.label),
+                label = wtd.r2.label1),
             parse = TRUE,
             hjust = 'inward') +
   scale_color_viridis(discrete = TRUE,
@@ -1013,7 +1022,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
 wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.mean)) +
   geom_hline(yintercept = 0, size = 0.1) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_point(aes(color = year.label, shape = treatment)) +
   geom_ribbon(data = wtd.model.fit, aes(x = subsidence, ymin = lwr, ymax = upr), 
               inherit.aes = FALSE,
               fill = 'gray', 
@@ -1031,13 +1040,16 @@ wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 wtd.plot
 
 # there is high variability in wtd when magnitude of subsidence is similar to 
@@ -1141,7 +1153,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
 
 wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
        aes(x = subsidence, y = wtd.sd)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_point(aes(color = year.label, shape = treatment)) +
   geom_ribbon(data = wtd.sd.model.fit, aes(x = subsidence, ymin = I(exp(lwr)), ymax = I(exp(upr))), 
               inherit.aes = FALSE,
               fill = 'gray', 
@@ -1157,13 +1169,16 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 wtd.sd.plot
 
 # there is high variability in wtd when magnitude of subsidence is similar to 
@@ -1307,7 +1322,7 @@ ggplot(sub.moisture,
   theme(legend.title = element_blank())
 
 vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_point(aes(color = year.label, shape = treatment)) +
   geom_ribbon(data = vwc.model.fit, aes(x = subsidence, ymin = lwr, ymax = upr), 
               inherit.aes = FALSE,
               fill = 'gray', 
@@ -1323,13 +1338,16 @@ vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'VWC (%)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 vwc.plot
 
 # model1 <- lmer(vwc.sd ~ 1 +
@@ -1432,7 +1450,7 @@ ggplot(sub.moisture,
 
 vwc.sd.plot <- ggplot(sub.moisture,
        aes(x = subsidence, y = vwc.sd)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
+  geom_point(aes(color = year.label, shape = treatment)) +
   geom_ribbon(data = vwc.sd.model.fit, aes(x = subsidence, ymin = lwr, ymax = upr), 
               inherit.aes = FALSE,
               fill = 'gray', 
@@ -1448,13 +1466,16 @@ vwc.sd.plot <- ggplot(sub.moisture,
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'SD VWC (%)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 vwc.sd.plot
 
 ### GWC
@@ -1503,14 +1524,17 @@ vwc.sd.plot
 # hist(log(sub.moisture$I(log(gwc.mean))))
 
 gwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = gwc.mean)) +
-  geom_point(aes(color = flux.year, shape = treatment)) +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  geom_point(aes(color = year.label, shape = treatment)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'GWC (%)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 gwc.plot
 
 # model1 <- lmer(gwc.sd ~ 1 +
@@ -1558,15 +1582,18 @@ gwc.plot
 # hist(sub.moisture$gwc.sd)
 
 gwc.sd.plot <- ggplot(sub.moisture,
-       aes(x = subsidence, y = gwc.sd, color = flux.year, shape = treatment)) +
+       aes(x = subsidence, y = gwc.sd, color = year.label, shape = treatment)) +
   geom_point() +
-  scale_color_viridis(discrete = TRUE,
-                      direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
+  scale_color_viridis(name = 'Year',
+                      discrete = TRUE,
+                      direction = -1,
+                      guide = guide_legend(order = 2)) +
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = 'SD GWC (%)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 gwc.sd.plot
 
 ### Combine into a single plot

@@ -34,7 +34,9 @@ flux.monthly[, treatment := factor(treatment,
                                               'Air + Soil Warming'))]
 flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv")
 flux.seasonal <- flux.seasonal[flux.year >= 2010]
-flux.seasonal[, ':=' (tp.annual = tp, alt.annual = alt)]
+flux.seasonal[, ':=' (tp.annual = tp, 
+                      alt.annual = alt,
+                      year.label = factor(as.numeric(as.character(flux.year)) - 2009))]
 flux.seasonal[, treatment := factor(treatment,
                                     levels = c('Control',
                                                'Air Warming',
@@ -77,17 +79,17 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
                              response == 'gpp.sum' ~ expression('GPP (gC m'^-2*')'),
                              response == 'reco.sum' ~ expression('R'['eco']~'(gC m'^-2*')'))
   # print(paste('Running color.name <- xxx'))
-  color.name <- case_when(color.var == 'flux.year' ~ 'Year',
+  color.name <- case_when(color.var == 'year.label' ~ 'Year',
                           color.var == 'month' ~ 'Month')
   # print(paste('Running color.limits <- xxx'))
-  color.breaks <- if (color.var == 'flux.year') {
-    seq(2010, 2021)
+  color.breaks <- if (color.var == 'year.label') {
+    seq(1, 12)
   } else if (color.var == 'month') {
     seq(5, 9)
   }
   # print(paste('Running color.breaks <- xxx'))
-  color.labels <- if (color.var == 'flux.year') {
-    seq(2010, 2021)
+  color.labels <- if (color.var == 'year.label') {
+    seq(1, 12)
   } else if (color.var == 'month') {
     month.name[seq(5, 9)]
   }
@@ -105,18 +107,19 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
                         discrete = TRUE,
                         breaks = color.breaks,
                         labels = color.labels) +
-    scale_shape_manual(values = shape.values,
+    scale_shape_manual(name = 'Treatment',
+                       values = shape.values,
                        guide = guide_legend(order = 2)) +
     new_scale('color') +
     geom_line(data = df2, 
               aes(y = yhat, color = 'Marginal Effect')) +
-    scale_color_manual(breaks = c('Marginal Effect'),
+    scale_color_manual(name = '',
+                       breaks = c('Marginal Effect'),
                        values = c('black'),
                        guide = guide_legend(order = 1)) +
     scale_x_continuous(name = predictor.name) +
     scale_y_continuous(name = response.name) +
-    theme_bw() +
-    theme(legend.title = element_blank())
+    theme_bw()
   
   return(plot)
 }
@@ -304,17 +307,7 @@ nee.seasonal.pd.biomass <- nee.seasonal.gbm %>%
                grid.resolution = 100)
 nee.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.biomass,
                                 predictor = 'biomass.annual', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = biomass.annual, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = nee.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = nee.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.1
 
 nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
@@ -322,17 +315,7 @@ nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
                grid.resolution = 100)
 nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
                                 predictor = 'vwc.mean', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = vwc.mean, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = vwc.mean, y = nee.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = vwc.mean, y = nee.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.2
 
 nee.seasonal.pd.wtd.sd <- nee.seasonal.gbm %>%
@@ -340,17 +323,7 @@ nee.seasonal.pd.wtd.sd <- nee.seasonal.gbm %>%
                grid.resolution = 100)
 nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.wtd.sd,
                                 predictor = 'wtd.sd', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = gwc.sd, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.sd, y = nee.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.sd, y = nee.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.3
 
 nee.seasonal.pd.gwc.mean <- nee.seasonal.gbm %>%
@@ -358,17 +331,7 @@ nee.seasonal.pd.gwc.mean <- nee.seasonal.gbm %>%
                grid.resolution = 100)
 nee.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.mean,
                                 predictor = 'gwc.mean', response = 'nee.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = gwc.mean, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.mean, y = nee.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.mean, y = nee.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.4
 
 nee.seasonal.pd.plot <- ggarrange(nee.seasonal.plot.1,
@@ -672,17 +635,7 @@ reco.seasonal.pd.biomass <- reco.seasonal.gbm %>%
                grid.resolution = 100)
 reco.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.biomass,
                                 predictor = 'biomass.annual', response = 'reco.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = biomass.annual, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7)# +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.1
 
 reco.seasonal.pd.alt <- reco.seasonal.gbm %>%
@@ -690,17 +643,7 @@ reco.seasonal.pd.alt <- reco.seasonal.gbm %>%
                grid.resolution = 100)
 reco.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.alt,
                                 predictor = 'alt.annual', response = 'reco.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = alt.annual, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = alt.annual, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = alt.annual, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.2
 
 reco.seasonal.pd.gwc.sd <- reco.seasonal.gbm %>%
@@ -708,17 +651,7 @@ reco.seasonal.pd.gwc.sd <- reco.seasonal.gbm %>%
                grid.resolution = 100)
 reco.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.gwc.sd,
                                 predictor = 'gwc.sd', response = 'reco.sum',
-                                color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = tair.sd, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = tair.sd, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = tair.sd, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.3
 
 reco.seasonal.pd.subsidence <- reco.seasonal.gbm %>%
@@ -726,20 +659,10 @@ reco.seasonal.pd.subsidence <- reco.seasonal.gbm %>%
                grid.resolution = 100)
 reco.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.subsidence,
                                 predictor = 'subsidence.annual', response = 'reco.sum',
-                                color.var = 'flux.year', shape.var = 'treatment') +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = subsidence.annual, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = subsidence.annual, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+                                color.var = 'year.label', shape.var = 'treatment') +
   scale_x_reverse(name = expression('Subsidence (cm)'),
                   breaks = seq(-100, 0, by = 25),
-                  labels = seq(-100, 0, by = 25)*-1)# +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = subsidence.annual, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                  labels = seq(-100, 0, by = 25)*-1)
 reco.seasonal.plot.4
 
 reco.seasonal.pd.plot <- ggarrange(reco.seasonal.plot.1,
@@ -1043,17 +966,7 @@ gpp.seasonal.pd.biomass <- gpp.seasonal.gbm %>%
                grid.resolution = 100)
 gpp.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.biomass,
                                  predictor = 'biomass.annual', response = 'gpp.sum',
-                                 color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = biomass.annual, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = biomass.annual, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                 color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.1
 
 gpp.seasonal.pd.gwc.sd <- gpp.seasonal.gbm %>%
@@ -1061,17 +974,7 @@ gpp.seasonal.pd.gwc.sd <- gpp.seasonal.gbm %>%
                grid.resolution = 100)
 gpp.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.gwc.sd,
                                  predictor = 'gwc.sd', response = 'gpp.sum',
-                                 color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = alt.annual, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = alt.annual, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = alt.annual, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                 color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.2
 
 gpp.seasonal.pd.alt <- gpp.seasonal.gbm %>%
@@ -1079,17 +982,7 @@ gpp.seasonal.pd.alt <- gpp.seasonal.gbm %>%
                grid.resolution = 100)
 gpp.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.alt,
                                  predictor = 'alt.annual', response = 'gpp.sum',
-                                 color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = gwc.sd, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.sd, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = gwc.sd, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                 color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.3
 
 gpp.seasonal.pd.vwc.sd <- gpp.seasonal.gbm %>%
@@ -1097,17 +990,7 @@ gpp.seasonal.pd.vwc.sd <- gpp.seasonal.gbm %>%
                grid.resolution = 100)
 gpp.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.vwc.sd,
                                  predictor = 'vwc.sd', response = 'gpp.sum',
-                                 color.var = 'flux.year', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.seasonal,
-  #            aes(x = tair.sd, y = gpp.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = tair.sd, y = gpp.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.seasonal,
-  #           aes(x = tair.sd, y = gpp.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+                                 color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.4
 
 gpp.seasonal.pd.plot <- ggarrange(gpp.seasonal.plot.1,
@@ -2678,6 +2561,9 @@ flux.annual.filled.plotting[,
                                    reco.sum.ngs = reco.sum.annual - reco.sum.gs,
                                    gpp.sum.ngs = gpp.sum.annual - gpp.sum.gs)]
 
+# write.csv(flux.seasonal.filled.winter,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal_filled_2019_winter.csv',
+#           row.names = FALSE)
 # write.csv(flux.annual.filled.plotting,
 #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv',
 #           row.names = FALSE)
@@ -2687,7 +2573,7 @@ flux.annual.filled.plotting[,
 flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
 
 ### Create a table with GS, NGS, and annual values
-flux.summary.winter <- copy(flux.seasonal.filled.winter)
+flux.summary.winter <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal_filled_2019_winter.csv')
 flux.summary.winter[, ':=' (nee.sum.winter = NULL,
                             reco.sum.winter = NULL,
                             gpp.sum.winter = NULL)]
@@ -2727,6 +2613,7 @@ flux.summary.winter <- flux.summary.winter[, .(Year = flux.year, Treatment = tre
 # write.csv(flux.summary.winter,
 #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/flux_summary.csv',
 #           row.names = FALSE)
+flux.summary.winter <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/flux_summary.csv')
 
 ### Plot
 ### growing season
@@ -3030,12 +2917,18 @@ flux.colors <- c('NEE' = '#00CCFF', 'GPP' = '#009933', 'Reco' = '#663300')
 
 grayscale.values <- c('gray90', 'gray65', 'gray40')
 # New facet label names for dose variable
+# var_labeller <- as_labeller(c(GPP = 'GPP', NEE = 'NEE', Reco = 'R[eco]',
+#                               `2010` = '2010', `2011` = '2011', `2012` = '2012',
+#                               `2013` = '2013', `2014` = '2014', `2015` = '2015',
+#                               `2016` = '2016', `2017` = '2017', `2018` = '2018',
+#                               `2019` = '2019', `2020` = '2020', `2021` = '2021'),
+#                            default = label_parsed)
 var_labeller <- as_labeller(c(GPP = 'GPP', NEE = 'NEE', Reco = 'R[eco]',
-                              `2010` = '2010', `2011` = '2011', `2012` = '2012',
-                              `2013` = '2013', `2014` = '2014', `2015` = '2015',
-                              `2016` = '2016', `2017` = '2017', `2018` = '2018',
-                              `2019` = '2019', `2020` = '2020', `2021` = '2021'),
-                           default = label_parsed)
+                              `2010` = '`Year 1`', `2011` = '`Year 2`', `2012` = '`Year 3`',
+                              `2013` = '`Year 4`', `2014` = '`Year 5`', `2015` = '`Year 6`',
+                              `2016` = '`Year 7`', `2017` = '`Year 8`', `2018` = '`Year 9`',
+                              `2019` = '`Year 10`', `2020` = '`Year 11`', `2021` = '`Year 12`'),
+                            default = label_parsed)
 
 flux.treat.plot.2019.filled <- ggplot(flux.annual.treat.diff,
        aes(x = treatment, y = flux.diff, fill = treatment)) +
@@ -3158,105 +3051,117 @@ flux.pc1.plot
 ### Investigate relationship between soil moisture variables and biomass #######
 biomass.hydrology.plot.1 <- ggplot(flux.seasonal, 
        aes(x = subsidence.annual*-1, biomass.annual,
-           color = flux.year)) +
+           color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'Subsidence (cm)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
+
 biomass.hydrology.plot.2 <- ggplot(flux.seasonal, 
        aes(x = wtd.mean*-1, biomass.annual, 
-           color = flux.year)) +
+           color = year.label)) +
   geom_vline(xintercept = 0, linetype = 'dashed') +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'WTD (cm)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
+
 biomass.hydrology.plot.3 <- ggplot(flux.seasonal, 
        aes(x = vwc.mean, biomass.annual, 
-           color = flux.year)) +
+           color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'VWC (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
+
 biomass.hydrology.plot.4 <- ggplot(flux.seasonal, 
        aes(x = gwc.mean, biomass.annual, 
-           color = flux.year)) +
+           color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'GWC (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 
 biomass.hydrology.plot.5 <- ggplot(flux.seasonal, 
                                    aes(x = wtd.sd, biomass.annual, 
-                                       color = flux.year)) +
+                                       color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'SD WTD (cm)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
+
 biomass.hydrology.plot.6 <- ggplot(flux.seasonal, 
                                    aes(x = vwc.sd, biomass.annual, 
-                                       color = flux.year)) +
+                                       color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'SD VWC (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
+
 biomass.hydrology.plot.7 <- ggplot(flux.seasonal, 
                                    aes(x = gwc.sd, biomass.annual, 
-                                       color = flux.year)) +
+                                       color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_x_continuous(name = 'SD GWC (%)',
                      breaks = seq(0.5, 1, by = 0.25)) +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
-  scale_shape_manual(values = c(1, 0, 16, 15),
+  scale_shape_manual(name = 'Treatment',
+                     values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
-  scale_color_viridis(breaks = seq(2010, 2020),
+  scale_color_viridis(name = 'Year',
                       direction = -1,
+                      discrete = TRUE,
                       guide = guide_legend(order = 2)) +
-  theme_bw() +
-  theme(legend.title = element_blank())
+  theme_bw()
 
 biomass.hydrology.plot <- ggarrange(biomass.hydrology.plot.4,
                                     biomass.hydrology.plot.7,
@@ -3457,9 +3362,14 @@ rm(tk.2017.2019, tk.2021, tk.2021.fill, elev.2021, elev.2021.cip,
 # create df for annotation
 grayscale.values <- c('gray90', 'gray65', 'gray40')
 a <- data.frame(x = rep(tk.edges.cip@extent@xmin, 2),
-                y = rep(tk.edges.cip@extent@ymax + 70, 2),
+                y = rep(tk.edges.cip@extent@ymax + 30, 2),
                 flux.year = c(2017, 2021),
                 label = c('A', NA))
+year_labeller <- as_labeller(c(`2010` = '`Year 1`', `2011` = '`Year 2`', `2012` = '`Year 3`',
+                               `2013` = '`Year 4`', `2014` = '`Year 5`', `2015` = '`Year 6`',
+                               `2016` = '`Year 7`', `2017` = '`Year 8`', `2018` = '`Year 9`',
+                               `2019` = '`Year 10`', `2020` = '`Year 11`', `2021` = '`Year 12`'),
+                            default = label_parsed)
 
 tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
        aes(x = x, y = y)) +
@@ -3501,12 +3411,14 @@ tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
            clip = 'off',
            xlim = c(tk.edges.cip@extent@xmin, tk.edges.cip@extent@xmax),
            ylim = c(tk.edges.cip@extent@ymin, tk.edges.cip@extent@ymax)) +
-  facet_grid(. ~ flux.year) +
+  facet_grid(. ~ flux.year,
+             labeller = year_labeller) +
   theme_bw() +
   theme(axis.title = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        legend.title = element_blank())
+        legend.title = element_blank(),
+        plot.margin =  margin(t = 0, r = 5.5, b = 5.5, l = 5.5, unit = 'pt'))
 tk.class.map
 
 tk.fill.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
@@ -3520,7 +3432,8 @@ tk.fill.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(201
                                theme(legend.title = element_blank(),
                                      legend.position = 'top',
                                      legend.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
-                                     legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt'))))
+                                     legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
+                                     plot.margin =  margin(t = 0, r = 5.5, b = 0, l = 5.5, unit = 'pt')))
 tk.fence.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
                                      aes(x = x, y = y)) +
                                 geom_sf(data = fences, 
@@ -3532,7 +3445,8 @@ tk.fence.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(20
                                 theme(legend.title = element_blank(),
                                       legend.position = 'top',
                                       legend.margin = margin(unit(0, 'lines')),
-                                      legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt'))))
+                                      legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
+                                      plot.margin =  margin(t = 0, r = 5.5, b = 0, l = 5.5, unit = 'pt')))
 tk.plot.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
                                     aes(x = x, y = y)) +
                                geom_sf(data = filter(plots.tk.class, flux.year %in% c(2017, 2021)), 
@@ -3544,7 +3458,8 @@ tk.plot.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(201
                                theme(legend.title = element_blank(),
                                      legend.position = 'top',
                                      legend.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
-                                     legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt'))))
+                                     legend.box.margin = margin(unit(c(0, 0, 0, 0), 'pt')),
+                                     plot.margin =margin(t = 0, r = 5.5, b = 0, l = 5.5, unit = 'pt')))
   
 
 # PLots 6_1 and 6_4 were non, edge, non in 2017, 2018, and 2019, respectively
@@ -3574,11 +3489,13 @@ b <- data.frame(x = 2014.9,
 
 tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
        aes(x = flux.year, fill = tk.class.factor)) +
-  geom_bar(width = 0.95) +
+  geom_bar(width = 1) +
   geom_text(data = b, aes(x = x, y = y, label = label),
             inherit.aes = FALSE) +
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
+  scale_x_continuous(name = 'Year',
+                     labels = seq(8, 12)) +
   scale_y_continuous(name = 'Count',
                      breaks = c(0, 12, 24, 36, 48)) +
   coord_cartesian(clip = 'off',
@@ -3587,8 +3504,7 @@ tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017),
                   ylim = c(0, 48)) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+        plot.margin =  margin(t = 0, r = 5.5, b = 5.5, l = 5.5, unit = 'pt')) +
   facet_grid(. ~ 'Total')
 tk.class.histogram
 
@@ -3602,11 +3518,13 @@ c <- data.frame(x = rep(2015.5, 4),
 
 tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
        aes(x = flux.year, fill = tk.class.factor)) +
-  geom_bar(width = 0.95) +
+  geom_bar(width = 1) +
   geom_text(data = c, aes(x = x, y = y, label = label),
             inherit.aes = FALSE) +
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
+  scale_x_continuous(name = 'Year',
+                     labels = seq(8, 12)) +
   scale_y_continuous(name = 'Count',
                      breaks = c(0, 3, 6, 9, 12)) +
   coord_cartesian(clip = 'off',
@@ -3615,8 +3533,7 @@ tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017),
                   ylim = c(0, 12)) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+        plot.margin = margin(t = 0, r = 5.5, b = 5.5, l = 5.5, unit = 'pt')) +
   facet_grid(. ~ treatment)
 tk.class.histogram.treat
 
@@ -3638,20 +3555,19 @@ tk.class.figure <- grid.arrange(tk.fill.legend,
                                                          4,4,4,4,4,4,4,4,4,4,4,4,
                                                          4,4,4,4,4,4,4,4,4,4,4,4,
                                                          4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
                                                          5,5,5,6,6,6,6,6,6,6,6,6,
                                                          5,5,5,6,6,6,6,6,6,6,6,6,
-                                                         5,5,5,6,6,66,6,6,6,6,6,6), 
+                                                         5,5,5,6,6,6,6,6,6,6,6,6), 
                                                        ncol = 12,
                                                        byrow = TRUE),
                                 padding = 0)
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.jpg',
 #        tk.class.figure,
-#        height = 6.5,
+#        height = 6,
 #        width = 6.5) 
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.pdf',
 #        tk.class.figure,
-#        height = 6.5,
+#        height = 6,
 #        width = 6.5)
 
 
@@ -3699,7 +3615,7 @@ flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, plot
                             value.name = 'flux.sum')
 flux.tk.time.series <- dcast(flux.tk.time.series[,
                                   ':=' (season = paste0('flux.sum.', str_extract(variable, pattern = 'gs|annual')),
-                                        flux.type = str_extract(variable, pattern = 'nee|gpp|Reco'))], 
+                                        flux.type = str_extract(variable, pattern = 'nee|gpp|reco'))], 
               flux.year + fence + plot + plot.id + treatment + tk.class.factor + 
                 flux.type + filled.gbm + alt.annual + subsidence.annual + 
                 biomass.annual + wtd.mean + wtd.sd + vwc.mean + vwc.sd + 
@@ -3731,20 +3647,20 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
-  scale_alpha_manual(name = '',
+  scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
                      values = c(1, 0.3)) +
-  scale_shape_manual(name = '',
+  scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 2)) +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_x_continuous(name = 'Year',
+                     breaks = seq(2010, 2020, by = 2),
+                     labels = seq(1, 11, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
              labeller = var_labeller) +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5))
+  theme_bw()
 flux.tk.class.timeseries.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries.jpg',
 #        flux.tk.class.timeseries.plot,
@@ -3761,20 +3677,20 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
-  scale_alpha_manual(name = '',
+  scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
                      values = c(1, 0.3)) +
-  scale_shape_manual(name = '',
+  scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 2)) +
-  scale_x_continuous(breaks = seq(2010, 2020, by = 2)) +
+  scale_x_continuous(name = 'Year',
+                     breaks = seq(2010, 2020, by = 2),
+                     labels = seq(1, 11, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
              labeller = var_labeller) +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 90, vjust = 0.5))
+  theme_bw()
 flux.annual.tk.class.timeseries.plot
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux_timeseries_annual.jpg',
 #        flux.annual.tk.class.timeseries.plot,
@@ -4148,7 +4064,7 @@ wtd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = wtd.mean*-1 - wtd.sd, ymax = wtd.mean*-1 + wtd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank())
@@ -4163,7 +4079,7 @@ wtd.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = wtd.sd.mean - wtd.sd.sd, ymax = wtd.sd.mean + wtd.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank())
@@ -4179,7 +4095,7 @@ vwc.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = vwc.mean - vwc.sd, ymax = vwc.mean + vwc.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'VWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4195,7 +4111,7 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = vwc.sd.mean - vwc.sd.sd, ymax = vwc.sd.mean + vwc.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'SD VWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4212,7 +4128,7 @@ gwc.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = gwc.mean - gwc.sd, ymax = gwc.mean + gwc.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'GWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4228,7 +4144,7 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = gwc.sd.mean - gwc.sd.sd, ymax = gwc.sd.mean + gwc.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'SD GWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4243,7 +4159,7 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_errorbar(aes(ymin = alt.mean*-1 - alt.sd, ymax = alt.mean*-1 + alt.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'ALT (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4257,7 +4173,7 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
   geom_errorbar(aes(ymin = subsidence.mean - subsidence.sd, ymax = subsidence.mean + subsidence.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = 'Subsidence (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4271,7 +4187,7 @@ biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.m
   geom_errorbar(aes(ymin = biomass.mean - biomass.sd, ymax = biomass.mean + biomass.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  scale_x_discrete(labels = c('Initial (2010)', 'Non-TK (2017-2021)', 'TK Margin (2017-2021)', 'TK Center (2017-2021)')) +
+  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
   scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank())
