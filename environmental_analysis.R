@@ -406,7 +406,7 @@ wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
                      values = c('gray65', 'black'),
                      labels = c('Control', 'Soil\nWarming')) +
   scale_shape_manual(name = 'Year',
-                     labels = c('0', '12'),
+                     labels = c('1', '13'),
                      values = c(1, 16)) +
   theme_bw() +
   guides(color = guide_legend(order = 1),
@@ -523,7 +523,7 @@ weather.annual <- weather.annual %>%
          tair.min.z = (tair.min - mean(tair.min))/sd(tair.min),
          tair.max.z = (tair.max - mean(tair.max))/sd(tair.max),
          precip.z = (precip - mean(precip))/sd(precip),
-         year.label = paste0(flux.year - 2009, ' (', flux.year, ')'))
+         year.label = paste0(flux.year - 2008, ' (', flux.year, ')'))
 
 annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
@@ -854,7 +854,7 @@ ggplot(subset(flux.annual, flux.year == 2020), aes(x = subsidence.annual, y = mt
 # read in thermokarst class data
 plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/thermokarst_classes.csv') %>%
   filter(flux.year == 2021) %>%
-  select(fence, plot, tk.class.factor) %>%
+  select(flux.year, fence, plot, tk.class.factor) %>%
   mutate(tk.class.factor = factor(tk.class.factor,
                                   levels = c('Non-TK', 'TK Margin', 'TK Center')))
 
@@ -875,7 +875,7 @@ sub.moisture <- flux.annual %>%
             by = 'flux.year') %>%
   full_join(plots.tk.class %>%
               mutate(flux.year = factor(flux.year)), 
-            by = c('fence', 'plot', 'flux.year', 'treatment')) %>%
+            by = c('fence', 'plot', 'flux.year')) %>%
   mutate(precip = precip/10, # convert to cm
          precip.group = factor(case_when(precip.z >= 0.75 ~ 'wet',
                                   precip.z > -0.75 ~ 'average',
@@ -888,7 +888,7 @@ sub.moisture <- flux.annual %>%
                             levels = c('<15 cm Subsidence', '15-30 cm Subsidence', 
                                        '30-45 cm Subsidence', '>=45 cm Subsidence')),
          time = factor(as.numeric(flux.year)),
-         year.label = factor(as.numeric(as.character(flux.year)) - 2009),
+         year.label = factor(as.numeric(as.character(flux.year)) - 2008),
          fence = as.factor(fence),
          block.f = as.factor(case_when(fence %in% c(1, 2) ~ 1,
                                        fence %in% c(3, 4) ~ 2,

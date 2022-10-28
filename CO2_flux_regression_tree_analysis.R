@@ -36,7 +36,7 @@ flux.seasonal <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/
 flux.seasonal <- flux.seasonal[flux.year >= 2010]
 flux.seasonal[, ':=' (tp.annual = tp, 
                       alt.annual = alt,
-                      year.label = factor(as.numeric(as.character(flux.year)) - 2009))]
+                      year.label = factor(as.numeric(as.character(flux.year)) - 2008))]
 flux.seasonal[, treatment := factor(treatment,
                                     levels = c('Control',
                                                'Air Warming',
@@ -83,13 +83,13 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
                           color.var == 'month' ~ 'Month')
   # print(paste('Running color.limits <- xxx'))
   color.breaks <- if (color.var == 'year.label') {
-    seq(1, 12)
+    seq(2, 13)
   } else if (color.var == 'month') {
     seq(5, 9)
   }
   # print(paste('Running color.breaks <- xxx'))
   color.labels <- if (color.var == 'year.label') {
-    seq(1, 12)
+    seq(2, 13)
   } else if (color.var == 'month') {
     month.name[seq(5, 9)]
   }
@@ -3365,10 +3365,10 @@ a <- data.frame(x = rep(tk.edges.cip@extent@xmin, 2),
                 y = rep(tk.edges.cip@extent@ymax + 30, 2),
                 flux.year = c(2017, 2021),
                 label = c('A', NA))
-year_labeller <- as_labeller(c(`2010` = '`Year 1`', `2011` = '`Year 2`', `2012` = '`Year 3`',
-                               `2013` = '`Year 4`', `2014` = '`Year 5`', `2015` = '`Year 6`',
-                               `2016` = '`Year 7`', `2017` = '`Year 8`', `2018` = '`Year 9`',
-                               `2019` = '`Year 10`', `2020` = '`Year 11`', `2021` = '`Year 12`'),
+year_labeller <- as_labeller(c(`2010` = '`Year 2`', `2011` = '`Year 3`', `2012` = '`Year 4`',
+                               `2013` = '`Year 5`', `2014` = '`Year 6`', `2015` = '`Year 7`',
+                               `2016` = '`Year 8`', `2017` = '`Year 9`', `2018` = '`Year 10`',
+                               `2019` = '`Year 11`', `2020` = '`Year 12`', `2021` = '`Year 13`'),
                             default = label_parsed)
 
 tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
@@ -3495,7 +3495,7 @@ tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017),
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
   scale_x_continuous(name = 'Year',
-                     labels = seq(8, 12)) +
+                     labels = seq(9, 13)) +
   scale_y_continuous(name = 'Count',
                      breaks = c(0, 12, 24, 36, 48)) +
   coord_cartesian(clip = 'off',
@@ -3524,7 +3524,7 @@ tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017),
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
   scale_x_continuous(name = 'Year',
-                     labels = seq(8, 12)) +
+                     labels = seq(9, 13)) +
   scale_y_continuous(name = 'Count',
                      breaks = c(0, 3, 6, 9, 12)) +
   coord_cartesian(clip = 'off',
@@ -3655,7 +3655,7 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
                      guide = guide_legend(order = 2)) +
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
-                     labels = seq(1, 11, by = 2)) +
+                     labels = seq(2, 12, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
@@ -3685,7 +3685,7 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
                      guide = guide_legend(order = 2)) +
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
-                     labels = seq(1, 11, by = 2)) +
+                     labels = seq(2, 12, by = 2)) +
   scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
@@ -4064,7 +4064,7 @@ wtd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = wtd.mean*-1 - wtd.sd, ymax = wtd.mean*-1 + wtd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank())
@@ -4079,7 +4079,7 @@ wtd.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = wtd.sd.mean - wtd.sd.sd, ymax = wtd.sd.mean + wtd.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank())
@@ -4095,7 +4095,7 @@ vwc.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = vwc.mean - vwc.sd, ymax = vwc.mean + vwc.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'VWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4111,7 +4111,7 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = vwc.sd.mean - vwc.sd.sd, ymax = vwc.sd.mean + vwc.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD VWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4128,7 +4128,7 @@ gwc.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = gwc.mean - gwc.sd, ymax = gwc.mean + gwc.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'GWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4144,7 +4144,7 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
   geom_point() +
   geom_errorbar(aes(ymin = gwc.sd.mean - gwc.sd.sd, ymax = gwc.sd.mean + gwc.sd.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD GWC (%)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4159,7 +4159,7 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_errorbar(aes(ymin = alt.mean*-1 - alt.sd, ymax = alt.mean*-1 + alt.sd),
                 width = 0.2) +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'ALT (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4173,7 +4173,7 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
   geom_errorbar(aes(ymin = subsidence.mean - subsidence.sd, ymax = subsidence.mean + subsidence.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'Subsidence (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4187,7 +4187,7 @@ biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.m
   geom_errorbar(aes(ymin = biomass.mean - biomass.sd, ymax = biomass.mean + biomass.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  scale_x_discrete(labels = c('Initial (Year 1)', 'Non-TK (Year 8-12)', 'TK Margin (Year 8-12)', 'TK Center (Year 8-12)')) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
   theme_bw() +
   theme(axis.title.x = element_blank())
