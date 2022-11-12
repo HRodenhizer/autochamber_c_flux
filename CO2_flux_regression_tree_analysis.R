@@ -8,6 +8,7 @@ library(gbm)
 library(caret)
 library(partykit)
 library(treeshap)
+library(emmeans)
 library(data.table)
 library(lubridate)
 library(viridis)
@@ -199,7 +200,7 @@ train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Auto
 #                data = nee.seasonal[train.nee.seasonal,],
 #                distribution = "gaussian",
 #                n.trees = 400,
-#                shrinkage = 0.01,
+#                shrinkage = 0.1,
 #                interaction.depth = 6,
 #                n.minobsinnode = 5)
 # summary(nee.seasonal.gbm)
@@ -310,19 +311,19 @@ nee.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.bioma
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.1
 
-nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "vwc.mean", n.trees = nee.seasonal.gbm$n.trees,
+nee.seasonal.pd.gwc.sd <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "gwc.sd", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
-nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
-                                predictor = 'vwc.mean', response = 'nee.sum',
+nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.sd,
+                                predictor = 'gwc.sd', response = 'nee.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.2
 
-nee.seasonal.pd.wtd.sd <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "wtd.sd", n.trees = nee.seasonal.gbm$n.trees,
+nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "vwc.mean", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
-nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.wtd.sd,
-                                predictor = 'wtd.sd', response = 'nee.sum',
+nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
+                                predictor = 'vwc.mean', response = 'nee.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.3
 
@@ -646,23 +647,23 @@ reco.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.alt
                                 color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.2
 
-reco.seasonal.pd.gwc.sd <- reco.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = reco.seasonal.gbm$n.trees,
-               grid.resolution = 100)
-reco.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.gwc.sd,
-                                predictor = 'gwc.sd', response = 'reco.sum',
-                                color.var = 'year.label', shape.var = 'treatment')
-reco.seasonal.plot.3
-
 reco.seasonal.pd.subsidence <- reco.seasonal.gbm %>%
   pdp::partial(pred.var = "subsidence.annual", n.trees = reco.seasonal.gbm$n.trees,
                grid.resolution = 100)
-reco.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.subsidence,
+reco.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.subsidence,
                                 predictor = 'subsidence.annual', response = 'reco.sum',
                                 color.var = 'year.label', shape.var = 'treatment') +
   scale_x_reverse(name = expression('Subsidence (cm)'),
                   breaks = seq(-100, 0, by = 25),
                   labels = seq(-100, 0, by = 25)*-1)
+reco.seasonal.plot.3
+
+reco.seasonal.pd.wtd <- reco.seasonal.gbm %>%
+  pdp::partial(pred.var = "wtd.mean", n.trees = reco.seasonal.gbm$n.trees,
+               grid.resolution = 100)
+reco.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.wtd,
+                                 predictor = 'wtd.mean', response = 'reco.sum',
+                                 color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.4
 
 reco.seasonal.pd.plot <- ggarrange(reco.seasonal.plot.1,
@@ -873,8 +874,8 @@ ggplot(reco.seasonal.shap %>%
 #                 distribution = "gaussian",
 #                 n.trees = 800,
 #                 shrinkage = 0.01,
-#                 interaction.depth = 5,
-#                 n.minobsinnode = 5)
+#                 interaction.depth = 6,
+#                 n.minobsinnode = 10)
 # summary(gpp.seasonal.gbm)
 # saveRDS(gpp.seasonal.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
 gpp.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
@@ -969,20 +970,20 @@ gpp.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.bioma
                                  color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.1
 
-gpp.seasonal.pd.gwc.sd <- gpp.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = gpp.seasonal.gbm$n.trees,
-               grid.resolution = 100)
-gpp.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.gwc.sd,
-                                 predictor = 'gwc.sd', response = 'gpp.sum',
-                                 color.var = 'year.label', shape.var = 'treatment')
-gpp.seasonal.plot.2
-
 gpp.seasonal.pd.alt <- gpp.seasonal.gbm %>%
   pdp::partial(pred.var = "alt.annual", n.trees = gpp.seasonal.gbm$n.trees,
                grid.resolution = 100)
-gpp.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.alt,
+gpp.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.alt,
                                  predictor = 'alt.annual', response = 'gpp.sum',
                                  color.var = 'year.label', shape.var = 'treatment')
+gpp.seasonal.plot.2
+
+gpp.seasonal.pd.gwc.sd <- gpp.seasonal.gbm %>%
+  pdp::partial(pred.var = "gwc.sd", n.trees = gpp.seasonal.gbm$n.trees,
+               grid.resolution = 100)
+gpp.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.gwc.sd,
+                                predictor = 'gwc.sd', response = 'gpp.sum',
+                                color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.3
 
 gpp.seasonal.pd.vwc.sd <- gpp.seasonal.gbm %>%
@@ -1301,10 +1302,10 @@ train.reco.monthly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autoc
 # nee.monthly.gbm <- gbm(nee.sum~.,
 #                data = nee.monthly[train.nee.monthly,],
 #                distribution = "gaussian",
-#                n.trees = 800,
+#                n.trees = 1000,
 #                shrinkage = 0.1,
-#                interaction.depth = 6,
-#                n.minobsinnode = 7)
+#                interaction.depth = 7,
+#                n.minobsinnode = 5)
 # summary(nee.monthly.gbm)
 # # saveRDS(nee.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
 nee.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
@@ -1432,28 +1433,10 @@ nee.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.biomass,
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 nee.monthly.plot.2
 
-nee.monthly.pd.vwc.mean <- nee.monthly.gbm %>%
-  pdp::partial(pred.var = "vwc.mean", n.trees = nee.monthly.gbm$n.trees,
-               grid.resolution = 100)
-nee.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.vwc.mean,
-                                predictor = 'vwc.mean', response = 'nee.sum',
-                                color.var = 'month', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = vwc.mean, y = nee.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = vwc.mean, y = nee.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = vwc.mean, y = nee.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
-nee.monthly.plot.3
-
 nee.monthly.pd.gdd.2m <- nee.monthly.gbm %>%
   pdp::partial(pred.var = "gdd.2m", n.trees = nee.monthly.gbm$n.trees,
                grid.resolution = 100)
-nee.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.gdd.2m,
+nee.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.gdd.2m,
                                 predictor = 'gdd.2m', response = 'nee.sum',
                                 color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
@@ -1466,6 +1449,24 @@ nee.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.gdd.2m,
   # geom_text(data = example.plots.monthly,
   #           aes(x = gwc.sd, y = nee.sum, label = ID),
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
+nee.monthly.plot.3
+
+nee.monthly.pd.vwc.mean <- nee.monthly.gbm %>%
+  pdp::partial(pred.var = "vwc.mean", n.trees = nee.monthly.gbm$n.trees,
+               grid.resolution = 100)
+nee.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.vwc.mean,
+                               predictor = 'vwc.mean', response = 'nee.sum',
+                               color.var = 'month', shape.var = 'treatment')# +
+# geom_point(data = example.plots.monthly,
+#            aes(x = vwc.mean, y = nee.sum),
+#            inherit.aes = FALSE,
+#            shape = 1, size = 3) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = vwc.mean, y = nee.sum, label = plot.id),
+#           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = vwc.mean, y = nee.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
 nee.monthly.plot.4
 
 nee.monthly.pd.plot <- ggarrange(nee.monthly.plot.1,
@@ -3360,7 +3361,7 @@ rm(tk.2017.2019, tk.2021, tk.2021.fill, elev.2021, elev.2021.cip,
    tk.edges.cip.1, tk.edges.cip.2, cip.bnd.buffer)
 
 # create df for annotation
-grayscale.values <- c('gray90', 'gray65', 'gray40')
+grayscale.values <- c('gray90', 'gray70', 'gray50')
 a <- data.frame(x = rep(tk.edges.cip@extent@xmin, 2),
                 y = rep(tk.edges.cip@extent@ymax + 30, 2),
                 flux.year = c(2017, 2021),
@@ -3374,8 +3375,16 @@ year_labeller <- as_labeller(c(`2010` = '`Year 2`', `2011` = '`Year 3`', `2012` 
 tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
        aes(x = x, y = y)) +
   geom_tile(aes(color = tk_edges, fill = tk_edges)) +
+  scale_color_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
+                     values = grayscale.values,
+                     guide = guide_legend(order = 1)) +
+  scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
+                    values = grayscale.values,
+                    guide = guide_legend(order = 1)) +
+  new_scale_color() +
+  new_scale_fill() +
   geom_sf(data = filter(plots.tk.class, flux.year %in% c(2017, 2021)), 
-          aes(shape = treatment),
+          aes(shape = treatment, color = treatment),
           size = 0.75,
           inherit.aes = FALSE) +
   geom_sf(data = fences, 
@@ -3397,12 +3406,8 @@ tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
   # scale_color_viridis(discrete = TRUE,
   #                     direction = -1,
   #                     begin = 0.2) +
-  scale_color_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
-                     values = grayscale.values,
-                     guide = guide_legend(order = 1)) +
-  scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
-                    values = grayscale.values,
-                    guide = guide_legend(order = 1)) +
+  scale_color_manual(values = c('gray30', 'black', 'gray30', 'black'),
+                     guide = guide_legend(order = 3)) +
   scale_shape_manual(values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 3)) +
   scale_linetype_manual(values = 1,
@@ -3450,9 +3455,10 @@ tk.fence.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(20
 tk.plot.legend <- get_legend(ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
                                     aes(x = x, y = y)) +
                                geom_sf(data = filter(plots.tk.class, flux.year %in% c(2017, 2021)), 
-                                       aes(shape = treatment),
-                                       size = 0.75,
+                                       aes(shape = treatment, color = treatment),
+                                       size = 1,
                                        inherit.aes = FALSE) +
+                               scale_color_manual(values = c('gray30', 'black', 'gray30', 'black')) +
                                scale_shape_manual(values = c(1, 0, 16, 15)) +
                                theme_bw() +
                                theme(legend.title = element_blank(),
@@ -4055,30 +4061,56 @@ flux.tk[, .N, by = c('tk.class.factor')]
 
 ### Environmental conditions by tk class (each plot classified by year, 2010, 2017-2021)
 # plot WTD
+wtd.class.model <- lm(wtd.mean ~ factor(tk.class),
+                  data = flux.tk)
+emmeans(wtd.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(wtd.mean.letters = c('a', 'a', 'b', 'a'))
+
 wtd.tk.class <- ggplot(flux.tk.mean, 
        aes (x = tk.class.factor, y = wtd.mean*-1), 
        size = 2) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1),
+              color = 'gray40') +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = wtd.mean*-1 - wtd.sd, ymax = wtd.mean*-1 + wtd.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 18, label = wtd.mean.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'WTD (cm)') +
   theme_bw() +
   theme(axis.title.x = element_blank())
 wtd.tk.class
 
+wtd.sd.class.model <- lm(wtd.sd ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(wtd.sd.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(wtd.sd.letters = c('a', 'b', 'a', 'ab'))
+
 wtd.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = wtd.sd.mean), 
                        size = 2) +
   # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = wtd.sd.mean - wtd.sd.sd, ymax = wtd.sd.mean + wtd.sd.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 15, label = wtd.sd.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD WTD (cm)') +
   theme_bw() +
@@ -4086,15 +4118,28 @@ wtd.sd.tk.class <- ggplot(flux.tk.mean,
 wtd.sd.tk.class
 
 # plot VWC
+vwc.class.model <- lm(vwc.mean ~ factor(tk.class),
+                         data = flux.tk)
+emmeans(vwc.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(vwc.mean.letters = c('a', 'a', 'b', 'a'))
+
 vwc.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = vwc.mean), 
                        size = 2) +
   # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = vwc.mean - vwc.sd, ymax = vwc.mean + vwc.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 28, label = vwc.mean.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'VWC (%)') +
   theme_bw() +
@@ -4102,15 +4147,28 @@ vwc.tk.class <- ggplot(flux.tk.mean,
         axis.text.x = element_blank())
 vwc.tk.class
 
+vwc.sd.class.model <- lm(vwc.sd ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(vwc.sd.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(vwc.sd.letters = c('ab', 'ab', 'b', 'a'))
+
 vwc.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = vwc.sd.mean), 
                        size = 2) +
   # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = vwc.sd.mean - vwc.sd.sd, ymax = vwc.sd.mean + vwc.sd.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 0.95, label = vwc.sd.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD VWC (%)') +
   theme_bw() +
@@ -4119,15 +4177,28 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
 vwc.sd.tk.class
 
 # plot gwc
+gwc.class.model <- lm(gwc.mean ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(gwc.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(gwc.mean.letters = c('ab', 'a', 'b', 'a'))
+
 gwc.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = gwc.mean), 
                        size = 2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = gwc.mean - gwc.sd, ymax = gwc.mean + gwc.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 58, label = gwc.mean.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'GWC (%)') +
   theme_bw() +
@@ -4135,15 +4206,28 @@ gwc.tk.class <- ggplot(flux.tk.mean,
         axis.text.x = element_blank())
 gwc.tk.class
 
+gwc.sd.class.model <- lm(gwc.sd ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(gwc.sd.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(gwc.sd.letters = c('a', 'a', 'a', 'b'))
+
 gwc.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = gwc.sd.mean), 
                        size = 2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = gwc.sd.mean - gwc.sd.sd, ymax = gwc.sd.mean + gwc.sd.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 1.25, label = gwc.sd.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD GWC (%)') +
   theme_bw() +
@@ -4152,13 +4236,26 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
 gwc.sd.tk.class
 
 # plot ALT
+alt.class.model <- lm(alt.annual ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(alt.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(alt.letters = c('ab', 'b', 'd', 'c'))
+
 alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_errorbar(aes(ymin = alt.mean*-1 - alt.sd, ymax = alt.mean*-1 + alt.sd),
                 width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = -10, label = alt.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'ALT (cm)') +
   theme_bw() +
@@ -4166,13 +4263,26 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
         axis.text.x = element_blank())
 alt.tk.class
 
+sub.class.model <- lm(subsidence.annual ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(sub.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(sub.letters = c('ab', 'b', 'd', 'c'))
+
 subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsidence.mean), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = subsidence.annual), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = subsidence.annual),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = subsidence.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = subsidence.mean - subsidence.sd, ymax = subsidence.mean + subsidence.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 15, label = sub.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'Subsidence (cm)') +
   theme_bw() +
@@ -4180,13 +4290,26 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
         axis.text.x = element_blank())
 subsidence.tk.class
 
+biomass.class.model <- lm(biomass.annual ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(biomass.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(biomass.letters = c('a', 'a', 'a', 'a'))
+
 biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.mean), size = 2) +
-  geom_point(data = flux.tk, aes(x = tk.class.factor, y = biomass.annual), 
-             inherit.aes = FALSE, color = 'gray50', size = 1) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = biomass.annual),
+              color = 'gray40') +
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = biomass.annual), 
+             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+             width = 0.25) +
   geom_point() +
   geom_errorbar(aes(ymin = biomass.mean - biomass.sd, ymax = biomass.mean + biomass.sd),
                 width = 0.2) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = 1150, label = biomass.letters),
+            inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
   theme_bw() +

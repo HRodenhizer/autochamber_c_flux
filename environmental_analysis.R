@@ -27,7 +27,6 @@ library(tidyverse)
 
 ### Load Data ##################################################################
 flux.daily <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv")
-flux.monthly <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv")
 flux.annual <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv") %>%
   mutate(flux.year = as.factor(flux.year))
 filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/weather/',
@@ -1456,12 +1455,12 @@ vwc.sd.plot <- ggplot(sub.moisture,
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = vwc.sd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
-  geom_text(aes(x = -10, y = 0.37, 
+  geom_text(aes(x = -10, y = -0.43, 
                 label = vwc.sd.r2.label1),
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  geom_text(aes(x = -10, y = 0.3, 
+  geom_text(aes(x = -10, y = -0.5, 
                 label = vwc.sd.r2.label2),
             parse = TRUE,
             hjust = 'inward',
