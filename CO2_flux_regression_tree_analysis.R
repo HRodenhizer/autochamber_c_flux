@@ -1510,7 +1510,7 @@ nee.monthly.pd.plot
 #                        n.trees = 1000,
 #                        shrinkage = 0.1,
 #                        interaction.depth = 6,
-#                        n.minobsinnode = 10)
+#                        n.minobsinnode = 5)
 # summary(reco.monthly.gbm)
 # # saveRDS(reco.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
 reco.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
@@ -1587,7 +1587,7 @@ reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pr
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = reco.monthly.loc.intercept, slope = reco.monthly.loc.slope, color = 'black') +
-  geom_text(x = 10, y = 200, label = reco.monthly.r2.label,
+  geom_text(x = 10, y = 180, label = reco.monthly.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -1633,28 +1633,10 @@ reco.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.biomas
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.2
 
-reco.monthly.pd.tair <- reco.monthly.gbm %>%
-  pdp::partial(pred.var = "tair.mean", n.trees = reco.monthly.gbm$n.trees,
-               grid.resolution = 100)
-reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
-                               predictor = 'tair.mean', response = 'reco.sum',
-                               color.var = 'month', shape.var = 'treatment')# +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = gwc.sd, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = gwc.sd, y = reco.sum, label = ID),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -15)
-reco.monthly.plot.3
-
 reco.monthly.pd.subsidence <- reco.monthly.gbm %>%
   pdp::partial(pred.var = "subsidence.annual", n.trees = reco.monthly.gbm$n.trees,
                grid.resolution = 100)
-reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
+reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
                                 predictor = 'subsidence.annual', response = 'reco.sum',
                                 color.var = 'month', shape.var = 'treatment') +
   # geom_point(data = example.plots.monthly,
@@ -1669,6 +1651,24 @@ reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsid
                   labels = seq(-100, 0, by = 25)*-1)# +
 # geom_text(data = example.plots.monthly,
 #           aes(x = subsidence.annual, y = reco.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
+reco.monthly.plot.3
+
+reco.monthly.pd.tair <- reco.monthly.gbm %>%
+  pdp::partial(pred.var = "tair.mean", n.trees = reco.monthly.gbm$n.trees,
+               grid.resolution = 100)
+reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
+                                predictor = 'tair.mean', response = 'reco.sum',
+                                color.var = 'month', shape.var = 'treatment')# +
+# geom_point(data = example.plots.monthly,
+#            aes(x = gwc.sd, y = reco.sum),
+#            inherit.aes = FALSE,
+#            shape = 1, size = 3) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = gwc.sd, y = reco.sum, label = plot.id),
+#           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+# geom_text(data = example.plots.monthly,
+#           aes(x = gwc.sd, y = reco.sum, label = ID),
 #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.4
 
@@ -1713,7 +1713,7 @@ reco.monthly.pd.plot
 #                        n.trees = 1000,
 #                        shrinkage = 0.1,
 #                        interaction.depth = 6,
-#                        n.minobsinnode = 7)
+#                        n.minobsinnode = 10)
 # summary(gpp.monthly.gbm)
 # # saveRDS(gpp.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
 gpp.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
