@@ -2151,8 +2151,8 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                             theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))) +
                             facet_grid(. ~ 1), 
                           gpp.seasonal.plot.2 +
-                            scale_x_continuous(name = expression('SD GWC (%)'),
-                                               breaks = seq(0.5, 1, by = 0.25)) +
+                            # scale_x_continuous(name = expression('SD GWC (%)'),
+                            #                    breaks = seq(0.5, 1, by = 0.25)) +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
@@ -2196,8 +2196,8 @@ seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
                                   axis.ticks.y = element_blank(),
                                   axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
                           reco.seasonal.plot.3 +
-                            scale_x_continuous(name = expression('SD GWC (%)'),
-                                               breaks = seq(0.5, 1, by = 0.25)) +
+                            # scale_x_continuous(name = expression('SD GWC (%)'),
+                            #                    breaks = seq(0.5, 1, by = 0.25)) +
                             theme(axis.title.y = element_blank(),
                                   axis.text.y = element_blank(),
                                   axis.ticks.y = element_blank(),
@@ -2308,31 +2308,31 @@ loadRData <- function(fileName){
 }
 
 
-flux.eddy <- read.csv("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/Ameriflux/AMF_US-EML_BASE_HH_3-5.csv",
+flux.eddy <- read.csv("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AMF_US-EML_BASE_HH_3-5.csv",
                  skip = 2,
                  na.strings = c('-9999'),
                  quote = "\"'")
 flux.eddy <- data.table(flux.eddy)
-flux.eddy.2018.2019 <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/US-EML_HH_201804302330_201904302330.csv',
+flux.eddy.2018.2019 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/US-EML_HH_201804302330_201904302330.csv',
                              na.strings = c('-9999'))
-flux.eddy.2019.2020 <- fread('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/US-EML_HH_201904302330_202004292330.csv',
+flux.eddy.2019.2020 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/US-EML_HH_201904302330_202004292330.csv',
                              na.strings = c('-9999'))
 flux.eddy <- rbind(flux.eddy, flux.eddy.2018.2019, flux.eddy.2019.2020,
                    use.names = TRUE, fill = TRUE)
-co2.2015.2016 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2015-2016/AK15_Carbon_new_30Apr2019.Rdata")
-load("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2016-2017/AK16_Carbon_new_30Apr2019.Rdata")
+co2.2015.2016 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK15_Carbon_new_30Apr2019.Rdata")
+load("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK16_Carbon_new_30Apr2019.Rdata")
 co2.2016.2017 <- export
 rm(export)
-co2.2017.2018 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2017-2018/AK17_Carbon_new_30Apr2019.Rdata")
-co2.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_Carbon_new_30Apr2019.Rdata")
+co2.2017.2018 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK17_Carbon_new_30Apr2019.Rdata")
+co2.2018.2019 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK18_Carbon_new_30Apr2019.Rdata")
 co2.2018.2019[, u_var := NULL]
 co2.2018.2019[, v_var := NULL]
 co2.2018.2019[, w_var := NULL]
-co2.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_Carbon.Rdata")
-co2.2020.2021 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2020-2021/AK20_Carbon.Rdata")
-ch4.2018.2019 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2018-2019/AK18_CO2&CH4.Rdata")
-ch4.2019.2020 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2019-2020/AK19_CO2&CH4.Rdata")
-ch4.2020.2021 <- loadRData("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/Gradient/Eddy/2020-2021/AK20_CO2&CH4.Rdata")
+co2.2019.2020 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK19_Carbon.Rdata")
+co2.2020.2021 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK20_Carbon.Rdata")
+ch4.2018.2019 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK18_CO2_CH4.Rdata")
+ch4.2019.2020 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK19_CO2_CH4.Rdata")
+ch4.2020.2021 <- loadRData("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/server_files/AK20_CO2_CH4.Rdata")
 
 # Format ameriflux.eddy data
 flux.eddy[, ts := parse_date_time(TIMESTAMP_START, orders = c('Y!m!*d!H!M!'))]
@@ -2501,13 +2501,13 @@ flux.winter.filled.seasonal[is.na(nee.sum.winter), .N, by = .(fence, plot)]
 flux.winter.filled.seasonal[is.na(reco.sum.winter), .N, by = .(fence, plot)]
 flux.winter.filled.seasonal[is.na(gpp.sum.winter), .N, by = .(fence, plot)]
 
-ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = nee.sum)) +
+ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = nee.sum.winter)) +
   geom_point() +
   facet_grid(. ~ treatment)
-ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = reco.sum)) +
+ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = reco.sum.winter)) +
   geom_point() +
   facet_grid(. ~ treatment)
-ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = gpp.sum)) +
+ggplot(flux.winter.filled.seasonal[flux.year >= 2010], aes(x = flux.year, y = gpp.sum.winter)) +
   geom_point() +
   facet_grid(. ~ treatment)
 
@@ -2925,10 +2925,10 @@ grayscale.values <- c('gray90', 'gray65', 'gray40')
 #                               `2019` = '2019', `2020` = '2020', `2021` = '2021'),
 #                            default = label_parsed)
 var_labeller <- as_labeller(c(GPP = 'GPP', NEE = 'NEE', Reco = 'R[eco]',
-                              `2010` = '`Year 1`', `2011` = '`Year 2`', `2012` = '`Year 3`',
-                              `2013` = '`Year 4`', `2014` = '`Year 5`', `2015` = '`Year 6`',
-                              `2016` = '`Year 7`', `2017` = '`Year 8`', `2018` = '`Year 9`',
-                              `2019` = '`Year 10`', `2020` = '`Year 11`', `2021` = '`Year 12`'),
+                              `2010` = '`Year 2`', `2011` = '`Year 3`', `2012` = '`Year 4`',
+                              `2013` = '`Year 5`', `2014` = '`Year 6`', `2015` = '`Year 7`',
+                              `2016` = '`Year 8`', `2017` = '`Year 9`', `2018` = '`Year 10`',
+                              `2019` = '`Year 11`', `2020` = '`Year 12`', `2021` = '`Year 13`'),
                             default = label_parsed)
 
 flux.treat.plot.2019.filled <- ggplot(flux.annual.treat.diff,
