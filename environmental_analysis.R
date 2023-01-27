@@ -330,13 +330,42 @@ autoplot(pca.annual.norm, data = env.annual.plot, colour = 'reco.sum',
 
 ### WTD TD Plot ################################################################
 wtd.alt.data <- flux.annual %>%
-  select(flux.year, fence, plot, treatment, alt, wtd.mean) %>%
+  select(flux.year, fence, plot, treatment, alt, wtd.mean, wtd.sd) %>%
   mutate(year = as.numeric(as.character(flux.year)),
          treatment = factor(case_when(treatment %in% c('Control', 'Air Warming') ~ 'Control',
                                treatment %in% c('Soil Warming', 'Air + Soil Warming') ~ 'Soil Warming')))
 
 wtd.alt.data.2021 <-  wtd.alt.data %>%
   filter(year == 2009 | year == 2021)
+
+wtd.start <- wtd.alt.data.2021 %>%
+  filter(year == 2009) %>%
+  summarize(wtd.mean.initial = mean(wtd.mean, na.rm = TRUE),
+            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE))
+
+wtd.start.treatment <- wtd.alt.data.2021 %>%
+  filter(year == 2009) %>%
+  group_by(treatment) %>%
+  summarize(wtd.mean.initial = mean(wtd.mean, na.rm = TRUE),
+            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE))
+
+wtd.delta <- wtd.alt.data.2021 %>%
+  filter(year == 2021) %>%
+  summarize(wtd.mean.end = mean(wtd.mean, na.rm = TRUE),
+            wtd.sd.end = sd(wtd.mean, na.rm = TRUE)) %>%
+  cbind.data.frame(wtd.start) %>%
+  mutate(wtd.diff = wtd.mean.end - wtd.mean.initial,
+         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
+
+wtd.delta.treatment <- wtd.alt.data.2021 %>%
+  filter(year == 2021) %>%
+  group_by(treatment) %>%
+  summarize(wtd.mean.end = mean(wtd.mean, na.rm = TRUE),
+            wtd.sd.end = sd(wtd.mean, na.rm = TRUE)) %>%
+  full_join(wtd.start.treatment, by = 'treatment') %>%
+  mutate(wtd.diff = wtd.mean.end - wtd.mean.initial,
+         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
+
 alt.start <- wtd.alt.data %>%
   filter(year == 2009) %>%
   summarise(alt = mean(alt, na.rm = TRUE)) %>%
