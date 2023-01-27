@@ -22,6 +22,7 @@ library(tidyverse)
 #############################################################################################################################
 
 ### Functions Required for Script ########################################################
+# Equation from https://math.stackexchange.com/questions/3190772/mean-of-means-and-standard-deviation
 propagate.sd <- function(x) {
   sd <- fifelse(all(is.na(x)),
                 NaN,
