@@ -8,6 +8,10 @@
 
 ### To Do
 # interpolate subsidence for 2021? Or try to use NEON?
+# make ALT be deepest TD and also incorporate day of ALT into modeling?
+# substitute deep soil temps from nearby plots for ones without probes?
+# weather.env necessary?
+
 
 ### Load Libraries ##########################################################################################################
 library(lubridate)
@@ -21,25 +25,15 @@ library(viridis)
 library(tidyverse)
 #############################################################################################################################
 
-### Functions Required for Script ########################################################
-# Equation from https://math.stackexchange.com/questions/3190772/mean-of-means-and-standard-deviation
-propagate.sd <- function(x) {
-  sd <- fifelse(all(is.na(x)),
-                NaN,
-                sqrt(sum(x^2, na.rm = TRUE)/length(x)))
-  return(sd)
-}
-##########################################################################################
 
-# make ALT be deepest TD and also incorporate day of ALT into modeling?
-# substitute deep soil temps from nearby plots for ones without probes?
-
+### Half Hourly Data
 ### co2 Data ##############################################################################
 ### Load Fluxes
 co2 <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/fluxes/Flux_data_halfhourly_modelled_2009_2021.csv")
 co2 <- co2[!is.na(doy)]
+co2 <- unique(co2)
 
-# make sure that hour is rounded down from flux time and goes from 0-23.5
+# make sure that hour is rounded down from flux.hh time and goes from 0-23.5
 # this way a measurement taken between 00:00 and 00:30 shows up as 0
 co2[hour == 0, hour := 24]
 co2[, hour := hour - 0.5]
@@ -121,9 +115,9 @@ filenames <- list.files('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber
                         full.names = TRUE)
 r2 <- load.r2(filenames)
 
-### Join flux and r2 data
+### Join flux.hh and r2 data
 # use doy.old because both datasets had incorrect doy in some entries in 2018
-# and correct doy variable could only be made in r2 since flux didn't have a timestamp
+# and correct doy variable could only be made in r2 since flux.hh didn't have a timestamp
 co2 <- merge(co2, r2, by = c('year', 'doy.old', 'hour.old', 'fence', 'plot'), all.x = TRUE)
 # ggplot(co2, aes(x = doy, y = T_chamb)) +
 #   geom_point() +
@@ -136,6 +130,13 @@ co2 <- merge(co2, r2, by = c('year', 'doy.old', 'hour.old', 'fence', 'plot'), al
 # Create doy variable with correct (new) dates
 co2[year >= 2012 & !is.na(doy.new), doy := doy.new]
 co2[year >= 2012 & !is.na(hour.new), hour := hour.new]
+
+### A bunch of data with incorrect hourmin info got filled during 2018 processing, I think
+# I am removing the modeled fluxes that we have data for
+co2[, duplicated.data := .N > 1, by = c('year', 'doy', 'hour', 'fence', 'plot')]
+co2[, n := .N, by = c('year', 'doy', 'hour', 'fence', 'plot')]
+setorder(co2, year, doy, hour, fence, plot)
+co2 <- co2[!(year == 2018 & duplicated.data == TRUE & n == 2 & is.na(CO2_r2))]
 
 # Filter out modeled data and empty rows
 # co2 <- co2[filled == 1,]
@@ -186,9 +187,11 @@ chambt[plot %in% c(5, 7), treatment := 'Air + Soil Warming']
 chambt <- chambt[year == 2009 & doy <= 152, plot := NA]
 
 # summarize any duplicates
-chambt <- chambt[, .(Tchamb_fill = mean(Tchamb_fill, na.rm = TRUE)), by = c('year', 'doy', 'hour', 'fence', 'plot', 'treatment')]
+chambt <- chambt[, 
+                 .(Tchamb_fill = mean(Tchamb_fill, na.rm = TRUE)), 
+                 by = c('year', 'doy', 'hour', 'fence', 'plot', 'treatment')]
 
-### Join flux and chamber temp data ###
+### Join flux.hh and chamber temp data ###
 # use doy and hour because the doy and hour variables were correct from the start for 2009-2011
 co2 <- merge(co2, chambt, 
              by = c('year', 'doy', 'hour', 'fence', 'plot', 'treatment'), 
@@ -277,7 +280,7 @@ weather[is.nan(par), par := NA]
 weather[, date := parse_date_time(as.Date(DOY-1, origin = paste(year, '-01-01', sep = '')), orders = c('Y!-m!*-d!'))] # doy-1 because as.Date is 0 indexed, while lubridate::yday() (used to create doy variable) is 1 indexed
 weather[, year := year(date)]
 weather[, month := month(date)]
-weather[, flux.year := fifelse(month >= 10,
+weather[, flux.hh.year := fifelse(month >= 10,
                                year + 1,
                                year)]
 weather[, season := fifelse(month <= 4 | month >= 10,
@@ -297,7 +300,7 @@ weather <- weather[,
                                       NaN,
                                       sum(precip, na.rm = TRUE)),
                      rh = mean(rh, na.rm = TRUE)),
-                   by = .(flux.year, season, date, hourmin)]
+                   by = .(flux.hh.year, season, date, hourmin)]
 weather[is.nan(precip), precip := NA]
 weather[is.nan(rh), rh := NA]
 weather[is.nan(par), par := NA]
@@ -307,13 +310,13 @@ weather <- weather[order(date, hourmin)]
 
 # Neaten
 # weather data to use for environmental summary
-weather.env <- weather[, .(flux.year, season, date, hourmin, Tair, par, precip, rh)]
-weather.env <- weather.env[flux.year >= 2009][, .(tair.mean = mean(Tair, na.rm = TRUE),
+weather.env <- weather[, .(flux.hh.year, season, date, hourmin, Tair, par, precip, rh)]
+weather.env <- weather.env[flux.hh.year >= 2009][, .(tair.mean = mean(Tair, na.rm = TRUE),
                                                   precip = sum(precip, na.rm = TRUE),
                                                   par = mean(par, na.rm = TRUE)),
-                                              by = c('flux.year', 'season')]
-# weather data to use for flux data
-weather.f <- weather[, .(flux.year, date, hourmin, Tair, par, precip, rh)]
+                                              by = c('flux.hh.year', 'season')]
+# weather data to use for flux.hh data
+weather.f <- weather[, .(flux.hh.year, date, hourmin, Tair, par, precip, rh)]
 # double check that the duplicate columns have been removed - this should be TRUE
 nrow(unique(weather.f, by = c('date', 'hourmin'))) == nrow(weather.f)
 # make sure there are no missing timestamps
@@ -341,7 +344,7 @@ eddy <- eddy[, .(date, hourmin, TA, PPFD_IN, RH)]
 weather.f <- merge(weather.f, eddy, by = c('date', 'hourmin'), all = TRUE)
 weather.f[, year := year(date)]
 weather.f[, month := month(date)]
-weather.f[, flux.year := fifelse(month >= 10,
+weather.f[, flux.hh.year := fifelse(month >= 10,
                                year + 1,
                                year)]
 weather.f[, ':=' (year = NULL,
@@ -356,7 +359,7 @@ weather.f[, ':=' (filled.tair = factor(fifelse(is.na(Tair),
                                  Tair))]
 # fill in individual missing values that had an NA in both columns
 weather.f[, Tair := na.approx(Tair, maxgap = 1)]
-weather.f[is.na(Tair), .N, by = c('flux.year')]
+weather.f[is.na(Tair), .N, by = c('flux.hh.year')]
 
 # fill all missing precip values during the measurement period with 0 
 # (because the sum is already in the hourly value)
@@ -366,14 +369,14 @@ weather.f[, precip.measured := fifelse(date >= date[first(which(!is.na(precip)))
                                          date <= date[last(which(!is.na(precip)))],
                                        1,
                                        0),
-          by = c('flux.year')]
+          by = c('flux.hh.year')]
 weather.f[, precip.measured := fifelse(date == date[first(which(!is.na(precip)))] &
                                          is.na(precip) |
                                          date == date[last(which(!is.na(precip)))] &
                                          is.na(precip),
                                        0,
                                        precip.measured),
-          by = c('flux.year')]
+          by = c('flux.hh.year')]
 weather.f[, precip := fifelse(precip.measured == 1 & is.na(precip),
                               0,
                               precip)]
@@ -385,10 +388,10 @@ weather.f[, par := na.approx(par, maxgap = 1)]
 weather.f[, rh := na.approx(rh, maxgap = 1)]
 
 # clean up columns
-weather.f <- weather.f[, .(date, hourmin, flux.year, Tair, par, precip, rh, 
+weather.f <- weather.f[, .(date, hourmin, flux.hh.year, Tair, par, precip, rh, 
                            filled.tair)]
 
-# ### Save outpu
+# ### Save output
 # write.csv(weather.f, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hobo_half_hourly_gap_filled.csv',
 #           row.names = FALSE)
 
@@ -716,6 +719,193 @@ soil.sensor <- soil.sensor[, .(ts, date, year, month, week, doy, hour, hourmin,
                                vwc, gwc)]
 ###########################################################################################
 
+### Merge Half-Hourly Data ################################################################
+### Merge with CO2 Data
+### plot frame to join environmental data that doesn't have plot information with
+plot.frame <- expand_grid(fence = seq(1, 6),
+                          plot = seq(1, 8),
+                          date = parse_date_time(seq(ymd('2008-09-01'),
+                                                     ymd('2021-09-30'),
+                                                     by = 'days'),
+                                                 orders = c('Y!-m!*-d!')),
+                          hourmin = as.numeric(seq(0, 23.5, by = 0.5))) %>%
+  mutate(hour = floor(hourmin),
+         mins = ifelse(hourmin == floor(hourmin),
+                       0,
+                       30),
+         ts = parse_date_time(paste(date, paste(hour, mins, sep = ':')),
+                              orders = c('Y!-m!*-d! H!:M!')),
+         year = year(ts),
+         month = month(ts),
+         flux.hh.year = ifelse(month < 10,
+                            year,
+                            year + 1),
+         week = week(ts),
+         doy = yday(ts),
+         treatment = case_when(
+           plot == 2 | plot == 4 ~ 'Control',
+           plot == 1 | plot == 3 ~ 'Air Warming',
+           plot == 6 | plot == 8 ~ 'Soil Warming',
+           plot == 5 | plot == 7 ~ 'Air + Soil Warming'
+         ),
+         plot.id = paste(fence, plot, sep = '_')) %>%
+  select(-mins)
+plot.frame <- as.data.table(plot.frame)
+
+### PAR and Tair
+weather.f <- weather.f[date >= ymd('2008-09-01'),]
+weather.f <- merge(weather.f, plot.frame, 
+                   by = c('date', 'flux.hh.year', 'hourmin'),
+                   allow.cartesian = TRUE,
+                   all = TRUE)
+flux.hh <- merge(co2, weather.f,
+              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
+                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
+              all = TRUE)
+flux.hh[month %in% seq(5, 9) & is.na(precip),
+     .N]/nrow(flux.hh[month %in% seq(5, 9)])
+flux.hh[is.na(rh), .N]/nrow(flux.hh)
+flux.hh[is.na(par), .N]/nrow(flux.hh)
+
+### Soil sensors
+flux.hh <- merge(flux.hh, 
+              soil.sensor,
+              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
+                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
+              all = TRUE)
+flux.hh[is.na(t5), .N]/nrow(flux.hh)
+flux.hh[is.na(t10), .N]/nrow(flux.hh)
+flux.hh[is.na(t20), .N]/nrow(flux.hh)
+flux.hh[is.na(t40), .N]/nrow(flux.hh)
+flux.hh[is.na(vwc), .N]/nrow(flux.hh)
+flux.hh[is.na(gwc), .N]/nrow(flux.hh)
+
+flux.hh[, duplicated.data := .N > 1, by = .(ts, plot.id)]
+View(flux.hh[duplicated.data == TRUE])
+flux.hh[is.na(nee), .N, by = 'year']
+
+### Clean Up Environment and Memory
+rm(chambt, co2, coefs, data, ec.2018, ec.ameriflux, ec.soil.temp, 
+   ec.soil.temp.subset, eddy, final.coefs, final.predictions, model, 
+   model.coefs, predictions, r2, soil.sensor, soil.sensor.subset,
+   soil.sensor.wide, tair.model, times.frame, weather, weather.f, cols1, cols2,
+   ec.n, filenames, sensor.n)
+gc()
+###########################################################################################
+
+### Gap Fill Chamber Temps ################################################################
+### Clean up
+# rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
+#    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
+### Chamber Temps
+# determine period when chambers are deployed
+# this misses 2008 and gets a few wrong on the days that the chambers were deployed or removed
+flux.hh[, deployed := fifelse(date >= date[first(which(!is.na(nee)))] & 
+                             date <= date[last(which(!is.na(nee)))],
+                           1,
+                           0),
+     by = c('year')]
+# get 2008
+flux.hh[year == 2008, deployed := 0]
+# get the wrong values on the days that chambers were deployed or removed
+flux.hh[, deployed := fifelse(date == date[first(which(!is.na(nee)))] &
+                             is.na(precip) |
+                             date == date[last(which(!is.na(nee)))] &
+                             is.na(nee),
+                           0,
+                           deployed),
+     by = c('year')]
+flux.hh[is.na(deployed), .N, by = 'year']
+
+# Remove really low chamber temps when air temp is much higher
+flux.hh[(Tair-t.chamb) > 10, t.chamb := NA]
+ggplot(flux.hh, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
+  geom_point() +
+  facet_grid(.~treatment)
+
+# model chambT using Tair on a plot by plot basis
+model.t.chamb.lm <- function(df) {
+  fit <- lm(t.chamb ~ Tair, data=df)
+  return(list(t.chamb.intercept=coef(fit)[1], 
+              t.chamb.slope=coef(fit)[2],
+              t.chamb.r2 = summary(fit)$r.squared))
+}
+
+m.t.chamb <- flux.hh[, 
+                  model.t.chamb.lm(.SD),
+                  by=c('fence', 'plot')]
+# m.chambT[plot %in% c(2, 4),
+#          treatment := 'Control']
+# m.chambT[plot %in% c(1, 3),
+#          treatment := 'Air Warming']
+# m.chambT[plot %in% c(6, 8),
+#          treatment := 'Soil Warming']
+# m.chambT[plot %in% c(5, 7),
+#          treatment := 'Air + Soil Warming']
+# m.chambT[,
+#          mean(chambT.slope),
+#          by = 'treatment']
+
+# test out modeled chamber temps on all data
+flux.hh <- merge(flux.hh, m.t.chamb, by = c('fence', 'plot'))
+flux.hh[,
+     t.chamb.m := t.chamb.intercept + t.chamb.slope*Tair]
+# tchamb.m <- lm(t.chamb ~ Tair + treatment, data = flux.hh)
+# summary(tchamb.m)
+# 
+# flux.hh[treatment == 'Control',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
+# flux.hh[treatment == 'Air Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
+# flux.hh[treatment == 'Air + Soil Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
+# flux.hh[treatment == 'Soil Warming',
+#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
+
+# ggplot(flux.hh, aes(x = Tair, y = t.chamb.m, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
+
+flux.hh[!is.na(t.chamb), t.chamb.filled := t.chamb]
+flux.hh[is.na(t.chamb) & deployed == 1, t.chamb.filled := t.chamb.m]
+flux.hh[is.na(t.chamb.filled) & deployed == 1, .N, by = 'year']
+# create a tair column with hobo air temp when chambers aren't deployed and 
+# chamber temps when they are deployed
+flux.hh[, ':=' (tair = fifelse(deployed == 0,
+                            Tair,
+                            t.chamb.filled))]
+flux.hh[is.na(tair), .N, by = 'year']
+flux.hh[is.na(Tair), .N, by = 'year']
+# ggplot(flux.hh, aes(x = date)) +
+#   geom_point(aes(y = tair), color = 'red') +
+#   geom_point(aes(y = Tair), color = 'black') +
+#   facet_grid(fence ~ plot)
+
+flux.hh[, ':=' (Tair = NULL,
+             t.chamb.m = NULL)]
+# ggplot(flux.hh, aes(x = tair, y = t.chamb, colour = year), alpha = 0.2) +
+#   geom_point() +
+#   facet_grid(.~treatment)
+rm(deployed, m.t.chamb)
+
+
+### Probably won't gap fill anything else
+flux.hh[is.na(par), .N, by = 'year']
+flux.hh[is.na(rh), .N, by = 'year'] # missing a lot
+flux.hh[is.na(t5), .N, by = 'year']
+flux.hh[is.na(t10), .N, by = 'year']
+flux.hh[is.na(t20) & plot %in% c(1,2,5,6), .N, by = 'year']
+flux.hh[is.na(t40) & plot %in% c(1,2,5,6), .N, by = 'year']
+flux.hh[is.na(vwc) & plot %in% c(1,2,5,6), .N, by = 'year'] # missing a lot
+flux.hh[is.na(gwc), .N, by = 'year'] # missing a lot
+###########################################################################################
+
+### Create Summaries and Derived Variables ################################################
+
+###########################################################################################
+
+
+### Sub-Weekly Data
 ### WTD Data ##############################################################################
 ### Load WTD
 wtd <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/wtd/WTD_2021_compiled.csv")
@@ -855,6 +1045,18 @@ alt.env <- alt.env[, .(alt = round(mean(alt, na.rm = TRUE), 2),
         by = .(flux.year, treatment)]
 ###########################################################################################
 
+### NDVI ##################################################################################
+ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/EML_AK_CiPEHR_NDVI_2009-2021EL.csv",
+              stringsAsFactors = FALSE)
+ndvi <- ndvi[plot.type == 'flux' & !is.na(as.numeric(plot))]
+ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!', 'm!*/d!/y!')),
+             ndvi.date = mdy(date),
+             plot = as.numeric(plot),
+             ndvi = NDVI_relative)]
+ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
+###########################################################################################
+
+### Annual Data
 ### Load Subsidence Data ##################################################################
 sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
                     header = TRUE,
@@ -880,7 +1082,7 @@ sub <- sub[, .(flux.year = year, fence, plot, treatment, subsidence)]
 #   facet_grid(fence ~ plot)
 ###########################################################################################
 
-### Load Vegetation Data ##################################################################
+### Load Biomass Data ##################################################################
 # format 2021 data
 biomass.2021 <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/biomass/EML_2021_Biomass_Corrected.csv',
                          stringsAsFactors = FALSE) %>%
@@ -918,15 +1120,6 @@ ggplot(biomass, aes(x = year)) +
   geom_line(aes(y = biomass), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Biomass')
-
-ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/EML_AK_CiPEHR_NDVI_2009-2021EL.csv",
-                 stringsAsFactors = FALSE)
-ndvi <- ndvi[plot.type == 'flux' & !is.na(as.numeric(plot))]
-ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!', 'm!*/d!/y!')),
-             ndvi.date = mdy(date),
-             plot = as.numeric(plot),
-             ndvi = NDVI_relative)]
-ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
 ###########################################################################################
 
 ### Load Snow Data ########################################################################
@@ -1053,67 +1246,6 @@ snow.env <- merge(snow.env, snow.free,
 ###########################################################################################
 
 ### Merge Datasets ########################################################################
-### Merge with CO2 Data
-### plot frame to join environmental data that doesn't have plot information with
-plot.frame <- expand_grid(fence = seq(1, 6),
-                          plot = seq(1, 8),
-                          date = parse_date_time(seq(ymd('2008-09-01'),
-                                                     ymd('2021-09-30'),
-                                                     by = 'days'),
-                                                 orders = c('Y!-m!*-d!')),
-                          hourmin = as.numeric(seq(0, 23.5, by = 0.5))) %>%
-  mutate(hour = floor(hourmin),
-         mins = ifelse(hourmin == floor(hourmin),
-                      0,
-                      30),
-         ts = parse_date_time(paste(date, paste(hour, mins, sep = ':')),
-                              orders = c('Y!-m!*-d! H!:M!')),
-         year = year(ts),
-         month = month(ts),
-         flux.year = ifelse(month < 10,
-                            year,
-                            year + 1),
-         week = week(ts),
-         doy = yday(ts),
-         treatment = case_when(
-           plot == 2 | plot == 4 ~ 'Control',
-           plot == 1 | plot == 3 ~ 'Air Warming',
-           plot == 6 | plot == 8 ~ 'Soil Warming',
-           plot == 5 | plot == 7 ~ 'Air + Soil Warming'
-         ),
-         plot.id = paste(fence, plot, sep = '_')) %>%
-  select(-mins)
-plot.frame <- as.data.table(plot.frame)
-
-### PAR and Tair
-weather.f <- weather.f[date >= ymd('2008-09-01'),]
-weather.f <- merge(weather.f, plot.frame, 
-                   by = c('date', 'flux.year', 'hourmin'),
-                 allow.cartesian = TRUE,
-                 all = TRUE)
-flux <- merge(co2, weather.f,
-              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
-                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
-              all = TRUE)
-flux[month %in% seq(5, 9) & is.na(precip),
-     .N]/nrow(flux[month %in% seq(5, 9)])
-flux[is.na(rh), .N]/nrow(flux)
-flux[is.na(par), .N]/nrow(flux)
-
-### Soil sensors
-flux <- merge(flux, 
-              soil.sensor,
-              by = c('ts', 'year', 'month', 'week', 'doy', 'date', 'hour',
-                     'hourmin', 'fence', 'plot', 'plot.id', 'treatment'),
-              all = TRUE)
-flux[is.na(t5), .N]/nrow(flux)
-flux[is.na(t10), .N]/nrow(flux)
-flux[is.na(t20), .N]/nrow(flux)
-flux[is.na(t40), .N]/nrow(flux)
-flux[is.na(vwc), .N]/nrow(flux)
-flux[is.na(gwc), .N]/nrow(flux)
-
-
 ### Water Table Depth
 # set the key to allow proper rolling join
 setkey(wtd.f, fence, treatment, plot.id, date)
@@ -1329,126 +1461,6 @@ env.treat <- merge(env.treat, wtd.env,
                    all = TRUE)
 
 # Join all data separated by season
-###########################################################################################
-
-### Gap Fill ##############################################################################
-### Clean up
-# rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
-#    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
-### Chamber Temps
-# determine period when chambers are deployed
-# this misses 2008 and gets a few wrong on the days that the chambers were deployed or removed
-flux[, deployed := fifelse(date >= date[first(which(!is.na(nee)))] & 
-                             date <= date[last(which(!is.na(nee)))],
-                           1,
-                           0),
-     by = c('year')]
-# get 2008
-flux[year == 2008, deployed := 0]
-# get the wrong values on the days that chambers were deployed or removed
-flux[, deployed := fifelse(date == date[first(which(!is.na(nee)))] &
-                             is.na(precip) |
-                             date == date[last(which(!is.na(nee)))] &
-                             is.na(nee),
-                           0,
-                           deployed),
-     by = c('year')]
-flux[is.na(deployed), .N, by = 'year']
-
-# Remove really low chamber temps when air temp is much higher
-flux[(Tair-t.chamb) > 10, t.chamb := NA]
-ggplot(flux, aes(x = Tair, y = t.chamb, colour = year), alpha = 0.2) +
-  geom_point() +
-  facet_grid(.~treatment)
-
-# model chambT using Tair on a plot by plot basis
-model.t.chamb.lm <- function(df) {
-  fit <- lm(t.chamb ~ Tair, data=df)
-  return(list(t.chamb.intercept=coef(fit)[1], 
-              t.chamb.slope=coef(fit)[2],
-              t.chamb.r2 = summary(fit)$r.squared))
-}
-
-m.t.chamb <- flux[, 
-                 model.t.chamb.lm(.SD),
-                 by=c('fence', 'plot')]
-# m.chambT[plot %in% c(2, 4),
-#          treatment := 'Control']
-# m.chambT[plot %in% c(1, 3),
-#          treatment := 'Air Warming']
-# m.chambT[plot %in% c(6, 8),
-#          treatment := 'Soil Warming']
-# m.chambT[plot %in% c(5, 7),
-#          treatment := 'Air + Soil Warming']
-# m.chambT[,
-#          mean(chambT.slope),
-#          by = 'treatment']
-
-# test out modeled chamber temps on all data
-flux <- merge(flux, m.t.chamb, by = c('fence', 'plot'))
-flux[,
-       t.chamb.m := t.chamb.intercept + t.chamb.slope*Tair]
-# tchamb.m <- lm(t.chamb ~ Tair + treatment, data = flux)
-# summary(tchamb.m)
-# 
-# flux[treatment == 'Control',
-#      t.chamb.m := tchamb.m$coefficients[1] + Tair*tchamb.m$coefficients[2]]
-# flux[treatment == 'Air Warming',
-#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[3])]
-# flux[treatment == 'Air + Soil Warming',
-#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[4])]
-# flux[treatment == 'Soil Warming',
-#      t.chamb.m := tchamb.m$coefficients[1] + Tair*(tchamb.m$coefficients[2] + tchamb.m$coefficients[5])]
-
-# ggplot(flux, aes(x = Tair, y = t.chamb.m, colour = year), alpha = 0.2) +
-#   geom_point() +
-#   facet_grid(.~treatment)
-
-flux[!is.na(t.chamb), t.chamb.filled := t.chamb]
-flux[is.na(t.chamb) & deployed == 1, t.chamb.filled := t.chamb.m]
-flux[is.na(t.chamb.filled) & deployed == 1, .N, by = 'year']
-# create a tair column with hobo air temp when chambers aren't deployed and 
-# chamber temps when they are deployed
-flux[, ':=' (tair = fifelse(deployed == 0,
-                            Tair,
-                            t.chamb.filled))]
-flux[is.na(tair), .N, by = 'year']
-flux[is.na(Tair), .N, by = 'year']
-# ggplot(flux, aes(x = date)) +
-#   geom_point(aes(y = tair), color = 'red') +
-#   geom_point(aes(y = Tair), color = 'black') +
-#   facet_grid(fence ~ plot)
-
-flux[, ':=' (Tair = NULL,
-             t.chamb.m = NULL)]
-# ggplot(flux, aes(x = tair, y = t.chamb, colour = year), alpha = 0.2) +
-#   geom_point() +
-#   facet_grid(.~treatment)
-rm(deployed, m.t.chamb)
-
-
-### Probably won't gap fill anything else
-flux[is.na(par), .N, by = 'year']
-flux[is.na(rh), .N, by = 'year'] # missing a lot
-flux[is.na(t5), .N, by = 'year']
-flux[is.na(t10), .N, by = 'year']
-flux[is.na(t20) & plot %in% c(1,2,5,6), .N, by = 'year']
-flux[is.na(t40) & plot %in% c(1,2,5,6), .N, by = 'year']
-flux[is.na(vwc) & plot %in% c(1,2,5,6), .N, by = 'year'] # missing a lot
-flux[is.na(gwc), .N, by = 'year'] # missing a lot
-flux[is.na(td), .N, by = 'year'] # missing a lot - but not during growing season
-flux[is.na(wtd), .N, by = 'year'] # missing a lot - but not during growing season
-flux[is.na(biomass), .N, by = 'year']
-flux[is.na(ndvi), .N, by = 'year']
-flux[is.na(subsidence), .N, by = 'year']
-flux[is.na(alt), .N, by = 'year']
-flux[is.na(tp), .N, by = 'year']
-flux[is.na(tp.to.date), .N, by = 'year'] # missing a lot - but not during growing season
-
-# # save output
-# save(flux, file = '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_all.RData')
-
-### Could maybe assign deep soil temps to neighboring plots of same treatment?
 ###########################################################################################
 
 ### Create Summaries and Derived Variables ################################################
