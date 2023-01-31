@@ -901,7 +901,743 @@ flux.hh[is.na(gwc), .N, by = 'year'] # missing a lot
 ###########################################################################################
 
 ### Create Summaries and Derived Variables ################################################
+### Daily Summary
+flux.hh[, ':=' (flux.year = fifelse(month >= 10,
+                                    year + 1,
+                                    year), # flux.year: GS + prior winter; Oct. 1, 2009 - Sept. 31, 2010 becomes 2010
+                season = fifelse(month <= 4 | month >= 10,
+                           0,
+                           1),
+                block = fifelse(fence <= 2,
+                                'a',
+                                fifelse(fence <= 4,
+                                        'b',
+                                        'c')))]
+flux.hh <- flux.hh[, 
+                   .(ts, date, year, flux.year, season, month, week, doy, hour, 
+                     hourmin, block, fence, plot, plot.id, treatment, deployed, 
+                     filled, nee, reco, gpp, r2, par, tair, t5, t10, t20, t40, 
+                     t5.filled, t10.filled, t20.filled, t40.filled, vwc, gwc,
+                     precip, rh)]
+flux.hh <- flux.hh[order(ts, plot.id)]
 
+# Check missing data
+# 488448 is number of half hourly measurements in winter
+flux.hh[is.na(nee), .N - 488448, by = .(flux.year)]
+flux.hh[is.na(reco), .N - 488448, by = .(flux.year)]
+flux.hh[is.na(gpp), .N - 488448, by = .(flux.year)]
+flux.hh[is.na(par), .N, by = .(flux.year)]
+flux.hh[is.na(tair), .N, by = .(flux.year)]
+flux.hh[is.na(t5.filled), .N, by = .(flux.year)]
+flux.hh[is.na(t10.filled), .N, by = .(flux.year)]
+flux.hh[is.na(t20.filled), .N, by = .(flux.year)]
+flux.hh[is.na(t40.filled), .N, by = .(flux.year)]
+flux.hh[is.na(vwc), .N, by = .(flux.year)]
+flux.hh[is.na(gwc), .N, by = .(flux.year)]
+flux.hh[is.na(precip), .N, by = .(flux.year)]
+flux.hh[is.na(rh), .N, by = .(flux.year)]
+
+
+### Calculate daily values
+flux.daily <- flux.hh[,
+                      .(deployed = first(deployed),
+                        nee.sum = fifelse(all(is.na(nee)),
+                                          NaN,
+                                          sum(nee, na.rm = TRUE)),
+                        reco.sum = fifelse(all(is.na(reco)),
+                                           NaN,
+                                           sum(reco, na.rm = TRUE)),
+                        gpp.sum = fifelse(all(is.na(gpp)),
+                                          NaN,
+                                          sum(gpp, na.rm = TRUE)),
+                        tair.max = max(tair, na.rm = TRUE),
+                        tair.mean = mean(tair, na.rm = TRUE),
+                        tair.min = min(tair, na.rm = TRUE),
+                        tair.sd = fifelse(all(is.na(tair)),
+                                          NaN,
+                                          sd(tair, na.rm = TRUE)),
+                        growing.days = mean(tair, na.rm = TRUE) - 5,
+                        freezing.days = mean(tair, na.rm = TRUE)*-1,
+                        par = fifelse(all(is.na(par)),
+                                      NaN,
+                                      sum(par, na.rm = TRUE)),
+                        t5.max = max(t5, na.rm = TRUE),
+                        t5.mean = mean(t5, na.rm = TRUE),
+                        t5.min = min(t5, na.rm = TRUE),
+                        t5.sd = fifelse(all(is.na(t5)),
+                                        NaN,
+                                        sd(t5, na.rm = TRUE)),
+                        t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                        t5.filled.sd = fifelse(all(is.na(t5.filled)),
+                                               NaN,
+                                               sd(t5.filled, na.rm = TRUE)),
+                        t10.max = max(t10, na.rm = TRUE),
+                        t10.mean = mean(t10, na.rm = TRUE),
+                        t10.min = min(t10, na.rm = TRUE),
+                        t10.sd = fifelse(all(is.na(t10)),
+                                         NaN,
+                                         sd(t10, na.rm = TRUE)),
+                        t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                        t10.filled.sd = fifelse(all(is.na(t10.filled)),
+                                                NaN,
+                                                sd(t10.filled, na.rm = TRUE)),
+                        t20.max = max(t20, na.rm = TRUE),
+                        t20.mean = mean(t20, na.rm = TRUE),
+                        t20.min = min(t20, na.rm = TRUE),
+                        t20.sd = fifelse(all(is.na(t20)),
+                                         NaN,
+                                         sd(t20, na.rm = TRUE)),
+                        t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                        t20.filled.sd = fifelse(all(is.na(t20.filled)),
+                                                NaN,
+                                                sd(t20.filled, na.rm = TRUE)),
+                        t40.max = max(t40, na.rm = TRUE),
+                        t40.mean = mean(t40, na.rm = TRUE),
+                        t40.min = min(t40, na.rm = TRUE),
+                        t40.sd = fifelse(all(is.na(t40)),
+                                         NaN,
+                                         sd(t40, na.rm = TRUE)),
+                        t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                        t40.filled.sd = fifelse(all(is.na(t40.filled)),
+                                                NaN,
+                                                sd(t40.filled, na.rm = TRUE)),
+                        vwc.max = max(vwc, na.rm = TRUE),
+                        vwc.mean = mean(vwc, na.rm = TRUE),
+                        vwc.min = min(vwc, na.rm = TRUE),
+                        vwc.sd = fifelse(all(is.na(vwc)),
+                                         NaN,
+                                         sd(vwc, na.rm = TRUE)),
+                        gwc.max = max(gwc, na.rm = TRUE),
+                        gwc.mean = mean(gwc, na.rm = TRUE),
+                        gwc.min = min(gwc, na.rm = TRUE),
+                        gwc.sd = fifelse(all(is.na(gwc)),
+                                         NaN,
+                                         sd(gwc, na.rm = TRUE)),
+                        precip = fifelse(all(is.na(precip)),
+                                         NaN,
+                                         sum(precip, na.rm = TRUE)),
+                        rh.max = max(rh, na.rm = TRUE),
+                        rh.mean = mean(rh, na.rm = TRUE),
+                        rh.min = min(rh, na.rm = TRUE),
+                        rh.sd = fifelse(all(is.na(rh)),
+                                        NaN,
+                                        sd(rh, na.rm = TRUE))),
+                      by = c('date', 'year', 'flux.year', 'season', 'month', 'week',
+                             'doy', 'block', 'fence', 'plot', 'plot.id',
+                             'treatment')]
+# remove -Inf values
+flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# make sure that NAs introduced by no precip are 0 instead
+flux.daily[is.na(precip),
+           precip := 0]
+# adjust growing and freezing day values to use limits
+flux.daily[growing.days < 0,
+           growing.days := 0]
+flux.daily[freezing.days < 0,
+           freezing.days := 0]
+# calculate GDD and FDD from growing and freezing daily values
+flux.daily[, ':=' (gdd = cumsum(growing.days),
+                   fdd = cumsum(freezing.days),
+                   precip.cum = cumsum(precip)),
+           by = c('flux.year', 'block', 'fence', 'plot')]
+
+flux.daily[,
+           ':=' (tair.spread = tair.max - tair.min,
+                 gdd.2d = frollsum(growing.days, n = 2, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 gdd.3d = frollsum(growing.days, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 gdd.4d = frollsum(growing.days, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 gdd.5d = frollsum(growing.days, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 gdd.6d = frollsum(growing.days, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 gdd.1w = frollsum(growing.days, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 gdd.2w = frollsum(growing.days, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 fdd.2d = frollsum(freezing.days, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+                 fdd.3d = frollsum(freezing.days, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 fdd.4d = frollsum(freezing.days, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 fdd.5d = frollsum(freezing.days, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 fdd.6d = frollsum(freezing.days, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 fdd.1w = frollsum(freezing.days, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 fdd.2w = frollsum(freezing.days, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 precip.2d = frollsum(precip, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+                 precip.3d = frollsum(precip, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 precip.4d = frollsum(precip, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 precip.5d = frollsum(precip, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 precip.6d = frollsum(precip, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 vwc.mean.2d = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+                 vwc.mean.3d = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 vwc.mean.4d = frollmean(vwc.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 vwc.mean.5d = frollmean(vwc.mean, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 vwc.mean.6d = frollmean(vwc.mean, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 vwc.mean.1w = frollmean(vwc.mean, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 vwc.mean.2w = frollmean(vwc.mean, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 vwc.max.2d = frollapply(vwc.max, n = 2, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 vwc.max.3d = frollapply(vwc.max, n = 3, align = 'right', FUN = max, na.rm = TRUE), # 2 days prior + current day
+                 vwc.max.4d = frollapply(vwc.max, n = 4, align = 'right', FUN = max, na.rm = TRUE), # 3 days prior + current day
+                 vwc.max.5d = frollapply(vwc.max, n = 5, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 vwc.max.6d = frollapply(vwc.max, n = 6, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 vwc.max.1w = frollapply(vwc.max, n = 7, align = 'right', FUN = max, na.rm = TRUE), # full week prior including current day
+                 vwc.max.2w = frollapply(vwc.max, n = 14, align = 'right', FUN = max, na.rm = TRUE), # 2 weeks prior including current day
+                 vwc.min.2d = frollapply(vwc.min, n = 2, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 vwc.min.3d = frollapply(vwc.min, n = 3, align = 'right', FUN = min, na.rm = TRUE), # 2 days prior + current day
+                 vwc.min.4d = frollapply(vwc.min, n = 4, align = 'right', FUN = min, na.rm = TRUE), # 3 days prior + current day
+                 vwc.min.5d = frollapply(vwc.min, n = 5, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 vwc.min.6d = frollapply(vwc.min, n = 6, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 vwc.min.1w = frollapply(vwc.min, n = 7, align = 'right', FUN = min, na.rm = TRUE), # full week prior including current day
+                 vwc.min.2w = frollapply(vwc.min, n = 14, align = 'right', FUN = min, na.rm = TRUE), # 2 weeks prior including current day
+                 gwc.mean.2d = frollmean(gwc.mean, n = 2, align = 'right', na.rm = TRUE), # day prior + current day
+                 gwc.mean.3d = frollmean(gwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 days prior + current day
+                 gwc.mean.4d = frollmean(gwc.mean, n = 4, align = 'right', na.rm = TRUE), # 3 days prior + current day
+                 gwc.mean.5d = frollmean(gwc.mean, n = 5, align = 'right', na.rm = TRUE), # day prior + current day
+                 gwc.mean.6d = frollmean(gwc.mean, n = 6, align = 'right', na.rm = TRUE), # day prior + current day
+                 gwc.mean.1w = frollmean(gwc.mean, n = 7, align = 'right', na.rm = TRUE), # full week prior including current day
+                 gwc.mean.2w = frollmean(gwc.mean, n = 14, align = 'right', na.rm = TRUE), # 2 weeks prior including current day
+                 gwc.max.2d = frollapply(gwc.max, n = 2, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 gwc.max.3d = frollapply(gwc.max, n = 3, align = 'right', FUN = max, na.rm = TRUE), # 2 days prior + current day
+                 gwc.max.4d = frollapply(gwc.max, n = 4, align = 'right', FUN = max, na.rm = TRUE), # 3 days prior + current day
+                 gwc.max.5d = frollapply(gwc.max, n = 5, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 gwc.max.6d = frollapply(gwc.max, n = 6, align = 'right', FUN = max, na.rm = TRUE), # day prior + current day
+                 gwc.max.1w = frollapply(gwc.max, n = 7, align = 'right', FUN = max, na.rm = TRUE), # full week prior including current day
+                 gwc.max.2w = frollapply(gwc.max, n = 14, align = 'right', FUN = max, na.rm = TRUE), # 2 weeks prior including current day
+                 gwc.min.2d = frollapply(gwc.min, n = 2, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 gwc.min.3d = frollapply(gwc.min, n = 3, align = 'right', FUN = min, na.rm = TRUE), # 2 days prior + current day
+                 gwc.min.4d = frollapply(gwc.min, n = 4, align = 'right', FUN = min, na.rm = TRUE), # 3 days prior + current day
+                 gwc.min.5d = frollapply(gwc.min, n = 5, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 gwc.min.6d = frollapply(gwc.min, n = 6, align = 'right', FUN = min, na.rm = TRUE), # day prior + current day
+                 gwc.min.1w = frollapply(gwc.min, n = 7, align = 'right', FUN = min, na.rm = TRUE), # full week prior including current day
+                 gwc.min.2w = frollapply(gwc.min, n = 14, align = 'right', FUN = min, na.rm = TRUE)), # 2 weeks prior including current day
+           by = c('block', 'fence', 'plot')]
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.daily <- flux.daily[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# # check that everything worked as expected
+# Tair and derivates
+ggplot(flux.daily[plot.id == '1_1'], aes(x = date)) +
+  geom_line(aes(y = tair.mean, color = 'Tair Mean')) +
+  geom_line(aes(y = tair.min, color = 'Tair Min')) +
+  geom_line(aes(y = tair.max, color = 'Tair Max')) +
+  geom_line(aes(y = growing.days, color = 'Growing Days'))
+
+ggplot(flux.daily[plot.id == '1_1'], aes(x = date)) +
+  geom_line(aes(y = gdd, color = 'GDD')) +
+  geom_line(aes(y = fdd, color = 'FDD'))
+
+# t5 and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t5.mean, color = 't5 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 't5 Min'), alpha = 0.5) +
+  geom_line(aes(y = t5.max, color = 't5 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t5.sd)) +
+  facet_grid(fence ~ plot)
+
+# t10 and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t10.mean, color = 't10 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 't10 Min'), alpha = 0.5) +
+  geom_line(aes(y = t10.max, color = 't10 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t10.sd)) +
+  facet_grid(fence ~ plot)
+
+# t20 and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t20.mean, color = 't20 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 't20 Min'), alpha = 0.5) +
+  geom_line(aes(y = t20.max, color = 't20 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t20.sd)) +
+  facet_grid(fence ~ plot)
+
+# t40 and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t40.mean, color = 't40 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 't40 Min'), alpha = 0.5) +
+  geom_line(aes(y = t40.max, color = 't40 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = t40.sd)) +
+  facet_grid(fence ~ plot)
+
+# vwc and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = vwc.min, color = 'VWC Min'), alpha = 0.5) +
+  geom_line(aes(y = vwc.max, color = 'VWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = vwc.sd)) +
+  facet_grid(fence ~ plot)
+
+# gwc and derivatives
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = gwc.mean, color = 'GWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = gwc.min, color = 'GWC Min'), alpha = 0.5) +
+  geom_line(aes(y = gwc.max, color = 'GWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.daily, aes(x = date)) +
+  geom_line(aes(y = gwc.sd)) +
+  facet_grid(fence ~ plot)
+
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', 'tair.mean', 'freezing.days', grep('fdd', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('precip', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('vwc.mean', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('vwc.max', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('vwc.min', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.mean', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.max', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('gwc.min', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.mean', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.max', colnames(flux.daily), value = TRUE))])
+# View(flux.daily[order(plot.id), .SD, .SDcols = c('date', 'fence', 'plot', grep('t5.min', colnames(flux.daily), value = TRUE))])
+
+
+### Calculate monthly values
+flux.monthly <- flux.hh[,
+                      .(deployed = first(deployed),
+                        nee.sum = fifelse(all(is.na(nee)),
+                                          NaN,
+                                          sum(nee, na.rm = TRUE)),
+                        reco.sum = fifelse(all(is.na(reco)),
+                                           NaN,
+                                           sum(reco, na.rm = TRUE)),
+                        gpp.sum = fifelse(all(is.na(gpp)),
+                                          NaN,
+                                          sum(gpp, na.rm = TRUE)),
+                        tair.max = max(tair, na.rm = TRUE),
+                        tair.mean = mean(tair, na.rm = TRUE),
+                        tair.min = min(tair, na.rm = TRUE),
+                        tair.sd = fifelse(all(is.na(tair)),
+                                          NaN,
+                                          sd(tair, na.rm = TRUE)),
+                        par = fifelse(all(is.na(par)),
+                                      NaN,
+                                      sum(par, na.rm = TRUE)),
+                        t5.max = max(t5, na.rm = TRUE),
+                        t5.mean = mean(t5, na.rm = TRUE),
+                        t5.min = min(t5, na.rm = TRUE),
+                        t5.sd = fifelse(all(is.na(t5)),
+                                        NaN,
+                                        sd(t5, na.rm = TRUE)),
+                        t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                        t5.filled.sd = fifelse(all(is.na(t5.filled)),
+                                               NaN,
+                                               sd(t5.filled, na.rm = TRUE)),
+                        t10.max = max(t10, na.rm = TRUE),
+                        t10.mean = mean(t10, na.rm = TRUE),
+                        t10.min = min(t10, na.rm = TRUE),
+                        t10.sd = fifelse(all(is.na(t10)),
+                                         NaN,
+                                         sd(t10, na.rm = TRUE)),
+                        t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                        t10.filled.sd = fifelse(all(is.na(t10.filled)),
+                                                NaN,
+                                                sd(t10.filled, na.rm = TRUE)),
+                        t20.max = max(t20, na.rm = TRUE),
+                        t20.mean = mean(t20, na.rm = TRUE),
+                        t20.min = min(t20, na.rm = TRUE),
+                        t20.sd = fifelse(all(is.na(t20)),
+                                         NaN,
+                                         sd(t20, na.rm = TRUE)),
+                        t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                        t20.filled.sd = fifelse(all(is.na(t20.filled)),
+                                                NaN,
+                                                sd(t20.filled, na.rm = TRUE)),
+                        t40.max = max(t40, na.rm = TRUE),
+                        t40.mean = mean(t40, na.rm = TRUE),
+                        t40.min = min(t40, na.rm = TRUE),
+                        t40.sd = fifelse(all(is.na(t40)),
+                                         NaN,
+                                         sd(t40, na.rm = TRUE)),
+                        t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                        t40.filled.sd = fifelse(all(is.na(t40.filled)),
+                                                NaN,
+                                                sd(t40.filled, na.rm = TRUE)),
+                        vwc.max = max(vwc, na.rm = TRUE),
+                        vwc.mean = mean(vwc, na.rm = TRUE),
+                        vwc.min = min(vwc, na.rm = TRUE),
+                        vwc.sd = fifelse(all(is.na(vwc)),
+                                         NaN,
+                                         sd(vwc, na.rm = TRUE)),
+                        gwc.max = max(gwc, na.rm = TRUE),
+                        gwc.mean = mean(gwc, na.rm = TRUE),
+                        gwc.min = min(gwc, na.rm = TRUE),
+                        gwc.sd = fifelse(all(is.na(gwc)),
+                                         NaN,
+                                         sd(gwc, na.rm = TRUE)),
+                        precip = fifelse(all(is.na(precip)),
+                                         NaN,
+                                         sum(precip, na.rm = TRUE)),
+                        rh.max = max(rh, na.rm = TRUE),
+                        rh.mean = mean(rh, na.rm = TRUE),
+                        rh.min = min(rh, na.rm = TRUE),
+                        rh.sd = fifelse(all(is.na(rh)),
+                                        NaN,
+                                        sd(rh, na.rm = TRUE))),
+                      by = c('year', 'flux.year', 'season', 'month', 'block', 
+                             'fence', 'plot', 'plot.id', 'treatment')]
+# remove -Inf values
+flux.monthly <- flux.monthly[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.monthly <- flux.monthly[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# Add GDD and FDD
+gdd.fdd.monthly <- flux.daily[
+  , 
+  .(year, flux.year, season, month, block, fence, plot, plot.id, treatment, 
+    gdd, fdd, precip.cum)
+  ][
+    ,
+    .(gdd = max(gdd, na.rm = TRUE),
+      fdd = max(fdd, na.rm = TRUE),
+      precip.cum = max(precip.cum, na.rm = TRUE)),
+    by = .(year, flux.year, season, month, block, fence, plot, plot.id, 
+           treatment)
+  ]
+
+flux.monthly <- merge(flux.monthly, gdd.fdd.monthly,
+                      by = c('year', 'flux.year', 'season', 'month', 'block', 
+                             'fence', 'plot', 'plot.id', 'treatment'))
+rm(gdd.fdd.monthly)
+
+# lagged variables
+flux.monthly[,
+             ':=' (gdd.2m = frollsum(gdd, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                   gdd.3m = frollsum(gdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
+                   fdd.2m = frollsum(fdd, n = 2, align = 'right', na.rm = TRUE), # previous week + current week 
+                   fdd.3m = frollsum(fdd, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week 
+                   precip.2m = frollsum(precip, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                   precip.3m = frollsum(precip, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                   vwc.mean.2m = frollmean(vwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                   vwc.mean.3m = frollmean(vwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                   vwc.max.2m = frollapply(vwc.max, n = 2, align = 'right', na.rm = TRUE, FUN = max), # previous week + current week
+                   vwc.max.3m = frollapply(vwc.max, n = 3, align = 'right', na.rm = TRUE, FUN = max), # 2 previous weeks + current week
+                   vwc.min.2m = frollapply(vwc.min, n = 2, align = 'right', na.rm = TRUE, FUN = min), # previous week + current week
+                   vwc.min.3m = frollapply(vwc.min, n = 3, align = 'right', na.rm = TRUE, FUN = min), # 2 previous weeks + current week
+                   gwc.mean.2m = frollmean(gwc.mean, n = 2, align = 'right', na.rm = TRUE), # previous week + current week
+                   gwc.mean.3m = frollmean(gwc.mean, n = 3, align = 'right', na.rm = TRUE), # 2 previous weeks + current week
+                   gwc.max.2m = frollapply(gwc.max, n = 2, align = 'right', na.rm = TRUE, FUN = max), # previous week + current week
+                   gwc.max.3m = frollapply(gwc.max, n = 3, align = 'right', na.rm = TRUE, FUN = max), # 2 previous weeks + current week
+                   gwc.min.2m = frollapply(gwc.min, n = 2, align = 'right', na.rm = TRUE, FUN = min), # previous week + current week
+                   gwc.min.3m = frollapply(gwc.min, n = 3, align = 'right', na.rm = TRUE, FUN = min)), # 2 previous weeks + current week
+             by = c('fence', 'plot')]
+
+# remove NaN, -Inf, and Inf introduced by calculations
+flux.monthly <- flux.monthly[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.monthly <- flux.monthly[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# # check that everything worked as expected
+# Tair and derivates
+ggplot(flux.monthly[plot.id == '1_1'], aes(x = year + month/12)) +
+  geom_line(aes(y = tair.mean, color = 'Tair Mean')) +
+  geom_line(aes(y = tair.min, color = 'Tair Min')) +
+  geom_line(aes(y = tair.max, color = 'Tair Max'))
+
+ggplot(flux.monthly[plot.id == '1_1'], aes(x = year + month/12)) +
+  geom_line(aes(y = gdd, color = 'GDD')) +
+  geom_line(aes(y = fdd, color = 'FDD'))
+
+# t5 and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t5.mean, color = 't5 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 't5 Min'), alpha = 0.5) +
+  geom_line(aes(y = t5.max, color = 't5 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t5.sd)) +
+  facet_grid(fence ~ plot)
+
+# t10 and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t10.mean, color = 't10 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 't10 Min'), alpha = 0.5) +
+  geom_line(aes(y = t10.max, color = 't10 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t10.sd)) +
+  facet_grid(fence ~ plot)
+
+# t20 and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t20.mean, color = 't20 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 't20 Min'), alpha = 0.5) +
+  geom_line(aes(y = t20.max, color = 't20 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t20.sd)) +
+  facet_grid(fence ~ plot)
+
+# t40 and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t40.mean, color = 't40 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 't40 Min'), alpha = 0.5) +
+  geom_line(aes(y = t40.max, color = 't40 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = t40.sd)) +
+  facet_grid(fence ~ plot)
+
+# vwc and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = vwc.min, color = 'VWC Min'), alpha = 0.5) +
+  geom_line(aes(y = vwc.max, color = 'VWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = vwc.sd)) +
+  facet_grid(fence ~ plot)
+
+# gwc and derivatives
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = gwc.mean, color = 'GWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = gwc.min, color = 'GWC Min'), alpha = 0.5) +
+  geom_line(aes(y = gwc.max, color = 'GWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.monthly, aes(x = year + month/12)) +
+  geom_line(aes(y = gwc.sd)) +
+  facet_grid(fence ~ plot)
+
+
+### Calculate annual values
+flux.annual <- flux.hh[,
+                      .(deployed = first(deployed),
+                        nee.sum = fifelse(all(is.na(nee)),
+                                          NaN,
+                                          sum(nee, na.rm = TRUE)),
+                        reco.sum = fifelse(all(is.na(reco)),
+                                           NaN,
+                                           sum(reco, na.rm = TRUE)),
+                        gpp.sum = fifelse(all(is.na(gpp)),
+                                          NaN,
+                                          sum(gpp, na.rm = TRUE)),
+                        tair.max = max(tair, na.rm = TRUE),
+                        tair.mean = mean(tair, na.rm = TRUE),
+                        tair.min = min(tair, na.rm = TRUE),
+                        tair.sd = fifelse(all(is.na(tair)),
+                                          NaN,
+                                          sd(tair, na.rm = TRUE)),
+                        par = fifelse(all(is.na(par)),
+                                      NaN,
+                                      sum(par, na.rm = TRUE)),
+                        t5.max = max(t5, na.rm = TRUE),
+                        t5.mean = mean(t5, na.rm = TRUE),
+                        t5.min = min(t5, na.rm = TRUE),
+                        t5.sd = fifelse(all(is.na(t5)),
+                                        NaN,
+                                        sd(t5, na.rm = TRUE)),
+                        t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                        t5.filled.sd = fifelse(all(is.na(t5.filled)),
+                                               NaN,
+                                               sd(t5.filled, na.rm = TRUE)),
+                        t10.max = max(t10, na.rm = TRUE),
+                        t10.mean = mean(t10, na.rm = TRUE),
+                        t10.min = min(t10, na.rm = TRUE),
+                        t10.sd = fifelse(all(is.na(t10)),
+                                         NaN,
+                                         sd(t10, na.rm = TRUE)),
+                        t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                        t10.filled.sd = fifelse(all(is.na(t10.filled)),
+                                                NaN,
+                                                sd(t10.filled, na.rm = TRUE)),
+                        t20.max = max(t20, na.rm = TRUE),
+                        t20.mean = mean(t20, na.rm = TRUE),
+                        t20.min = min(t20, na.rm = TRUE),
+                        t20.sd = fifelse(all(is.na(t20)),
+                                         NaN,
+                                         sd(t20, na.rm = TRUE)),
+                        t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                        t20.filled.sd = fifelse(all(is.na(t20.filled)),
+                                                NaN,
+                                                sd(t20.filled, na.rm = TRUE)),
+                        t40.max = max(t40, na.rm = TRUE),
+                        t40.mean = mean(t40, na.rm = TRUE),
+                        t40.min = min(t40, na.rm = TRUE),
+                        t40.sd = fifelse(all(is.na(t40)),
+                                         NaN,
+                                         sd(t40, na.rm = TRUE)),
+                        t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                        t40.filled.sd = fifelse(all(is.na(t40.filled)),
+                                                NaN,
+                                                sd(t40.filled, na.rm = TRUE)),
+                        vwc.max = max(vwc, na.rm = TRUE),
+                        vwc.mean = mean(vwc, na.rm = TRUE),
+                        vwc.min = min(vwc, na.rm = TRUE),
+                        vwc.sd = fifelse(all(is.na(vwc)),
+                                         NaN,
+                                         sd(vwc, na.rm = TRUE)),
+                        gwc.max = max(gwc, na.rm = TRUE),
+                        gwc.mean = mean(gwc, na.rm = TRUE),
+                        gwc.min = min(gwc, na.rm = TRUE),
+                        gwc.sd = fifelse(all(is.na(gwc)),
+                                         NaN,
+                                         sd(gwc, na.rm = TRUE)),
+                        precip = fifelse(all(is.na(precip)),
+                                         NaN,
+                                         sum(precip, na.rm = TRUE)),
+                        rh.max = max(rh, na.rm = TRUE),
+                        rh.mean = mean(rh, na.rm = TRUE),
+                        rh.min = min(rh, na.rm = TRUE),
+                        rh.sd = fifelse(all(is.na(rh)),
+                                        NaN,
+                                        sd(rh, na.rm = TRUE))),
+                      by = c('flux.year', 'block', 'fence', 'plot', 'plot.id',
+                             'treatment')]
+# remove -Inf values
+flux.annual <- flux.annual[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+flux.annual <- flux.annual[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+# Add GDD and FDD
+gdd.fdd.annual <- flux.daily[
+  , 
+  .(year, flux.year, season, month, block, fence, plot, plot.id, treatment, 
+    gdd, fdd, precip.cum)
+][
+  ,
+  .(gdd = max(gdd, na.rm = TRUE),
+    fdd = max(fdd, na.rm = TRUE),
+    precip.cum = max(precip.cum, na.rm = TRUE)),
+  by = .(flux.year, block, fence, plot, plot.id, 
+         treatment)
+]
+
+flux.annual <- merge(flux.annual, gdd.fdd.annual,
+                      by = c('flux.year', 'block', 'fence', 'plot', 'plot.id', 
+                             'treatment'))
+rm(gdd.fdd.annual)
+
+### Winter environmental conditions
+env.winter <- flux.hh[season == 0,
+                         .(winter.tair.min = min(tair, na.rm = TRUE),
+                           winter.tair.mean = mean(tair, na.rm = TRUE),
+                           winter.tair.sd = fifelse(all(is.na(tair)),
+                                                    NaN,
+                                                    sd(tair, na.rm = TRUE)),
+                           winter.t5.min = min(t5, na.rm = TRUE),
+                           winter.t5.mean = mean(t5, na.rm = TRUE),
+                           winter.t5.sd = fifelse(all(is.na(t5)),
+                                                  NaN,
+                                                  sd(t5, na.rm = TRUE)),
+                           winter.t10.min = min(t10, na.rm = TRUE),
+                           winter.t10.mean = mean(t10, na.rm = TRUE),
+                           winter.t10.sd = fifelse(all(is.na(t10)),
+                                                   NaN,
+                                                   sd(t10, na.rm = TRUE)),
+                           winter.t20.min = min(t20, na.rm = TRUE),
+                           winter.t20.mean = mean(t20, na.rm = TRUE),
+                           winter.t20.sd = fifelse(all(is.na(t20)),
+                                                   NaN,
+                                                   sd(t20, na.rm = TRUE)),
+                           winter.min.t40 = min(t40, na.rm = TRUE),
+                           winter.t40.mean = mean(t40, na.rm = TRUE),
+                           winter.t40.sd = fifelse(all(is.na(t40)),
+                                                   NaN,
+                                                   sd(t40, na.rm = TRUE))),
+                         by = c('flux.year', 'block', 'fence', 'plot',
+                                'plot.id', 'treatment')]
+# remove NaN, -Inf, and Inf introduced by calculations
+env.winter <- env.winter[, lapply(.SD, function(x) replace(x, list = is.infinite(x), values = NA))]
+env.winter <- env.winter[, lapply(.SD, function(x) replace(x, list = is.nan(x), values = NA))]
+
+env.winter[is.na(winter.t20.mean),
+           winter.t20.sd := NA]
+env.winter[is.na(winter.t40.mean),
+           winter.t40.sd := NA]
+# write.csv(env.winter, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_winter.csv',
+#           row.names = FALSE)
+
+# # check that everything worked as expected
+# Tair and derivates
+ggplot(flux.annual[plot.id == '1_1'], aes(x = flux.year)) +
+  geom_line(aes(y = tair.mean, color = 'Tair Mean')) +
+  geom_line(aes(y = tair.min, color = 'Tair Min')) +
+  geom_line(aes(y = tair.max, color = 'Tair Max'))
+
+ggplot(flux.annual[plot.id == '1_1'], aes(x = flux.year)) +
+  geom_line(aes(y = gdd, color = 'GDD')) +
+  geom_line(aes(y = fdd, color = 'FDD'))
+
+# t5 and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t5.mean, color = 't5 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 't5 Min'), alpha = 0.5) +
+  geom_line(aes(y = t5.max, color = 't5 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t5.sd)) +
+  facet_grid(fence ~ plot)
+
+# t10 and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t10.mean, color = 't10 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 't10 Min'), alpha = 0.5) +
+  geom_line(aes(y = t10.max, color = 't10 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t10.sd)) +
+  facet_grid(fence ~ plot)
+
+# t20 and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t20.mean, color = 't20 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 't20 Min'), alpha = 0.5) +
+  geom_line(aes(y = t20.max, color = 't20 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t20.sd)) +
+  facet_grid(fence ~ plot)
+
+# t40 and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t40.mean, color = 't40 Mean'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 't40 Min'), alpha = 0.5) +
+  geom_line(aes(y = t40.max, color = 't40 Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = t40.sd)) +
+  facet_grid(fence ~ plot)
+
+# vwc and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = vwc.mean, color = 'VWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = vwc.min, color = 'VWC Min'), alpha = 0.5) +
+  geom_line(aes(y = vwc.max, color = 'VWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = vwc.sd)) +
+  facet_grid(fence ~ plot)
+
+# gwc and derivatives
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = gwc.mean, color = 'GWC Mean'), alpha = 0.5) +
+  geom_line(aes(y = gwc.min, color = 'GWC Min'), alpha = 0.5) +
+  geom_line(aes(y = gwc.max, color = 'GWC Max'), alpha = 0.5) +
+  facet_grid(fence ~ plot)
+
+ggplot(flux.annual, aes(x = flux.year)) +
+  geom_line(aes(y = gwc.sd)) +
+  facet_grid(fence ~ plot)
 ###########################################################################################
 
 
@@ -988,7 +1724,7 @@ wtd.f[, plot.id := paste(fence, plot, sep = '_')]
 
 # Neaten
 # for flux data
-wtd.f <- wtd.f[, .(date, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
+wtd.f <- wtd.f[, .(flux.year = year, date, month, fence,  WTD_Date, treatment, plot.id, wtd = WTD)]
 wtd.f <- wtd.f[order(date, plot.id)]
 
 # for environmental data
@@ -998,6 +1734,36 @@ wtd.env <- wtd[, ':=' (treatment = fifelse(well %in% c(1, 2, 2.5, 1.17, 2.17, 3.
                        flux.year = year)]
 wtd.env <- wtd.env[, .(wtd.mean = round(mean(WTD, na.rm = TRUE), 2)),
                    by = .(flux.year, treatment)]
+
+### Create Summaries and Derived Variables 
+wtd.monthly <- wtd.f[,
+                     .(wtd.mean = mean(wtd, na.rm = TRUE),
+                       wtd.sd = sd(wtd, na.rm = TRUE),
+                       wtd.n = .N),
+                     by = .(flux.year, month, fence, plot.id, treatment)
+                     ]
+
+wtd.annual <- wtd.f[,
+                     .(wtd.mean = mean(wtd, na.rm = TRUE),
+                       wtd.sd = sd(wtd, na.rm = TRUE),
+                       wtd.n = .N),
+                     by = .(flux.year, fence, plot.id, treatment)
+]
+
+# check output
+ggplot(wtd.monthly[!(plot.id %in% c('1_NA', '2_NA', '3_NA', '4_NA', '5_NA', '6_NA'))], 
+       aes(x = flux.year + month/12)) +
+  geom_line(aes(y = wtd.mean, color = 'WTD Mean')) +
+  geom_line(aes(y = wtd.sd, color = 'WTD SD')) +
+  geom_line(aes(y = wtd.n, color = 'WTD N')) +
+  facet_wrap(~ plot.id, ncol = 8)
+
+ggplot(wtd.annual[!(plot.id %in% c('1_NA', '2_NA', '3_NA', '4_NA', '5_NA', '6_NA'))], 
+       aes(x = flux.year)) +
+  geom_line(aes(y = wtd.mean, color = 'WTD Mean')) +
+  geom_line(aes(y = wtd.sd, color = 'WTD SD')) +
+  geom_line(aes(y = wtd.n, color = 'WTD N')) +
+  facet_wrap(~ plot.id, ncol = 8)
 ###########################################################################################
 
 ### Load Thaw Depth Data ##################################################################
@@ -1029,7 +1795,28 @@ td[(ww == 'w' | ww == 'ww') & (sw == 's' | sw == 'sw'), treatment := 'Air + Soil
 # Plot ID
 td[, plot.id := paste(fence, plot, sep = '_')]
 td <- td[order(date, plot.id)]
-td.f <- td[,.(date, year, fence, TD_Date, treatment, plot.id, td)]
+td.f <- td[,.(date, flux.year, month, fence, TD_Date, treatment, plot.id, td)]
+
+### Create Summaries and Derived Variables
+td.monthly <- td.f[,
+                     .(td = max(td, na.rm = TRUE)),
+                     by = .(flux.year, month, fence, plot.id, treatment)
+]
+
+td.annual <- td.f[,
+                    .(td = max(td, na.rm = TRUE)),
+                    by = .(flux.year, fence, plot.id, treatment)
+]
+
+ggplot(td.monthly, 
+       aes(x = flux.year + month/12)) +
+  geom_line(aes(y = td, color = 'TD Mean')) +
+  facet_wrap(~ plot.id, ncol = 8)
+
+ggplot(td.annual, 
+       aes(x = flux.year)) +
+  geom_line(aes(y = td, color = 'TD Mean')) +
+  facet_wrap(~ plot.id, ncol = 8)
 
 # ALT
 alt.f <- td[, .(alt = max(td, na.rm = TRUE),
@@ -1043,18 +1830,55 @@ alt.env[, alt.doy := yday(alt.date)]
 alt.env <- alt.env[, .(alt = round(mean(alt, na.rm = TRUE), 2),
             alt.doy = round(mean(alt.doy, na.rm = TRUE))),
         by = .(flux.year, treatment)]
+
 ###########################################################################################
 
 ### NDVI ##################################################################################
 ndvi <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/ndvi/EML_AK_CiPEHR_NDVI_2009-2021EL.csv",
               stringsAsFactors = FALSE)
 ndvi <- ndvi[plot.type == 'flux' & !is.na(as.numeric(plot))]
-ndvi[, ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!', 'm!*/d!/y!')),
-             ndvi.date = mdy(date),
-             plot = as.numeric(plot),
-             ndvi = NDVI_relative)]
-ndvi <- ndvi[, .(date, ndvi.date, year, fence, plot, ndvi)]
+ndvi[
+  , 
+  ':=' (date = parse_date_time(date, orders = c('m!*/d!/Y!', 'm!*/d!/y!')),
+        ndvi.date = mdy(date),
+        plot = as.numeric(plot),
+        ndvi = NDVI_relative)
+][,
+  ':=' (month = month(date),
+        plot.id = paste(fence, plot, sep = '_'))
+  ][,
+    flux.year := fifelse(month >= 10,
+                        year + 1,
+                        year)
+  ]
+
+ndvi <- ndvi[, .(date, ndvi.date, flux.year, month, fence, plot, plot.id, ndvi)]
+
+### Create Summaries and Derived Variables
+ndvi.monthly <- ndvi[,
+                     .(ndvi = max(ndvi, na.rm = TRUE)),
+                     by = .(flux.year, month, fence, plot, plot.id)]
+
+ndvi.annual <- ndvi[,
+                     .(ndvi = max(ndvi, na.rm = TRUE)),
+                     by = .(flux.year, fence, plot, plot.id)]
+
+ggplot(ndvi.monthly, aes(x = flux.year + month/12)) +
+  geom_line(aes(y = ndvi)) +
+  facet_grid(fence ~ plot)
+
+ggplot(ndvi.annual, aes(x = flux.year)) +
+  geom_line(aes(y = ndvi)) +
+  facet_grid(fence ~ plot)
 ###########################################################################################
+
+### Merge Sub-Weekly Datasets #############################################################
+env.monthly <- merge(wtd.monthly, td.monthly, 
+                     by = c('flux.year', 'month', 'fence', 'plot.id', 'treatment'))
+env.monthly <- merge(env.monthly, ndvi.monthly,
+                    by = c('flux.year', 'month', 'fence', 'plot.id'))
+###########################################################################################
+
 
 ### Annual Data
 ### Load Subsidence Data ##################################################################
