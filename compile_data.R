@@ -1873,10 +1873,16 @@ ggplot(ndvi.annual, aes(x = flux.year)) +
 ###########################################################################################
 
 ### Merge Sub-Weekly Datasets #############################################################
+# Monthly
 env.monthly <- merge(wtd.monthly, td.monthly, 
                      by = c('flux.year', 'month', 'fence', 'plot.id', 'treatment'))
 env.monthly <- merge(env.monthly, ndvi.monthly,
                     by = c('flux.year', 'month', 'fence', 'plot.id'))
+# Annual
+env.annual <- merge(wtd.annual, td.annual, 
+                     by = c('flux.year', 'fence', 'plot.id', 'treatment'))
+env.annual <- merge(env.annual, ndvi.annual,
+                     by = c('flux.year', 'fence', 'plot.id'))
 ###########################################################################################
 
 
