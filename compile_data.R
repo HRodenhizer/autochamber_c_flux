@@ -8,7 +8,6 @@
 
 ### To Do
 # interpolate subsidence for 2021? Or try to use NEON?
-# make ALT be deepest TD and also incorporate day of ALT into modeling?
 # substitute deep soil temps from nearby plots for ones without probes?
 # weather.env necessary?
 
@@ -795,8 +794,8 @@ gc()
 
 ### Gap Fill Chamber Temps ################################################################
 ### Clean up
-# rm(alt.f, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
-#    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.f)
+# rm(alt.annual, biomass, chambt, co2, ndvi, plot.frame, soil.sensor, sub,
+#    td, td.2009, weather, well.assignment, wtd, wtd.2009, snow.annual)
 ### Chamber Temps
 # determine period when chambers are deployed
 # this misses 2008 and gets a few wrong on the days that the chambers were deployed or removed
@@ -1817,20 +1816,6 @@ ggplot(td.annual,
        aes(x = flux.year)) +
   geom_line(aes(y = td, color = 'TD Mean')) +
   facet_wrap(~ plot.id, ncol = 8)
-
-# ALT
-alt.f <- td[, .(alt = max(td, na.rm = TRUE),
-              alt.date = TD_Date[which(td == max(td, na.rm = TRUE))]),
-          by = .(fence, plot.id, treatment, year)]
-alt.f <- alt.f[, .(alt = first(alt),
-               alt.date = first(alt.date)),
-           by = .(fence, plot.id, treatment, year)]
-alt.env <- alt.f[, flux.year := year]
-alt.env[, alt.doy := yday(alt.date)]
-alt.env <- alt.env[, .(alt = round(mean(alt, na.rm = TRUE), 2),
-            alt.doy = round(mean(alt.doy, na.rm = TRUE))),
-        by = .(flux.year, treatment)]
-
 ###########################################################################################
 
 ### NDVI ##################################################################################
@@ -1873,20 +1858,43 @@ ggplot(ndvi.annual, aes(x = flux.year)) +
 ###########################################################################################
 
 ### Merge Sub-Weekly Datasets #############################################################
+# Half-hourly
+
+# Daily
+
 # Monthly
-env.monthly <- merge(wtd.monthly, td.monthly, 
+flux.monthly <- merge(flux.monthly, wtd.monthly, 
+                      by = c('flux.year', 'month', 'fence', 'plot.id', 'treatment'))
+flux.monthly <- merge(flux.monthly, td.monthly, 
                      by = c('flux.year', 'month', 'fence', 'plot.id', 'treatment'))
-env.monthly <- merge(env.monthly, ndvi.monthly,
+env.monthly <- merge(flux.monthly, ndvi.monthly,
                     by = c('flux.year', 'month', 'fence', 'plot.id'))
 # Annual
-env.annual <- merge(wtd.annual, td.annual, 
+flux.annual <- merge(flux.annual, wtd.annual, 
+                    by = c('flux.year', 'fence', 'plot.id', 'treatment'))
+flux.annual <- merge(flux.annual, td.annual, 
                      by = c('flux.year', 'fence', 'plot.id', 'treatment'))
-env.annual <- merge(env.annual, ndvi.annual,
+flux.annual <- merge(flux.annual, ndvi.annual,
                      by = c('flux.year', 'fence', 'plot.id'))
 ###########################################################################################
 
 
 ### Annual Data
+### ALT ###################################################################################
+alt.annual <- td[, .(alt = max(td, na.rm = TRUE),
+                alt.date = TD_Date[which(td == max(td, na.rm = TRUE))]),
+            by = .(fence, plot.id, treatment, year)]
+alt.annual <- alt.annual[, .(alt = first(alt),
+                   alt.date = first(alt.date)),
+               by = .(fence, plot.id, treatment, year)]
+alt.annual[, alt.doy := yday(alt.date)]
+alt.annual <- alt.annual[, .(flux.year = year, fence, plot.id, treatment, alt, alt.doy)]
+
+alt.env <- alt.annual[, .(alt = round(mean(alt, na.rm = TRUE), 2),
+                          alt.doy = round(mean(alt.doy, na.rm = TRUE))),
+                   by = .(flux.year, treatment)]
+############################################################################################
+
 ### Load Subsidence Data ##################################################################
 sub <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
                     header = TRUE,
@@ -1895,10 +1903,10 @@ sub <- sub[exp == 'CiPEHR']
 sub[, ':='(exp = NULL,
            plot = as.numeric(plot),
            subsidence = subsidence * 100)]
-sub <- sub[, .(flux.year = year, fence, plot, treatment, subsidence)]
+sub.annual <- sub[, .(flux.year = year, fence, plot, treatment, subsidence)]
 
 ### using LiDAR data doesn't produce believable results...
-### will use the linear interpolation that is already in place.
+### leaving 2021 subsidence empty
 # sub.2021 <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/elevation/plot_elev_2021_lidar.csv')
 # sub.2021 <- sub.2021[!is.na(as.numeric(plot))]
 # sub.2021[, plot := as.numeric(plot)]
@@ -1950,6 +1958,8 @@ ggplot(biomass, aes(x = year)) +
   geom_line(aes(y = biomass), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Biomass')
+
+biomass <- biomass[, .(flux.year = year, fence, plot, biomass)]
 ###########################################################################################
 
 ### Load Snow Data ########################################################################
@@ -1973,9 +1983,7 @@ snow[plot == 5 | plot == 7, treatment := 'Air + Soil Warming']
 snow.env <- snow[, .(snow.depth = round(mean(snow.depth, na.rm = TRUE), 2)),
                                              by = c('flux.year', 'treatment')]
 
-snow.f <- snow[, date := NULL]
-snow.f[, flux.year := NULL]
-snow.f[, month := NULL]
+snow.annual <- snow[, .(flux.year, block, fence, plot, treatment, snow.depth)]
 
 # Load Snow Free Date
 snow.free.2009.2016 <- read.csv('/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPEHR & DryPEHR/CO2 fluxes/Snow free/LTER_Data/2016/CiPEHR_dates_snowfree_2010_2016.csv',
@@ -2075,6 +2083,32 @@ snow.env <- merge(snow.env, snow.free,
                   all = TRUE)
 ###########################################################################################
 
+### Merge Annual Data #####################################################################
+# Half-Hourly
+
+# Daily
+
+# Monthly
+
+# Annual
+flux.annual <- merge(flux.annual, alt.annual,
+                     by = c('flux.year', 'fence', 'plot.id', 'treatment'))
+flux.annual <- merge(flux.annual, sub.annual,
+                     by = c('flux.year', 'fence', 'plot', 'treatment'))
+flux.annual <- merge(flux.annual, biomass,
+                     by = c('flux.year', 'fence', 'plot'))
+flux.annual <- merge(flux.annual, snow.annual,
+                     by = c('flux.year', 'block', 'fence', 'plot', 'treatment'))
+
+### Clean up environment and memory
+rm(alt.annual, biomass, biomass.2021, biomass.frame, ndvi, ndvi.annual, 
+   ndvi.monthly, snow, snow.annual, snow.free, sub, sub.annual, td, td.annual,
+   td.monthly, well.assignment, wtd, wtd.2009, wtd.annual, wtd.monthly)
+gc()
+###########################################################################################
+
+
+
 ### Merge Datasets ########################################################################
 ### Water Table Depth
 # set the key to allow proper rolling join
@@ -2164,9 +2198,9 @@ flux[, ':=' (subsidence.intercept = NULL,
 flux[is.na(subsidence), .N, by = 'flux.year']
 
 ### ALT
-alt.f[, year := NULL]
+alt.annual[, year := NULL]
 flux <- merge(flux,
-              alt.f,
+              alt.annual,
               by = c('flux.year', 'fence', 'plot.id', 'treatment'),
               all = TRUE)
 
@@ -2227,7 +2261,7 @@ flux[,
 
 ### Snow
 flux <- merge(flux,
-              snow.f,
+              snow.annual,
               by = c('year','block', 'fence', 'plot', 'treatment'),
               all = TRUE)
 flux[month %in% seq(5, 9) & is.na(snow.depth), .N]/nrow(flux[month %in% seq(5, 9)])
