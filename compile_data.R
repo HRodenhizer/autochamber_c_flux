@@ -1608,7 +1608,7 @@ flux.seasonal <- merge(flux.seasonal,
 
 
 ### Calculate annual values
-flux.annual <- flux.hh[,
+flux.annual <- flux.hh[season == 1,
                       .(nee.sum = fifelse(all(is.na(nee)),
                                           NaN,
                                           sum(nee, na.rm = TRUE)),
@@ -2632,7 +2632,7 @@ flux.annual <- merge(flux.annual,
                      by = c('flux.year', 'fence', 'plot', 'treatment'),
                      all = TRUE)
 flux.annual[, tp := alt - subsidence]
-biomass[, seasonal := NULL]
+biomass[, season := NULL]
 flux.annual <- merge(flux.annual, 
                      biomass,
                      by = c('flux.year', 'fence', 'plot'),
@@ -2748,7 +2748,7 @@ flux.seasonal.final <- flux.seasonal[
     winter.t5.min,	winter.t5.mean,	winter.t5.sd,	winter.t10.min,	winter.t10.mean,
     winter.t10.sd,	winter.t20.min,	winter.t20.mean,	winter.t20.sd,
     winter.t40.min,	winter.t40.mean,	winter.t40.sd)
-]
+][order(flux.year, fence, plot, season)]
 
 # Annual
 flux.annual.final <- flux.annual[
@@ -2783,32 +2783,32 @@ saveRDS(flux.hh,
         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_hh.RData')
 
 ### Daily
-write.csv(flux.daily, 
+write.csv(flux.daily.final, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv',
           row.names = FALSE)
 # GS only
 flux.daily.gs <- flux.daily[season == 1 & year >= 2009]
-write.csv(flux.daily.gs, 
+write.csv(flux.daily.gs.final, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_gs.csv',
           row.names = FALSE)
 
 ### Monthly
-write.csv(flux.monthly, 
+write.csv(flux.monthly.final, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv',
           row.names = FALSE)
 # GS only
-flux.monthly.gs <- flux.monthly[season == 1 & year >= 2009]
+flux.monthly.gs <- flux.monthly.final[season == 1 & year >= 2009]
 write.csv(flux.monthly.gs, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly_gs.csv',
           row.names = FALSE)
 
 ### Seasonal
-write.csv(flux.seasonal, 
+write.csv(flux.seasonal.final, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal.csv',
           row.names = FALSE)
 
 ### Annual
-write.csv(flux.annual, 
+write.csv(flux.annual.final, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv',
           row.names = FALSE)
 
@@ -2821,6 +2821,46 @@ write.csv(env.winter,
 write.csv(env.treat,
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_annual_treatment.csv',
           row.names = FALSE)
+###########################################################################################
+
+### Merge WTD, precip, subsidence, td for soil hydrology investigation ####################
+### Join TD to WTD
+# set the key to allow proper rolling join
+wtd.f <- wtd.f[!(str_detect(plot.id, 'NA'))]
+wtd.f <- wtd.f[ , WTD_Date := NULL]
+setkey(wtd.f, fence, treatment, plot.id, flux.year, month, date)
+setkey(td.f, fence, treatment, plot.id, flux.year, month, date)
+
+# Rolling join of water table depth and flux
+# This joins by matching treatment and plot id and finding the closest date match between
+# wtd and td. In cases where there are two thaw depths equally distant in time
+# from the wtd measurement, it will return both, resulting in a longer data table than 
+# the wtd input. 
+hydrology <- td.f[wtd.f, roll = 'nearest']
+
+
+# Calculate rolling precipitation sum
+# Try both 1 week and 2 week
+precip.f <- weather.f[, .(date, hour, precip)]
+precip.f <- precip.f[date >= as_date('2009-01-01')]
+precip.f <- precip.f[, .(precip = sum(precip, na.rm = TRUE)), by = 'date']
+precip.f[, ':=' (precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE),
+                 precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE),
+                 precip = NULL)]
+
+# Join precip to hydrology
+hydrology <- merge(hydrology, precip.f, by = 'date',
+                   all.x = TRUE, all.y = FALSE)
+
+# Join subsidence to hydrology
+hydrology[, plot := as.numeric(str_sub(plot.id, start = 3))]
+hydrology <- merge(hydrology, sub.annual, by = c('flux.year', 'fence', 'plot', 'treatment'),
+                   all.x = TRUE)
+
+# # save data
+# write.csv(hydrology,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hydrology.csv',
+#           row.names = FALSE)
 ###########################################################################################
 
 ### Plot to Check Merge and Summaries Went Properly #######################################
@@ -3022,170 +3062,6 @@ ggplot(flux.daily[year == 2015 & plot.id == '4_6'],
   facet_grid(fence~plot) +
   ggtitle('GDD')
 
-### Weekly
-# Fluxes
-flux.weekly[, year.decimal := year + week/max(week), by = 'year']
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = gpp.sum, color = 'GPP'), alpha = 0.5) +
-  geom_line(aes(y = nee.sum, color = 'NEE'), alpha = 0.5) +
-  geom_line(aes(y = -1*reco.sum, color = 'Reco'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_y_continuous(name = 'Flux (g C / week)') +
-  scale_color_manual(values = c('green', 'blue', 'red')) +
-  ggtitle('Weekly Fluxes')
-
-# Air temps
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.tair.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.tair.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = mean.tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('purple', 'red', 'black', 'blue')) +
-  ggtitle('Air Temperature')
-
-# GDD and FDD
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = fdd, color = 'FDD'), alpha = 0.5) +
-  geom_line(aes(y = gdd, color = 'GDD'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('blue', 'red')) +
-  ggtitle('Weekly Growing Degree Days and Freezing Degree Days')
-
-# Soil Temps
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.t5.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t5.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t5.min, color = 'Min Air Temp'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly 5 cm Soil Temperature')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.t10.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t10.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t10.min, color = 'Min Air Temp'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly 10 cm Soil Temperature')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.t20.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t20.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t20.min, color = 'Min Air Temp'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly 20 cm Soil Temperature')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.t40.max, color = 'Max Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = t40.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t40.min, color = 'Min Air Temp'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly 40 cm Soil Temperature')
-
-# Soil Moisture
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.vwc.max, color = 'Max VWC'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean, color = 'Mean VWC'), alpha = 0.5) +
-  geom_line(aes(y = min.vwc.min, color = 'Min VWC'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly VWC')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = vwc.sd, color = 'SD VWC'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly VWC SD')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.gwc.max, color = 'Max GWC'), alpha = 0.5) +
-  geom_line(aes(y = gwc.mean, color = 'Mean GWC'), alpha = 0.5) +
-  geom_line(aes(y = min.gwc.min, color = 'Min GWC'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly GWC')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = gwc.sd, color = 'SD GWC'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly GWC SD')
-
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = wtd.mean, color = 'WTD'), alpha = 0.5) +
-  geom_line(aes(y = wtd.sd, color = 'SD WTD'), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly Water Table Depth')
-
-# Precipitation
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_step(aes(y = precip, color = 'Precip'), alpha = 0.5) +
-  geom_step(aes(y = precip.cum, color = 'Cumulative\nPrecip'), alpha = 0.5) +
-  scale_color_manual(values = c('blue', 'black')) +
-  ggtitle('Weekly Precipitation')
-
-ggplot(flux.weekly, aes(x = week, group = year)) +
-  geom_step(aes(y = precip.cum, color = factor(year)), alpha = 0.5) +
-  ggtitle('Weekly Precipitation')
-
-# Relative Humidity
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = max.rh.max, color = 'Max RH'), alpha = 0.5) +
-  geom_line(aes(y = rh.mean, color = 'Mean RH'), alpha = 0.5) +
-  geom_line(aes(y = min.rh.min, color = 'Min RH'), alpha = 0.5) +
-  scale_color_manual(values = c('red', 'black', 'blue')) +
-  ggtitle('Weekly Relative Humidity')
-
-# Thaw Depth, TP
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = td*-1, color = 'Thaw Depth'), alpha = 0.5) +
-  geom_line(aes(y = tp.to.date*-1, color = 'Thaw Penetration'), alpha = 0.5) +
-  scale_color_manual(values = c('black', 'red')) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly Thaw Depth')
-
-# NDVI
-ggplot(flux.weekly, aes(x = year.decimal)) +
-  geom_line(aes(y = ndvi), alpha = 0.5) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly NDVI')
-
-# Check lagged variables for a few plots
-ggplot(flux.weekly[plot.id == '1_1'],
-       aes(x = year.decimal)) +
-  geom_line(aes(y = vwc.mean, color = 'VWC'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.2w, color = 'VWC 2 Week'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.3w, color = 'VWC 3 Week'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.1m, color = 'VWC 4 Week'), alpha = 0.5) +
-  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45')) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly VWC')
-
-ggplot(flux.weekly[plot.id == '4_6'],
-       aes(x = year.decimal)) +
-  geom_line(aes(y = vwc.mean, color = 'VWC'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.2w, color = 'VWC 2 Week'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.3w, color = 'VWC 3 Week'), alpha = 0.5) +
-  geom_line(aes(y = vwc.mean.1m, color = 'VWC 4 Week'), alpha = 0.5) +
-  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45')) +
-  facet_grid(fence~plot) +
-  ggtitle('Weekly VWC')
-
-ggplot(flux.weekly[year == 2010 & plot.id == '4_6'],
-       aes(x = date)) +
-  geom_line(aes(y = gdd.2d, color = 'GDD 2 Day'), alpha = 0.5) +
-  geom_line(aes(y = gdd.3d, color = 'GDD 3 Day'), alpha = 0.5) +
-  geom_line(aes(y = gdd.4d, color = 'GDD 4 Day'), alpha = 0.5) +
-  geom_line(aes(y = gdd.5d, color = 'GDD 5 Day'), alpha = 0.5) +
-  geom_line(aes(y = gdd.6d, color = 'GDD 6 Day'), alpha = 0.5) +
-  geom_line(aes(y = gdd.1w, color = 'GDD 7 Days'), alpha = 0.5) +
-  scale_color_manual(values = c('black', 'gray15', 'gray30', 'gray45',
-                                'gray60', 'gray75', 'gray90')) +
-  facet_grid(fence~plot) +
-  ggtitle('GDD')
-
 ### Annual
 ggplot(flux.annual, aes(x = flux.year)) +
   geom_hline(yintercept = 0) +
@@ -3199,11 +3075,10 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Air Temps
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.tair.max, color = 'Max Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = tair.max, color = 'Max Air Temp'), alpha = 0.5) +
   geom_line(aes(y = tair.mean, color = 'Mean Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.tair.min, color = 'Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.tair.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
-  geom_line(aes(y = mean.tair.spread, color = 'Air Temp Spread'), alpha = 0.5) +
+  geom_line(aes(y = tair.min, color = 'Min Air Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.tair.min, color = 'Prior Winter Min Air Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('purple', 'red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual Air Temperature')
@@ -3218,47 +3093,46 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Soil Temps
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t5.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.max, color = 'Max Soil Temp'), alpha = 0.5) +
   geom_line(aes(y = t5.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t5.min, color = 'Min Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t5.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t5.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.t5.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 5 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t10.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.max, color = 'Max Soil Temp'), alpha = 0.5) +
   geom_line(aes(y = t10.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t10.min, color = 'Min Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t10.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t10.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.t10.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 10 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t20.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.max, color = 'Max Soil Temp'), alpha = 0.5) +
   geom_line(aes(y = t20.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t20.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t20.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.t20.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 20 cm Soil Temperature')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.t40.max, color = 'Max Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.max, color = 'Max Soil Temp'), alpha = 0.5) +
   geom_line(aes(y = t40.mean, color = 'Mean Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = min.t40.min, color = 'Min Soil Temp'), alpha = 0.5) +
-  geom_line(aes(y = winter.min.t40.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = t40.min, color = 'Min Soil Temp'), alpha = 0.5) +
+  geom_line(aes(y = winter.t40.min, color = 'Prior Winter Min Soil Temp'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue', 'turquoise')) +
   ggtitle('Annual 40 cm Soil Temperature')
 
 # Soil Moisture
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.vwc.max, color = 'Max VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.max, color = 'Max VWC'), alpha = 0.5) +
   geom_line(aes(y = vwc.mean, color = 'Mean VWC'), alpha = 0.5) +
-  geom_line(aes(y = min.vwc.min, color = 'Min VWC'), alpha = 0.5) +
+  geom_line(aes(y = vwc.min, color = 'Min VWC'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('Annual VWC')
@@ -3269,9 +3143,9 @@ ggplot(flux.annual, aes(x = flux.year)) +
   ggtitle('Annual VWC SD')
 
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.gwc.max, color = 'Max GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.max, color = 'Max GWC'), alpha = 0.5) +
   geom_line(aes(y = gwc.mean, color = 'Mean GWC'), alpha = 0.5) +
-  geom_line(aes(y = min.gwc.min, color = 'Min GWC'), alpha = 0.5) +
+  geom_line(aes(y = gwc.min, color = 'Min GWC'), alpha = 0.5) +
   facet_grid(fence~plot) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('Annual GWC')
@@ -3290,7 +3164,7 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Precipitation
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_col(aes(y = precip.sum/100, color = 'Precip', fill = 'Precip')) +
+  geom_col(aes(y = precip/100, color = 'Precip', fill = 'Precip')) +
   scale_y_continuous(name = 'Precip (cm)') +
   scale_color_manual(values = c('blue'),
                      guide = FALSE) +
@@ -3300,9 +3174,9 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Relative Humidity
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = max.rh.max, color = 'Max RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.max, color = 'Max RH'), alpha = 0.5) +
   geom_line(aes(y = rh.mean, color = 'Mean RH'), alpha = 0.5) +
-  geom_line(aes(y = min.rh.min, color = 'Min RH'), alpha = 0.5) +
+  geom_line(aes(y = rh.min, color = 'Min RH'), alpha = 0.5) +
   scale_color_manual(values = c('red', 'black', 'blue')) +
   ggtitle('Annual Relative Humidity')
 
@@ -3322,53 +3196,77 @@ ggplot(flux.annual, aes(x = flux.year)) +
 
 # Biomass
 ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = biomass.annual), alpha = 0.5) +
+  geom_line(aes(y = biomass), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Biomass')
 
 # Snow Depth
-ggplot(flux.annual, aes(x = flux.year)) +
-  geom_line(aes(y = winter.snow.depth), alpha = 0.5) +
+ggplot(flux.annual.final, aes(x = flux.year)) +
+  geom_line(aes(y = spring.snow.depth), alpha = 0.5) +
   facet_grid(fence~plot) +
   ggtitle('Annual Snow Depth')
 ###########################################################################################
 
-### Merge WTD, precip, subsidence, td for soil hydrology investigation ####################
-### Join TD to WTD
-# set the key to allow proper rolling join
-wtd.f <- wtd.f[!(str_detect(plot.id, 'NA'))]
-wtd.f <- wtd.f[ , WTD_Date := NULL]
-setkey(wtd.f, fence, treatment, plot.id, date)
-setkey(td.f, fence, treatment, plot.id, date)
+### Compare with old files to make sure things didn't get messed up in conversion #########
+old.flux.annual <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/archive/input_data/2nd_round/flux_annual.csv')
 
-# Rolling join of water table depth and flux
-# This joins by matching treatment and plot id and finding the closest date match between
-# wtd and td. In cases where there are two thaw depths equally distant in time
-# from the wtd measurement, it will return both, resulting in a longer data table than 
-# the wtd input. 
-hydrology <- td.f[wtd.f, roll = 'nearest']
+flux.compare <- merge(flux.annual[, .(flux.year, fence, plot, plot.id, nee.sum, reco.sum, gpp.sum)],
+                      old.flux.annual[, .(flux.year, fence, plot, plot.id, nee.sum, reco.sum, gpp.sum)],
+                      by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                      all = TRUE)
 
+ggplot(flux.compare, aes(x = reco.sum.x, y = reco.sum.y, color = flux.year)) +
+  geom_point()
 
-# Calculate rolling precipitation sum
-# Try both 1 week and 2 week
-precip.f <- weather.f[, .(date, hour, precip)]
-precip.f <- precip.f[date >= as_date('2009-01-01')]
-precip.f <- precip.f[, .(precip = sum(precip, na.rm = TRUE)), by = 'date']
-precip.f[, ':=' (precip.1w = frollsum(precip, n = 7, align = 'right', na.rm = TRUE),
-                 precip.2w = frollsum(precip, n = 14, align = 'right', na.rm = TRUE),
-                 precip = NULL)]
+tair.compare <- merge(flux.annual[, .(flux.year, fence, plot, plot.id, tair.min, tair.mean, tair.max, tair.sd)],
+                      old.flux.annual[, .(flux.year, fence, plot, plot.id, tair.min, tair.mean, max.tair.max, tair.sd)],
+                      by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                      all = TRUE)
 
-# Join precip to hydrology
-hydrology <- merge(hydrology, precip.f, by = 'date',
-                   all.x = TRUE, all.y = FALSE)
+ggplot(tair.compare, aes(x = tair.mean.x, y = tair.mean.y, color = flux.year)) +
+  geom_point()
 
-# Join subsidence to hydrology
-hydrology[, plot := as.numeric(str_sub(plot.id, start = 3))]
-hydrology <- merge(hydrology, sub[, year := flux.year], by = c('year', 'fence', 'plot', 'treatment'),
-                   all.x = TRUE)
+rh.compare <- merge(flux.annual[, .(flux.year, fence, plot, plot.id, rh.min, rh.mean, rh.max, rh.sd)],
+                    old.flux.annual[, .(flux.year, fence, plot, plot.id, min.rh.min, rh.mean, max.rh.max, rh.sd)],
+                    by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                    all = TRUE)
 
-# # save data
-# write.csv(hydrology,
-#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/hydrology.csv',
-#           row.names = FALSE)
+ggplot(rh.compare, aes(x = rh.max, y = max.rh.max, color = flux.year)) +
+  geom_point()
+
+t5.compare <- merge(flux.annual[, .(flux.year, fence, plot, plot.id, t5.min, t5.mean, t5.max, t5.sd)],
+                    old.flux.annual[, .(flux.year, fence, plot, plot.id, min.t5.min, t5.mean, max.t5.max, t5.sd)],
+                    by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                    all = TRUE)
+
+ggplot(t5.compare, aes(x = t5.max, y = max.t5.max, color = flux.year)) +
+  geom_point()
+
+vwc.compare <- merge(flux.annual[, .(flux.year, fence, plot, plot.id, vwc.min, vwc.mean, vwc.max, vwc.sd)],
+                    old.flux.annual[, .(flux.year, fence, plot, plot.id, min.vwc.min, vwc.mean, max.vwc.max, vwc.sd)],
+                    by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                    all = TRUE)
+
+ggplot(vwc.compare, aes(x = vwc.min, y = min.vwc.min, color = flux.year)) +
+  geom_point()
+ggplot(vwc.compare, aes(x = vwc.sd.x, y = vwc.sd.y, color = flux.year)) +
+  geom_point()
+
+spring.snow.depth.compare <- merge(flux.annual.final[, .(flux.year, fence, plot, plot.id, spring.snow.depth)],
+                     old.flux.annual[, .(flux.year, fence, plot, plot.id, winter.snow.depth)],
+                     by = c('flux.year', 'fence', 'plot', 'plot.id'),
+                     all = TRUE)
+
+ggplot(spring.snow.depth.compare, aes(x = spring.snow.depth, y = winter.snow.depth, color = flux.year)) +
+  geom_point()
+
+old.flux.daily <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/archive/input_data/2nd_round/flux_daily.csv')
+old.flux.daily[, date := parse_date_time(date, orders = c('Y!-m!-d!'))]
+flux.compare <- merge(flux.daily[, .(flux.year, date, fence, plot, plot.id, nee.sum, reco.sum, gpp.sum)],
+                      old.flux.daily[, .(flux.year, date, fence, plot, plot.id, nee.sum, reco.sum, gpp.sum)],
+                      by = c('flux.year', 'date', 'fence', 'plot', 'plot.id'),
+                      all = TRUE)
+
+ggplot(flux.compare, aes(x = gpp.sum.x, y = gpp.sum.y, color = flux.year)) +
+  geom_point()
 ###########################################################################################
