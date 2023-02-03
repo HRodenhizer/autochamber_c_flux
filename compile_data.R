@@ -7,6 +7,7 @@
 # with eddy data for that period, rather than try to re-process the raw data.
 
 ### To Do
+# Where on earth is "season" coming from in flux.annual?
 # substitute deep soil temps from nearby plots for ones without probes?
 
 ### Load Libraries ##########################################################################################################
@@ -954,43 +955,51 @@ flux.daily <- flux.hh[,
                         par = fifelse(all(is.na(par)),
                                       NaN,
                                       sum(par, na.rm = TRUE)),
-                        t5.max = max(t5, na.rm = TRUE),
-                        t5.mean = mean(t5, na.rm = TRUE),
                         t5.min = min(t5, na.rm = TRUE),
+                        t5.mean = mean(t5, na.rm = TRUE),
+                        t5.max = max(t5, na.rm = TRUE),
                         t5.sd = fifelse(all(is.na(t5)),
                                         NaN,
                                         sd(t5, na.rm = TRUE)),
+                        t5.filled.min = min(t5.filled, na.rm = TRUE),
                         t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                        t5.filled.max = max(t5.filled, na.rm = TRUE),
                         t5.filled.sd = fifelse(all(is.na(t5.filled)),
                                                NaN,
                                                sd(t5.filled, na.rm = TRUE)),
-                        t10.max = max(t10, na.rm = TRUE),
-                        t10.mean = mean(t10, na.rm = TRUE),
                         t10.min = min(t10, na.rm = TRUE),
+                        t10.mean = mean(t10, na.rm = TRUE),
+                        t10.max = max(t10, na.rm = TRUE),
                         t10.sd = fifelse(all(is.na(t10)),
                                          NaN,
                                          sd(t10, na.rm = TRUE)),
+                        t10.filled.min = min(t10.filled, na.rm = TRUE),
                         t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                        t10.filled.max = max(t10.filled, na.rm = TRUE),
                         t10.filled.sd = fifelse(all(is.na(t10.filled)),
                                                 NaN,
                                                 sd(t10.filled, na.rm = TRUE)),
-                        t20.max = max(t20, na.rm = TRUE),
-                        t20.mean = mean(t20, na.rm = TRUE),
                         t20.min = min(t20, na.rm = TRUE),
+                        t20.mean = mean(t20, na.rm = TRUE),
+                        t20.max = max(t20, na.rm = TRUE),
                         t20.sd = fifelse(all(is.na(t20)),
                                          NaN,
                                          sd(t20, na.rm = TRUE)),
+                        t20.filled.min = min(t20.filled, na.rm = TRUE),
                         t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                        t20.filled.max = max(t20.filled, na.rm = TRUE),
                         t20.filled.sd = fifelse(all(is.na(t20.filled)),
                                                 NaN,
                                                 sd(t20.filled, na.rm = TRUE)),
-                        t40.max = max(t40, na.rm = TRUE),
-                        t40.mean = mean(t40, na.rm = TRUE),
                         t40.min = min(t40, na.rm = TRUE),
+                        t40.mean = mean(t40, na.rm = TRUE),
+                        t40.max = max(t40, na.rm = TRUE),
                         t40.sd = fifelse(all(is.na(t40)),
                                          NaN,
                                          sd(t40, na.rm = TRUE)),
+                        t40.filled.min = min(t40.filled, na.rm = TRUE),
                         t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                        t40.filled.max = max(t40.filled, na.rm = TRUE),
                         t40.filled.sd = fifelse(all(is.na(t40.filled)),
                                                 NaN,
                                                 sd(t40.filled, na.rm = TRUE)),
@@ -1201,8 +1210,7 @@ ggplot(flux.daily, aes(x = date)) +
 
 ### Calculate monthly values
 flux.monthly <- flux.hh[,
-                      .(deployed = first(deployed),
-                        nee.sum = fifelse(all(is.na(nee)),
+                      .(nee.sum = fifelse(all(is.na(nee)),
                                           NaN,
                                           sum(nee, na.rm = TRUE)),
                         reco.sum = fifelse(all(is.na(reco)),
@@ -1220,43 +1228,51 @@ flux.monthly <- flux.hh[,
                         par = fifelse(all(is.na(par)),
                                       NaN,
                                       sum(par, na.rm = TRUE)),
-                        t5.max = max(t5, na.rm = TRUE),
-                        t5.mean = mean(t5, na.rm = TRUE),
                         t5.min = min(t5, na.rm = TRUE),
+                        t5.mean = mean(t5, na.rm = TRUE),
+                        t5.max = max(t5, na.rm = TRUE),
                         t5.sd = fifelse(all(is.na(t5)),
                                         NaN,
                                         sd(t5, na.rm = TRUE)),
+                        t5.filled.min = min(t5.filled, na.rm = TRUE),
                         t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                        t5.filled.max = max(t5.filled, na.rm = TRUE),
                         t5.filled.sd = fifelse(all(is.na(t5.filled)),
                                                NaN,
                                                sd(t5.filled, na.rm = TRUE)),
-                        t10.max = max(t10, na.rm = TRUE),
-                        t10.mean = mean(t10, na.rm = TRUE),
                         t10.min = min(t10, na.rm = TRUE),
+                        t10.mean = mean(t10, na.rm = TRUE),
+                        t10.max = max(t10, na.rm = TRUE),
                         t10.sd = fifelse(all(is.na(t10)),
                                          NaN,
                                          sd(t10, na.rm = TRUE)),
+                        t10.filled.min = min(t10.filled, na.rm = TRUE),
                         t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                        t10.filled.max = max(t10.filled, na.rm = TRUE),
                         t10.filled.sd = fifelse(all(is.na(t10.filled)),
                                                 NaN,
                                                 sd(t10.filled, na.rm = TRUE)),
-                        t20.max = max(t20, na.rm = TRUE),
-                        t20.mean = mean(t20, na.rm = TRUE),
                         t20.min = min(t20, na.rm = TRUE),
+                        t20.mean = mean(t20, na.rm = TRUE),
+                        t20.max = max(t20, na.rm = TRUE),
                         t20.sd = fifelse(all(is.na(t20)),
                                          NaN,
                                          sd(t20, na.rm = TRUE)),
+                        t20.filled.min = min(t20.filled, na.rm = TRUE),
                         t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                        t20.filled.max = max(t20.filled, na.rm = TRUE),
                         t20.filled.sd = fifelse(all(is.na(t20.filled)),
                                                 NaN,
                                                 sd(t20.filled, na.rm = TRUE)),
-                        t40.max = max(t40, na.rm = TRUE),
-                        t40.mean = mean(t40, na.rm = TRUE),
                         t40.min = min(t40, na.rm = TRUE),
+                        t40.mean = mean(t40, na.rm = TRUE),
+                        t40.max = max(t40, na.rm = TRUE),
                         t40.sd = fifelse(all(is.na(t40)),
                                          NaN,
                                          sd(t40, na.rm = TRUE)),
+                        t40.filled.min = min(t40.filled, na.rm = TRUE),
                         t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                        t40.filled.max = max(t40.filled, na.rm = TRUE),
                         t40.filled.sd = fifelse(all(is.na(t40.filled)),
                                                 NaN,
                                                 sd(t40.filled, na.rm = TRUE)),
@@ -1291,10 +1307,12 @@ flux.monthly <- flux.monthly[, lapply(.SD, function(x) replace(x, list = is.nan(
 gdd.fdd.monthly <- flux.daily[
   , 
   .(year, flux.year, season, month, block, fence, plot, plot.id, treatment, 
-    gdd, fdd, precip.cum)
+    gdd, fdd, growing.days, freezing.days, precip.cum)
   ][
     ,
-    .(gdd = max(gdd, na.rm = TRUE),
+    .(monthly.gdd = sum(growing.days),
+      monthly.fdd = sum(growing.days),
+      gdd = max(gdd, na.rm = TRUE),
       fdd = max(fdd, na.rm = TRUE),
       precip.cum = max(precip.cum, na.rm = TRUE)),
     by = .(year, flux.year, season, month, block, fence, plot, plot.id, 
@@ -1413,8 +1431,7 @@ ggplot(flux.monthly, aes(x = year + month/12)) +
 
 ### Calculate annual values
 flux.seasonal <- flux.hh[,
-                       .(deployed = first(deployed),
-                         nee.sum = fifelse(all(is.na(nee)),
+                       .(nee.sum = fifelse(all(is.na(nee)),
                                            NaN,
                                            sum(nee, na.rm = TRUE)),
                          reco.sum = fifelse(all(is.na(reco)),
@@ -1432,43 +1449,51 @@ flux.seasonal <- flux.hh[,
                          par = fifelse(all(is.na(par)),
                                        NaN,
                                        sum(par, na.rm = TRUE)),
-                         t5.max = max(t5, na.rm = TRUE),
-                         t5.mean = mean(t5, na.rm = TRUE),
                          t5.min = min(t5, na.rm = TRUE),
+                         t5.mean = mean(t5, na.rm = TRUE),
+                         t5.max = max(t5, na.rm = TRUE),
                          t5.sd = fifelse(all(is.na(t5)),
                                          NaN,
                                          sd(t5, na.rm = TRUE)),
+                         t5.filled.min = min(t5.filled, na.rm = TRUE),
                          t5.filled.mean = mean(t5.filled, na.rm = TRUE),
+                         t5.filled.max = max(t5.filled, na.rm = TRUE),
                          t5.filled.sd = fifelse(all(is.na(t5.filled)),
                                                 NaN,
                                                 sd(t5.filled, na.rm = TRUE)),
-                         t10.max = max(t10, na.rm = TRUE),
-                         t10.mean = mean(t10, na.rm = TRUE),
                          t10.min = min(t10, na.rm = TRUE),
+                         t10.mean = mean(t10, na.rm = TRUE),
+                         t10.max = max(t10, na.rm = TRUE),
                          t10.sd = fifelse(all(is.na(t10)),
                                           NaN,
                                           sd(t10, na.rm = TRUE)),
+                         t10.filled.min = min(t10.filled, na.rm = TRUE),
                          t10.filled.mean = mean(t10.filled, na.rm = TRUE),
+                         t10.filled.max = max(t10.filled, na.rm = TRUE),
                          t10.filled.sd = fifelse(all(is.na(t10.filled)),
                                                  NaN,
                                                  sd(t10.filled, na.rm = TRUE)),
-                         t20.max = max(t20, na.rm = TRUE),
-                         t20.mean = mean(t20, na.rm = TRUE),
                          t20.min = min(t20, na.rm = TRUE),
+                         t20.mean = mean(t20, na.rm = TRUE),
+                         t20.max = max(t20, na.rm = TRUE),
                          t20.sd = fifelse(all(is.na(t20)),
                                           NaN,
                                           sd(t20, na.rm = TRUE)),
+                         t20.filled.min = min(t20.filled, na.rm = TRUE),
                          t20.filled.mean = mean(t20.filled, na.rm = TRUE),
+                         t20.filled.max = max(t20.filled, na.rm = TRUE),
                          t20.filled.sd = fifelse(all(is.na(t20.filled)),
                                                  NaN,
                                                  sd(t20.filled, na.rm = TRUE)),
-                         t40.max = max(t40, na.rm = TRUE),
-                         t40.mean = mean(t40, na.rm = TRUE),
                          t40.min = min(t40, na.rm = TRUE),
+                         t40.mean = mean(t40, na.rm = TRUE),
+                         t40.max = max(t40, na.rm = TRUE),
                          t40.sd = fifelse(all(is.na(t40)),
                                           NaN,
                                           sd(t40, na.rm = TRUE)),
+                         t40.filled.min = min(t40.filled, na.rm = TRUE),
                          t40.filled.mean = mean(t40.filled, na.rm = TRUE),
+                         t40.filled.max = max(t40.filled, na.rm = TRUE),
                          t40.filled.sd = fifelse(all(is.na(t40.filled)),
                                                  NaN,
                                                  sd(t40.filled, na.rm = TRUE)),
@@ -1503,12 +1528,13 @@ flux.seasonal <- flux.seasonal[, lapply(.SD, function(x) replace(x, list = is.na
 gdd.fdd.annual <- flux.daily[
   , 
   .(year, flux.year, season, month, block, fence, plot, plot.id, treatment, 
-    gdd, fdd, precip.cum)
+    gdd, fdd, growing.days, freezing.days)
 ][
   ,
-  .(gdd = max(gdd, na.rm = TRUE),
-    fdd = max(fdd, na.rm = TRUE),
-    precip.cum = max(precip.cum, na.rm = TRUE)),
+  .(seasonal.gdd = sum(growing.days),
+    seasonal.fdd = sum(freezing.days),
+    gdd = max(gdd, na.rm = TRUE),
+    fdd = max(fdd, na.rm = TRUE)),
   by = .(flux.year, block, fence, plot, plot.id, 
          treatment)
 ]
@@ -1541,7 +1567,7 @@ env.winter <- flux.hh[season == 0,
                         winter.t20.sd = fifelse(all(is.na(t20)),
                                                 NaN,
                                                 sd(t20, na.rm = TRUE)),
-                        winter.min.t40 = min(t40, na.rm = TRUE),
+                        winter.t40.min = min(t40, na.rm = TRUE),
                         winter.t40.mean = mean(t40, na.rm = TRUE),
                         winter.t40.sd = fifelse(all(is.na(t40)),
                                                 NaN,
@@ -1557,6 +1583,24 @@ env.winter[is.na(winter.t20.mean),
 env.winter[is.na(winter.t40.mean),
            winter.t40.sd := NA]
 
+# Add GDD and FDD
+fdd.winter <- flux.daily[
+  season == 0, 
+  .(flux.year, season, month, block, fence, plot, plot.id, treatment, 
+    fdd)
+][
+  ,
+  .(winter.fdd = max(fdd, na.rm = TRUE)),
+  by = .(flux.year, block, fence, plot, plot.id, 
+         treatment)
+]
+
+env.winter <- merge(env.winter, fdd.winter,
+                      by = c('flux.year', 'block', 
+                             'fence', 'plot', 'plot.id', 'treatment'))
+rm(fdd.winter)
+
+
 # merge with winter data
 flux.seasonal <- merge(flux.seasonal,
                        env.winter,
@@ -1565,8 +1609,7 @@ flux.seasonal <- merge(flux.seasonal,
 
 ### Calculate annual values
 flux.annual <- flux.hh[,
-                      .(deployed = first(deployed),
-                        nee.sum = fifelse(all(is.na(nee)),
+                      .(nee.sum = fifelse(all(is.na(nee)),
                                           NaN,
                                           sum(nee, na.rm = TRUE)),
                         reco.sum = fifelse(all(is.na(reco)),
@@ -1667,8 +1710,7 @@ gdd.fdd.annual <- flux.daily[
 ][
   ,
   .(gdd = max(gdd, na.rm = TRUE),
-    fdd = max(fdd, na.rm = TRUE),
-    precip.cum = max(precip.cum, na.rm = TRUE)),
+    fdd = max(fdd, na.rm = TRUE)),
   by = .(flux.year, block, fence, plot, plot.id, 
          treatment)
 ]
@@ -2173,17 +2215,26 @@ flux.monthly <- merge(flux.monthly, wtd.monthly,
 flux.monthly <- merge(flux.monthly, td.monthly, 
                      by = c('flux.year', 'month', 'fence', 'plot.id', 'treatment'),
                      all = TRUE)
-env.monthly <- merge(flux.monthly, ndvi.monthly,
-                    by = c('flux.year', 'month', 'fence', 'plot.id'),
+flux.monthly <- merge(flux.monthly, ndvi.monthly,
+                    by = c('flux.year', 'month', 'fence', 'plot', 'plot.id'),
                     all = TRUE)
 
+# Seasonal
+flux.seasonal <- merge(flux.seasonal, 
+                       wtd.annual[, season := 1, ], 
+                     by = c('flux.year', 'season', 'fence', 'plot.id', 'treatment'),
+                     all = TRUE)
+flux.seasonal <- merge(flux.seasonal, 
+                       ndvi.annual[, season := 1, ],
+                     by = c('flux.year', 'season', 'fence', 'plot', 'plot.id'),
+                     all = TRUE)
+
 # Annual
+wtd.annual[, season := NULL]
 flux.annual <- merge(flux.annual, wtd.annual, 
                     by = c('flux.year', 'fence', 'plot.id', 'treatment'),
                     all = TRUE)
-flux.annual <- merge(flux.annual, td.annual, 
-                     by = c('flux.year', 'fence', 'plot.id', 'treatment'),
-                     all = TRUE)
+ndvi.annual[, season := NULL]
 flux.annual <- merge(flux.annual, ndvi.annual,
                      by = c('flux.year', 'fence', 'plot', 'plot.id'),
                      all = TRUE)
@@ -2198,11 +2249,10 @@ alt.annual <- td[, .(alt = max(td, na.rm = TRUE),
 alt.annual <- alt.annual[, .(alt = first(alt),
                    alt.date = first(alt.date)),
                by = .(fence, plot.id, treatment, year)]
-alt.annual[, alt.doy := yday(alt.date)]
-alt.annual <- alt.annual[, .(flux.year = year, fence, plot.id, treatment, alt, alt.doy)]
+alt.annual <- alt.annual[, .(flux.year = year, fence, plot.id, treatment, alt, alt.date)]
 
 alt.env <- alt.annual[, .(alt = round(mean(alt, na.rm = TRUE), 2),
-                          alt.doy = round(mean(alt.doy, na.rm = TRUE))),
+                          alt.doy = round(mean(yday(alt.date), na.rm = TRUE))),
                    by = .(flux.year, treatment)]
 ############################################################################################
 
@@ -2547,24 +2597,47 @@ flux.monthly[month %in% seq(5, 9) & is.na(biomass), .N]/nrow(flux.monthly[month 
 # Snow
 flux.monthly <- merge(flux.monthly,
                       snow.annual,
-                      by = c('flux.year','block', 'fence', 'plot', 'treatment'),
+                      by = c('flux.year', 'block', 'fence', 'plot', 'treatment'),
                       all = TRUE)
 flux.monthly[month %in% seq(5, 9) & is.na(snow.depth), .N]/nrow(flux.monthly[month %in% seq(5, 9)])
 
+### Seasonal
+flux.seasonal <- merge(flux.seasonal, 
+                     alt.annual[, season := 1,],
+                     by = c('flux.year', 'season', 'fence', 'plot.id', 'treatment'),
+                     all = TRUE)
+flux.seasonal <- merge(flux.seasonal, 
+                     sub.annual[, season := 1,],
+                     by = c('flux.year', 'season', 'fence', 'plot', 'treatment'),
+                     all = TRUE)
+flux.seasonal[, tp := alt - subsidence]
+flux.seasonal <- merge(flux.seasonal, 
+                     biomass[, season := 1,],
+                     by = c('flux.year', 'season', 'fence', 'plot'),
+                     all = TRUE)
+flux.seasonal <- merge(flux.seasonal, 
+                     snow.annual[, season := 1,],
+                     by = c('flux.year', 'season', 'block', 'fence', 'plot', 'treatment'),
+                     all = TRUE)
+
 ### Annual
+alt.annual[, season := NULL]
 flux.annual <- merge(flux.annual, 
                      alt.annual,
                      by = c('flux.year', 'fence', 'plot.id', 'treatment'),
                      all = TRUE)
+sub.annual[, season := NULL]
 flux.annual <- merge(flux.annual, 
                      sub.annual,
                      by = c('flux.year', 'fence', 'plot', 'treatment'),
                      all = TRUE)
 flux.annual[, tp := alt - subsidence]
+biomass[, seasonal := NULL]
 flux.annual <- merge(flux.annual, 
                      biomass,
                      by = c('flux.year', 'fence', 'plot'),
                      all = TRUE)
+snow.annual[, season := NULL]
 flux.annual <- merge(flux.annual, 
                      snow.annual,
                      by = c('flux.year', 'block', 'fence', 'plot', 'treatment'),
@@ -2594,54 +2667,160 @@ env.treat <- merge(env.treat, wtd.env,
 ###########################################################################################
 
 ### Final Formatting ######################################################################
-# # Annual Old Variables 
-# flux.year	block	fence	plot	plot.id	treatment	season	nee.sum	reco.sum	gpp.sum	
-#	tair.mean	gdd	fdd	t5.max t5.mean t5.min	t5.sd	t5.filled.mean	t5.filled.sd	
-# t10.max	t10.mean t10.min	t10.sd	t10.filled.mean	t10.filled.sd	t20.max	
-# t20.mean	t20.min	t20.sd	t20.filled.mean	t20.filled.sd	t40.max t40.mean	
-# t40.min	t40.sd	t40.filled.mean	t40.filled.sd	
-# vwc.max	vwc.mean vwc.min	vwc.sd	gwc.max	gwc.mean	gwc.min	gwc.sd	wtd.mean	
-# wtd.sd	wtd.n	rh.max rh.mean	rh.min	rh.sd	
-# precip	subsidence	alt	alt.doy	tp	biomass	ndvi	ndvi.doy	
-# spring.snow.depth	winter.fdd	winter.tair.min winter.tair.mean	winter.tair.sd	
-# winter.t5.min	winter.t5.mean	winter.t5.sd	winter.t10.min	winter.t10.mean	
-# winter.t10.sd	winter.t20.min	winter.t20.mean	winter.t20.sd	winter.t40.min	
-# winter.t40.mean	winter.t40.sd
+### Select variables/variable order
+# Half-Hourly
+# save as flux_hh rather than flux_all
 
-# Missing: ndvi.doy, winter.fdd
+# Daily
+flux.daily.final <- flux.daily[
+  ,
+  .(date,	year,	flux.year,	season,	month,	week,	doy,	
+    block,	fence,	plot,	plot.id,	treatment,	deployed,
+    nee.sum,	reco.sum,	gpp.sum,
+    tair.min,	tair.mean,	tair.max,	tair.sd,	tair.spread,
+    growing.days,	freezing.days,	gdd,	fdd,
+    rh.min,	rh.mean,	rh.min,	rh.sd,	precip,	precip.cum, par,
+    t5.min,	t5.mean,	t5.max,	t5.sd,
+    t5.filled.min, t5.filled.mean, t5.filled.max,	t5.filled.sd,
+    t10.min,	t10.mean,	t10.max,	t10.sd,
+    t10.filled.min, t10.filled.mean, t10.filled.max,	t10.filled.sd,
+    t20.min,	t20.mean, t20.max,	t20.sd,
+    t20.filled.min, t20.filled.mean, t20.filled.max,	t20.filled.sd,
+    t40.min,	t40.mean,	t40.min,	t40.sd,
+    t40.filled.min, t40.filled.mean, t40.filled.max,	t40.filled.sd,
+    vwc.min,	vwc.mean,	vwc.max,	vwc.sd,	gwc.min,	gwc.mean,	gwc.min,	gwc.sd,
+    wtd, wtd.date = WTD_Date,	subsidence,	td, td.date = TD_Date, alt,	alt.date,	tp.to.date, tp,
+    biomass,	ndvi,	ndvi.date,	spring.snow.depth = snow.depth,
+    gdd.2d,	gdd.3d,	gdd.4d,	gdd.5d,	gdd.6d,	gdd.1w,	gdd.2w,
+    fdd.2d,	fdd.3d,	fdd.4d,	fdd.5d,	fdd.6d,	fdd.1w,	fdd.2w,
+    precip.2d,	precip.3d,	precip.4d,	precip.5d,	precip.6d,	precip.1w,	precip.2w,
+    vwc.min.2d,	vwc.min.3d,	vwc.min.4d,	vwc.min.5d,	vwc.min.6d,	vwc.min.1w,	vwc.min.2w,
+    vwc.mean.2d,	vwc.mean.3d,	vwc.mean.4d,	vwc.mean.5d,	vwc.mean.6d,	vwc.mean.1w,	vwc.mean.2w,
+    vwc.max.2d,	vwc.max.3d,	vwc.max.4d,	vwc.max.5d,	vwc.max.6d,	vwc.max.1w,	vwc.max.2w,
+    gwc.mean.2d,	gwc.mean.3d,	gwc.mean.4d,	gwc.mean.5d,	gwc.mean.6d,	gwc.mean.1w,	gwc.mean.2w,
+    gwc.max.2d,	gwc.max.3d,	gwc.max.4d,	gwc.max.5d,	gwc.max.6d,	gwc.max.1w,	gwc.max.2w,
+    gwc.min.2d,	gwc.min.3d,	gwc.min.4d,	gwc.min.5d,	gwc.min.6d,	gwc.min.1w,	gwc.min.2w)
+]
+
+# Monthly
+flux.monthly.final <- flux.monthly[
+  ,
+  .(flux.year,	year,	season,	month,	block,	fence,	plot,	plot.id,	treatment,	
+    nee.sum,	reco.sum,	gpp.sum,
+    tair.min,	tair.mean,	tair.max,	tair.sd,	monthly.gdd,	monthly.fdd,	gdd,	fdd,
+    rh.min,	rh.mean,	rh.min,	rh.sd,	precip,	precip.cum, par,
+    t5.min,	t5.mean,	t5.max,	t5.sd,
+    t5.filled.min, t5.filled.mean, t5.filled.max,	t5.filled.sd,
+    t10.min,	t10.mean,	t10.max,	t10.sd,
+    t10.filled.min, t10.filled.mean, t10.filled.max,	t10.filled.sd,
+    t20.min,	t20.mean, t20.max,	t20.sd,
+    t20.filled.min, t20.filled.mean, t20.filled.max,	t20.filled.sd,
+    t40.min,	t40.mean,	t40.min,	t40.sd,
+    t40.filled.min, t40.filled.mean, t40.filled.max,	t40.filled.sd,
+    vwc.min,	vwc.mean,	vwc.max,	vwc.sd,	gwc.min,	gwc.mean,	gwc.min,	gwc.sd,
+    wtd.mean,	wtd.sd,	wtd.n,	subsidence,	td, alt,	alt.date,	tp.to.date,	tp,
+    biomass,	ndvi,	ndvi.date,	spring.snow.depth = snow.depth,
+    gdd.2m,	gdd.3m,	fdd.2m,	fdd.3m,	precip.2m,	precip.3m,
+    vwc.min.2m,	vwc.min.3m, vwc.mean.2m,	vwc.mean.3m,	vwc.max.2m,	vwc.max.3m,
+    gwc.min.2m,	gwc.min.3m, gwc.mean.2m,	gwc.mean.3m,	gwc.max.2m,	gwc.max.3m)
+]
+    
+# Seasonal
+flux.seasonal.final <- flux.seasonal[
+  ,
+  .(flux.year,	block,	fence,	plot,	plot.id,	treatment,	season,
+    nee.sum,	reco.sum,	gpp.sum,
+    tair.min,	tair.mean, tair.max,	tair.sd,	gdd,	fdd, seasonal.gdd, seasonal.fdd,
+    rh.min,	rh.mean,	rh.max,	rh.sd,	precip,	par,
+    t5.min,	t5.mean,	t5.max,	t5.sd,
+    t5.filled.min, t5.filled.mean, t5.filled.max,	t5.filled.sd,
+    t10.min,	t10.mean,	t10.max,	t10.sd,
+    t10.filled.min, t10.filled.mean, t10.filled.max,	t10.filled.sd,
+    t20.min,	t20.mean, t20.max,	t20.sd,
+    t20.filled.min, t20.filled.mean, t20.filled.max,	t20.filled.sd,
+    t40.min,	t40.mean,	t40.max,	t40.sd,
+    t40.filled.min, t40.filled.mean, t40.filled.max,	t40.filled.sd,
+    vwc.min,	vwc.mean,	vwc.max,	vwc.sd,	gwc.min,	gwc.mean,	gwc.max,	gwc.sd,
+    wtd.mean,	wtd.sd,	wtd.n,
+    subsidence,	alt,	alt.date,	tp,
+    biomass,	ndvi,	ndvi.date,
+    spring.snow.depth = snow.depth,	winter.fdd,	winter.tair.min,	winter.tair.mean,	winter.tair.sd,
+    winter.t5.min,	winter.t5.mean,	winter.t5.sd,	winter.t10.min,	winter.t10.mean,
+    winter.t10.sd,	winter.t20.min,	winter.t20.mean,	winter.t20.sd,
+    winter.t40.min,	winter.t40.mean,	winter.t40.sd)
+]
+
+# Annual
+flux.annual.final <- flux.annual[
+  , 
+  .(flux.year,	block,	fence,	plot,	plot.id,	treatment,	
+    nee.sum,	reco.sum,	gpp.sum, 
+    tair.min, tair.mean, tair.max,	tair.sd, gdd,	fdd,	
+    rh.min, rh.mean,	rh.max,	rh.sd, precip,	par,
+    t5.min, t5.mean, t5.max,	t5.sd,	
+    t5.filled.min, t5.filled.mean,	t5.filled.max, t5.filled.sd, 
+    t10.min,	t10.mean, t10.max,	t10.sd,	
+    t10.filled.min, t10.filled.mean,	t10.filled.max, t10.filled.sd,	
+    t20.min, t20.mean,	t20.max,	t20.sd,	
+    t20.filled.min, t20.filled.mean,	t20.filled.max, t20.filled.sd,	
+    t40.min, t40.mean, t40.max,	t40.sd,	
+    t40.filled.min, t40.filled.mean,	t40.filled.max, t40.filled.sd, 
+    vwc.min,	vwc.mean, vwc.max,	vwc.sd,	gwc.min,	gwc.mean,	gwc.max,	gwc.sd,	
+    wtd.mean, wtd.sd,	wtd.n,  alt,	alt.date,	subsidence,	tp,	
+    biomass,	ndvi,	ndvi.date, 
+    spring.snow.depth = snow.depth,	
+    winter.tair.min, winter.tair.mean,	winter.tair.sd, winter.fdd,	
+    winter.t5.min,	winter.t5.mean,	winter.t5.sd,	
+    winter.t10.min,	winter.t10.mean, winter.t10.sd,	
+    winter.t20.min,	winter.t20.mean,	winter.t20.sd,	
+    winter.t40.min, winter.t40.mean,	winter.t40.sd
+  )]
 ###########################################################################################
 
 ### Data Export ###########################################################################
+### Half-hourly
+saveRDS(flux.hh,
+        '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_hh.RData')
+
 ### Daily
-# write.csv(flux.daily, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv',
-#           row.names = FALSE)
-# # GS only
+write.csv(flux.daily, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv',
+          row.names = FALSE)
+# GS only
 flux.daily.gs <- flux.daily[season == 1 & year >= 2009]
-# write.csv(flux.daily.gs, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_gs.csv',
-#           row.names = FALSE)
-# # Winter Meteorological/Environmental Data
-# write.csv(env.winter, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_winter.csv',
-#           row.names = FALSE)
+write.csv(flux.daily.gs, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_gs.csv',
+          row.names = FALSE)
 
 ### Monthly
-# write.csv(flux.monthly, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv',
-#           row.names = FALSE)
-# # GS only
+write.csv(flux.monthly, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly.csv',
+          row.names = FALSE)
+# GS only
 flux.monthly.gs <- flux.monthly[season == 1 & year >= 2009]
-# write.csv(flux.monthly.gs, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly_gs.csv',
-#           row.names = FALSE)
+write.csv(flux.monthly.gs, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_monthly_gs.csv',
+          row.names = FALSE)
 
 ### Seasonal
-# write.csv(flux.seasonal, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_with_winter.csv',
-#           row.names = FALSE)
+write.csv(flux.seasonal, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal.csv',
+          row.names = FALSE)
 
 ### Annual
-# write.csv(flux.annual, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv',
-#           row.names = FALSE)
+write.csv(flux.annual, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual.csv',
+          row.names = FALSE)
 
-# write.csv(env.winter, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_winter.csv',
-#           row.names = FALSE)
+# Winter Meteorological/Environmental Data
+write.csv(env.winter, 
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_winter.csv',
+          row.names = FALSE)
 
+# treatment level environmental data
+write.csv(env.treat,
+          '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/env_annual_treatment.csv',
+          row.names = FALSE)
 ###########################################################################################
 
 ### Plot to Check Merge and Summaries Went Properly #######################################
