@@ -889,7 +889,7 @@ flux.hh[is.na(gwc), .N, by = 'year'] # missing a lot
 rm(chambt, co2, coefs, data, ec.2018, ec.ameriflux, ec.soil.temp, 
    ec.soil.temp.subset, eddy, final.coefs, final.predictions, model, 
    model.coefs, predictions, r2, soil.sensor, soil.sensor.subset,
-   soil.sensor.wide, tair.model, times.frame, weather, weather.f, cols1, cols2,
+   soil.sensor.wide, tair.model, times.frame, weather, cols1, cols2,
    ec.n, filenames, sensor.n)
 gc()
 ###########################################################################################
@@ -2265,6 +2265,46 @@ sub[, ':='(exp = NULL,
            plot = as.numeric(plot),
            subsidence = subsidence * 100)]
 sub.annual <- sub[, .(flux.year = year, fence, plot, treatment, subsidence)]
+sub.2021 <- sub.annual[
+  flux.year == 2009,
+][, 
+  ':=' (flux.year = 2021,
+        subsidence = NA)
+  ]
+sub.annual <- rbind(sub.annual, sub.2021)
+
+# interpolate 2021 subsidence
+model.subsidence.lm <- function(df) {
+  fit <- lm(subsidence ~ flux.year, data=df)
+  return(list(subsidence.intercept=coef(fit)[1], 
+              subsidence.slope=coef(fit)[2],
+              subsidence.r2 = summary(fit)$r.squared))
+}
+
+m.subsidence <- sub.annual[, 
+                           model.subsidence.lm(.SD),
+                           by=c('fence', 'plot')]
+
+ggplot(sub.annual, 
+       aes(x = flux.year, y = subsidence)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_grid(fence ~ plot)
+
+sub.annual <- merge(sub.annual, m.subsidence, by = c('fence', 'plot'))
+sub.annual[, subsidence := fifelse(flux.year == 2021,
+                                   subsidence.intercept + subsidence.slope*flux.year,
+                                   subsidence)]
+ggplot(sub.annual, 
+       aes(x = flux.year, y = subsidence)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_grid(fence ~ plot)
+
+sub.annual[, ':=' (subsidence.intercept = NULL,
+                   subsidence.slope = NULL,
+                   subsidence.r2 = NULL)]
+sub.annual[is.na(subsidence), .N, by = 'flux.year']
 
 ### using LiDAR data doesn't produce believable results...
 ### leaving 2021 subsidence empty
@@ -2462,33 +2502,6 @@ flux.hh <- merge(flux.hh,
                  all = TRUE)
 flux.hh[month %in% seq(5, 9) & is.na(subsidence), .N]/nrow(flux.hh[month %in% seq(5, 9)])
 
-# interpolate 2021 subsidence
-model.subsidence.lm <- function(df) {
-  fit <- lm(subsidence ~ year, data=df)
-  return(list(subsidence.intercept=coef(fit)[1], 
-              subsidence.slope=coef(fit)[2],
-              subsidence.r2 = summary(fit)$r.squared))
-}
-
-m.subsidence <- flux.hh[, 
-                        model.subsidence.lm(.SD),
-                        by=c('fence', 'plot')]
-
-ggplot(unique(flux.hh, by = c('year', 'fence', 'plot', 'subsidence')), 
-       aes(x = year, y = subsidence)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  facet_grid(fence ~ plot)
-
-flux.hh <- merge(flux.hh, m.subsidence, by = c('fence', 'plot'))
-flux.hh[, subsidence := fifelse(flux.year == 2021,
-                                subsidence.intercept + subsidence.slope*year,
-                                subsidence)]
-flux.hh[, ':=' (subsidence.intercept = NULL,
-                subsidence.slope = NULL,
-                subsidence.r2 = NULL)]
-flux.hh[is.na(subsidence), .N, by = 'flux.year']
-
 flux.hh <- flux.hh[order(ts, plot.id)]
 flux.hh[, tp := alt - subsidence]
 flux.hh[, tp.to.date := td - subsidence]
@@ -2651,7 +2664,7 @@ flux.annual <- merge(flux.annual,
 
 ### Clean up environment and memory
 rm(alt.annual, biomass, biomass.2021, biomass.frame, ndvi, ndvi.annual, 
-   ndvi.monthly, snow, snow.annual, snow.free, sub, sub.annual, td, td.annual,
+   ndvi.monthly, snow, snow.annual, snow.free, sub, td, td.annual,
    td.monthly, well.assignment, wtd, wtd.2009, wtd.annual, wtd.monthly)
 gc()
 ###########################################################################################
@@ -2788,7 +2801,7 @@ write.csv(flux.daily.final,
           row.names = FALSE)
 # GS only
 flux.daily.gs <- flux.daily[season == 1 & year >= 2009]
-write.csv(flux.daily.gs.final, 
+write.csv(flux.daily.gs, 
           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily_gs.csv',
           row.names = FALSE)
 
