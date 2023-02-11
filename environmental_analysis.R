@@ -203,16 +203,16 @@ graph_ci <- function(ci,figtitle,model) {ggplot(ci,aes(x=names,y=coefs))+
 ### PCA ########################################################################
 # need to finalize which variables to include
 env.annual.plot <- flux.annual %>%
-  select(-c(season, matches('rh'), 
-            max.tair.spread, min.tair.spread, matches('ndvi'),
-            gdd, fdd, winter.fdd, precip.sum)) %>%
+  select(-c(matches('rh'), 
+            matches('ndvi'),
+            gdd, fdd, winter.fdd, precip)) %>%
   mutate(flux.year = factor(as.numeric(as.character(flux.year))),
          treatment = factor(treatment, 
                             levels = c('Control', 
                                        'Air Warming', 
                                        'Soil Warming', 
                                        'Air + Soil Warming')),
-         subsidence = -1*subsidence.annual,
+         subsidence = -1*subsidence,
          wtd.mean = -1*wtd.mean) %>%
   na.omit()
 env.annual <- env.annual.plot %>%
@@ -227,12 +227,12 @@ env.annual.subset <- env.annual %>%
          wtd.mean, wtd.sd,
          subsidence, # adding or removing subsidence doesn't change much in pca
          alt, tp, 
-         biomass = biomass.annual,
-         w.snow.depth = winter.snow.depth, 
-         w.t5.min = winter.min.t5.min, 
-         w.t10.min = winter.min.t10.min, 
-         w.t20.min = winter.min.t20.min, 
-         w.t40.min = winter.min.t40.min)
+         biomass,
+         w.snow.depth = spring.snow.depth, 
+         w.t5.min = winter.t5.min, 
+         w.t10.min = winter.t10.min, 
+         w.t20.min = winter.t20.min, 
+         w.t40.min = winter.t40.min)
 env.annual.subset.norm <- env.annual.subset %>%
   mutate(across(all_of(colnames(.)), ~(.x - mean(.x))/sd(.x)))
 # pca.annual.norm <- prcomp(as.matrix(env.annual.subset.norm))
@@ -412,6 +412,15 @@ wtd.alt.plot <- ggplot(wtd.alt.data.2021,
   theme_bw() +
   theme(legend.title = element_blank())
 wtd.alt.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.jpg',
+#        wtd.alt.plot,
+#        height =3.5,
+#        width = 4)
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/alt_wtd_trajectory.pdf',
+#        wtd.alt.plot,
+#        height = 3.5,
+#        width = 4)
+
 wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
                        aes(x = alt, y = wtd.mean*-1, 
                            color = treatment,
@@ -452,7 +461,7 @@ wtd.alt.plot.bw
 
 # gif of changing soil conditions at CiPEHR
 plots <- list()
-for (n.year in seq(min(wtd.alt.data$year), max(wtd.alt.data$year))) {
+for (n.year in seq(2009, max(wtd.alt.data$year))) {
   
   data <- wtd.alt.data %>%
     filter(flux.year == 2009 | flux.year == n.year)
@@ -555,20 +564,20 @@ weather.annual <- weather.annual %>%
 
 annual.temp.precip <- ggplot(weather.annual, aes(x = tair.mean, y = precip)) +
   geom_hline(aes(yintercept = mean(weather.annual$precip), linetype = 'Mean'), # use this one to create a legend item with a horizontal line only
-             size = 0.1) +
+             linewidth = 0.1) +
   geom_vline(xintercept = mean(weather.annual$tair.mean),
-             size = 0.1) + # don't use the linetype in previous line, because it will add a vertical line
+             linewidth = 0.1) + # don't use the linetype in previous line, because it will add a vertical line
   geom_hline(aes(yintercept = mean(weather.annual$precip) + sd(weather.annual$precip),
                  linetype = '1 SD'),
-             size = 0.1) +
+             linewidth = 0.1) +
   geom_vline(xintercept = mean(weather.annual$tair.mean) + sd(weather.annual$tair.mean),
-             size = 0.1,
+             linewidth = 0.1,
              linetype = 'dashed') +
   geom_hline(yintercept = mean(weather.annual$precip) - sd(weather.annual$precip),
-             size = 0.1,
+             linewidth = 0.1,
              linetype = 'dashed') +
   geom_vline(xintercept = mean(weather.annual$tair.mean) - sd(weather.annual$tair.mean),
-             size = 0.1,
+             linewidth = 0.1,
              linetype = 'dashed') +
   geom_point() +
   geom_text(aes(label = year.label), 
@@ -757,7 +766,7 @@ snow.depth <- flux.annual %>%
   mutate(group = treatment,
          measurement = 'snow.depth') %>%
   group_by(flux.year, measurement, group) %>%
-  summarise(snow.depth.mean = round(mean(winter.snow.depth, na.rm = TRUE), 2)) %>%
+  summarise(snow.depth.mean = round(mean(spring.snow.depth, na.rm = TRUE), 2)) %>%
   ungroup() %>%
   pivot_wider(names_from = 'flux.year',
               values_from = 'snow.depth.mean')
@@ -836,7 +845,7 @@ mtopo.df <- data.frame()
 for (i in 1:length(mtopo)) {
   mtopo.extract <- raster::extract(mtopo[[i]], plots, df = TRUE) %>%
     filter(!(rowSums(is.na(.)) == ncol(.) - 1)) %>%
-    rename(new.names)
+    rename(all_of(new.names))
   
   mtopo.df <- rbind.data.frame(mtopo.df, mtopo.extract)
 }
@@ -851,9 +860,9 @@ plot.mtopo <- plots %>%
 flux.annual <- flux.annual %>%
   left_join(plot.mtopo, by = c('flux.year', 'plot.id'))
 
-ggplot(flux.annual, aes(x = subsidence.annual, y = mtopo)) +
+ggplot(flux.annual, aes(x = subsidence, y = mtopo)) +
   geom_point(aes(color = treatment))
-ggplot(subset(flux.annual, flux.year == 2020), aes(x = subsidence.annual, y = mtopo)) +
+ggplot(subset(flux.annual, flux.year == 2020), aes(x = subsidence, y = mtopo)) +
   geom_point(aes(color = plot.id, shape = factor(treatment,
                                                  levels = c('Control',
                                                             'Air Warming',
@@ -887,12 +896,13 @@ plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autocham
                                   levels = c('Non-TK', 'TK Margin', 'TK Center')))
 
 sub.moisture <- flux.annual %>%
+  filter(as.numeric(as.character(flux.year)) >= 2009) %>%
   mutate(treatment = factor(treatment,
                             levels = c('Control',
                                        'Air Warming',
                                        'Soil Warming',
                                        'Air + Soil Warming')),
-         subsidence = subsidence.annual*-1,
+         subsidence = subsidence*-1,
          wtd.mean = wtd.mean*-1) %>%
   select(flux.year, fence, plot, plot.id, treatment, subsidence, # mtopo, 
          wtd.mean, wtd.sd, wtd.n, 
@@ -996,19 +1006,19 @@ wtd.model.r2 <- r.squaredGLMM(wtd.model)
 wtd.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(wtd.model.r2[1], 2))
 wtd.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(wtd.model.r2[2], 2))
 
-# # make confidence interval data frame for graphing
-# wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
-# 
-# myStats <- function(model){
-#   out <- predict( model, newdata=wtd.model.fit, re.form=~0 )
-#   return(out)
-# }
-# 
-# bootObj <- bootMer(wtd.model, FUN=myStats, nsim = 1000)
-# wtd.model.fit <- cbind(wtd.model.fit, predict(wtd.model, newdata=wtd.model.fit, re.form=~0 )) %>%
-#   cbind(confint( bootObj,  level=0.95 ))
-# colnames(wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
-# # write.csv(wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv', row.names = FALSE)
+# make confidence interval data frame for graphing
+wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
+
+myStats <- function(model){
+  out <- predict( model, newdata=wtd.model.fit, re.form=~0 )
+  return(out)
+}
+
+bootObj <- bootMer(wtd.model, FUN=myStats, nsim = 1000)
+wtd.model.fit <- cbind(wtd.model.fit, predict(wtd.model, newdata=wtd.model.fit, re.form=~0 )) %>%
+  cbind(confint( bootObj,  level=0.95 ))
+colnames(wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
+# write.csv(wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv', row.names = FALSE)
 wtd.model.fit <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv')
 
 sub.moisture <- sub.moisture %>%
