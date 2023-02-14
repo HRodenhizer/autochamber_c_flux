@@ -1006,19 +1006,19 @@ wtd.model.r2 <- r.squaredGLMM(wtd.model)
 wtd.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(wtd.model.r2[1], 2))
 wtd.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(wtd.model.r2[2], 2))
 
-# make confidence interval data frame for graphing
-wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
-
-myStats <- function(model){
-  out <- predict( model, newdata=wtd.model.fit, re.form=~0 )
-  return(out)
-}
-
-bootObj <- bootMer(wtd.model, FUN=myStats, nsim = 1000)
-wtd.model.fit <- cbind(wtd.model.fit, predict(wtd.model, newdata=wtd.model.fit, re.form=~0 )) %>%
-  cbind(confint( bootObj,  level=0.95 ))
-colnames(wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
-# write.csv(wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv', row.names = FALSE)
+# # make confidence interval data frame for graphing
+# wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
+# 
+# myStats <- function(model){
+#   out <- predict( model, newdata=wtd.model.fit, re.form=~0 )
+#   return(out)
+# }
+# 
+# bootObj <- bootMer(wtd.model, FUN=myStats, nsim = 1000)
+# wtd.model.fit <- cbind(wtd.model.fit, predict(wtd.model, newdata=wtd.model.fit, re.form=~0 )) %>%
+#   cbind(confint( bootObj,  level=0.95 ))
+# colnames(wtd.model.fit) <- c('subsidence', 'fit', 'lwr', 'upr')
+# # write.csv(wtd.model.fit, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv', row.names = FALSE)
 wtd.model.fit <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_model_fit.csv')
 
 sub.moisture <- sub.moisture %>%
@@ -1494,12 +1494,12 @@ vwc.sd.plot <- ggplot(sub.moisture,
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = vwc.sd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
-  geom_text(aes(x = -10, y = -0.43, 
+  geom_text(aes(x = 110, y = 2, 
                 label = vwc.sd.r2.label1),
             parse = TRUE,
             hjust = 'inward',
             size = 3.5) +
-  geom_text(aes(x = -10, y = -0.5, 
+  geom_text(aes(x = 110, y = 0, 
                 label = vwc.sd.r2.label2),
             parse = TRUE,
             hjust = 'inward',
@@ -1559,7 +1559,7 @@ vwc.sd.plot
 # qqline(model4.resid)
 # par(mfrow=c(1,1))
 # 
-# hist(log(sub.moisture$I(log(gwc.mean))))
+# hist(log(sub.moisture$gwc.mean))
 
 gwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = gwc.mean)) +
   geom_point(aes(color = year.label, shape = treatment)) +
@@ -1768,7 +1768,7 @@ hydrology <- hydrology %>%
                             0,
                             precip.2w),
          subsidence = subsidence*-1) %>%
-  select(year, date, block, fence, plot, plot.id, treatment, wtd, precip.1w, 
+  select(flux.year, date, block, fence, plot, plot.id, treatment, wtd, precip.1w, 
          precip.2w, subsidence, td, td.date = TD_Date, block.f, fencegroup, 
          wholeplot, time)
 
@@ -1832,30 +1832,30 @@ for (i in 1:length(sub)) {
 # create spatial objects containing the points for each block, year, and date
 wtd.list <- list()
 for(block.n in 1:length(unique(wtd.sf$block))) { # iterate over each block
-  
+
   # create list for output
   wtd.list[[block.n]] <- list()
-  
+
   # create subset of data by block
   wtd.subset.1 <- wtd.sf %>%
     subset(block == as.character(unique(wtd.sf$block)[[block.n]]))
-  
+
   for (year.n in 1:length(unique(wtd.subset.1$year))) {
-    
+
     # create list for output
     wtd.list[[block.n]][[year.n]] <- list()
-    
+
     # create subset of data by year
     wtd.subset.2 <- wtd.subset.1 %>%
       subset(year == unique(wtd.subset.1$year)[[year.n]])
-    
+
     for (date.n in 1:length(unique(wtd.subset.2$date))) { # iterate over each date
-      
+
       # create subset of data by date
       wtd.subset.3 <- wtd.subset.2 %>%
         subset(date == unique(wtd.subset.2$date)[[date.n]]) %>% # select only the data from block block.n, date year.n
         st_zm(drop = TRUE, what = "ZM") # get rid of Z and M geometries to convert to sp
-      
+
       # add subsidence data
       sub.extract <- raster::extract(sub[[block.n]][[year.n]], wtd.subset.3, df = TRUE) %>%
         as.data.frame() %>%
@@ -1865,12 +1865,12 @@ for(block.n in 1:length(unique(wtd.sf$block))) { # iterate over each block
         cbind.data.frame(sub.extract) %>%
         st_as_sf(crs = 6397) %>%
         filter(!is.na(subsidence))
-      
-      name <- paste(as.character(unique(wtd.subset.3$block)), 
+
+      name <- paste(as.character(unique(wtd.subset.3$block)),
                     as.character(unique(wtd.subset.3$year)),
                     as.character(unique(wtd.subset.3$date)),
                     sep = '.') # create a unique name for each block's output
-      
+
       wtd.list[[block.n]][[year.n]][[date.n]] <- wtd.subset.3
       names(wtd.list[[block.n]][[year.n]])[[date.n]] <- name # name the output list element
     }
@@ -1883,24 +1883,24 @@ for(block.n in 1:length(unique(wtd.sf$block))) { # iterate over each block
 ### run loop to krige all surfaces using autoKrige
 wtd.surface <- list()
 for (block.n in 1:length(wtd.list)) {
-  
+
   wtd.surface[[block.n]] <- list()
-  
+
   for (year.n in 1:length(wtd.list[[block.n]])) {
-    
+
     wtd.surface[[block.n]][[year.n]] <- list()
-    
+
     for (date.n in 1:length(wtd.list[[block.n]][[year.n]])) {
-      
+
       print(paste0('block = ', block.n, ', year = ', year.n, ', date = ', date.n))
-      
+
       input <- as(wtd.list[[block.n]][[year.n]][[date.n]], 'Spatial')
       newdata <- as(sub.grids[[block.n]][[year.n]], 'Spatial')
       krige.output <- autoKrige(wtd ~ subsidence, input, newdata)
       krige.surface <- crop(raster(krige.output[[1]]),
                        sub[[block.n]])
       wtd.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
-      
+
       names(wtd.surface[[block.n]][[year.n]])[[date.n]] <- names(wtd.list[[block.n]][[year.n]])[[date.n]]
     }
   }
@@ -1919,8 +1919,8 @@ td <- fread("/home/heidi/ecoss_server/Schuur Lab/2020 New_Shared_Files/DATA/CiPE
 # Remove rows without plot data or thaw depth data
 td <- td[!is.na(plot)]
 td <- td[!is.na(td)]
-# # Remove DryPEHR Data
-# td <- td[!is.na(as.numeric(plot))]
+# Remove DryPEHR Data
+td <- td[!is.na(as.numeric(plot))]
 
 # Date
 td[, date := as_date(parse_date_time(date, orders = c('Y!-m!-d!', 'm!/d!/y!')))]
@@ -1928,15 +1928,6 @@ td[, year := year(date)]
 td[, block := tolower(block)]
 td[, plot := tolower(plot)]
 td <- unique(td)
-
-# # This section has been fixed in the underlying data, and is no longer necessary
-# # incorrect date recorded for one measurement in 2019
-# # two values recorded for 2019-08-02, but first should be ~2019-07-28
-# td[date == as_date('2019-08-02'),
-#    fix.date := c(rep(1, 16), rep(2, 16))]
-# td[fix.date == 1,
-#    date := as_date('2019-07-28')]
-# td[, fix.date := NULL]
 
 # add subsidence to help with kriging
 sub.df <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/GPS/Thaw_Depth_Subsidence_Correction/ALT_Sub_Ratio_Corrected/ALT_Subsidence_Corrected_2009_2020.csv",
@@ -1960,35 +1951,35 @@ td.sf <- td %>%
 # create spatial objects containing the points for each block, year, and date
 td.list <- list()
 for(i in 1:length(unique(td.sf$block))) { # iterate over each block
-  
+
   # create list for output
   td.list[[i]] <- list()
-  
+
   # create subset of data by block
   td.subset.1 <- td.sf %>%
     subset(block == as.character(unique(td.sf$block)[[i]]))
-  
+
   for (j in 1:length(unique(td.subset.1$year))) {
-    
+
     # create list for output
     td.list[[i]][[j]] <- list()
-    
+
     # create subset of data by year
     td.subset.2 <- td.subset.1 %>%
       subset(year == unique(td.subset.1$year)[[j]])
-    
+
     for (k in 1:length(unique(td.subset.2$date))) { # iterate over each date
-      
+
       # create subset of data by date
       td.subset.3 <- td.subset.2 %>%
         subset(date == unique(td.subset.2$date)[[k]]) %>% # select only the data from block i, date j
         st_zm(drop = TRUE, what = "ZM") # get rid of Z and M geometries to convert to sp
-      
-      name <- paste(as.character(unique(td.subset.3$block)), 
+
+      name <- paste(as.character(unique(td.subset.3$block)),
                     as.character(unique(td.subset.3$year)),
                     as.character(unique(td.subset.3$date)),
                     sep = '.') # create a unique name for each block's output
-     
+
       td.list[[i]][[j]][[k]] <- td.subset.3
       names(td.list[[i]][[j]])[[k]] <- name # name the output list element
     }
@@ -1999,24 +1990,24 @@ for(i in 1:length(unique(td.sf$block))) { # iterate over each block
 ### run loop to krige all surfaces using autoKrige
 td.surface <- list()
 for (block.n in 1:length(td.list)) {
-  
+
   td.surface[[block.n]] <- list()
-  
+
   for (year.n in 1:length(td.list[[block.n]])) {
-    
+
     td.surface[[block.n]][[year.n]] <- list()
-    
+
     for (date.n in 1:length(td.list[[block.n]][[year.n]])) {
-      
+
       print(paste0('block = ', block.n, ', year = ', year.n, ', date = ', date.n))
-      
+
       input <- as(td.list[[block.n]][[year.n]][[date.n]], 'Spatial')
       newdata <- as(sub.grids[[block.n]][[year.n]], 'Spatial')
       krige.output <- autoKrige(td ~ subsidence, input, newdata)
       krige.surface <- crop(raster(krige.output[[1]]),
                        sub[[block.n]])
       td.surface[[block.n]][[year.n]][[date.n]] <- krige.surface
-      
+
       names(td.surface[[block.n]][[year.n]])[[date.n]] <- names(td.list[[block.n]][[year.n]])[[date.n]]
     }
   }
