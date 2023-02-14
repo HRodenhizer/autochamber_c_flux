@@ -57,7 +57,7 @@ flux.seasonal <- merge(flux.seasonal, newgroups.join, by = c('fence', 'plot'), a
 plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
   # print(paste('Running predictor.name <- xxx'))
   predictor.name <- case_when(predictor == 'tp.annual' ~ expression('Thaw Penetration (cm)'), 
-                              predictor == 'subsidence.annual' ~ expression('Subsidence (cm)'),
+                              predictor == 'subsidence' ~ expression('Subsidence (cm)'),
                               predictor == 'alt.annual' ~ expression('ALT (cm)'), 
                               predictor == 'vwc.mean' ~ expression('Mean VWC (%)'), 
                               predictor == 'vwc.sd' ~ expression('SD VWC (%)'), 
@@ -65,14 +65,14 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
                               predictor == 'gwc.sd' ~ expression('SD GWC (%)'), 
                               predictor == 'wtd.mean' ~ expression('Mean WTD (cm)'), 
                               predictor == 'wtd.sd' ~ expression('SD WTD (cm)'), 
-                              predictor == 'precip.sum' ~ expression('Precipitation (mm)'), 
-                              predictor == 'winter.snow.depth' ~ expression('Snow Depth (cm)'), 
-                              predictor == 'winter.min.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'), 
+                              predictor == 'precip' ~ expression('Precipitation (mm)'), 
+                              predictor == 'spring.snow.depth' ~ expression('Snow Depth (cm)'), 
+                              predictor == 'winter.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'), 
                               predictor == 't10.mean' ~ expression('Mean Soil Temp ('*degree*'C)'), 
                               predictor == 't10.sd' ~ expression('SD Soil Temp ('*degree*'C)'), 
                               predictor == 'tair.mean' ~ expression('Mean Air Temp ('*degree*'C)'), 
                               predictor == 'tair.sd' ~ expression('SD Air Temp ('*degree*'C)'), 
-                              predictor == 'biomass.annual' ~ expression('Biomass (g m'^-2*')'),
+                              predictor == 'biomass' ~ expression('Biomass (g m'^-2*')'),
                               predictor == 'gdd.2m' ~ expression('2 Month GDD'))
 
   # print(paste('Running response.name <- xxx'))
@@ -134,42 +134,42 @@ set.seed(21591)
 nee.seasonal <- flux.seasonal[!is.na(nee.sum), 
                               c('nee.sum',
                                 'tp.annual',
-                                'subsidence.annual',
+                                'subsidence',
                                 'alt.annual', 
                                 'vwc.mean', 'vwc.sd',
                                 'gwc.mean', 'gwc.sd',
                                 'wtd.mean', 'wtd.sd',
-                                'precip.sum', 'winter.snow.depth',
-                                'winter.min.t10.min',
+                                'precip', 'spring.snow.depth',
+                                'winter.t10.min',
                                 't10.mean', 't10.sd',
                                 'tair.mean', 'tair.sd',
-                                'biomass.annual')]
+                                'biomass')]
 gpp.seasonal <- flux.seasonal[!is.na(gpp.sum),  
                               c('gpp.sum', 
                                 'tp.annual',
-                                'subsidence.annual',
+                                'subsidence',
                                 'alt.annual', 
                                 'vwc.mean', 'vwc.sd',
                                 'gwc.mean', 'gwc.sd',
                                 'wtd.mean', 'wtd.sd',
-                                'precip.sum', 'winter.snow.depth',
-                                'winter.min.t10.min',
+                                'precip', 'spring.snow.depth',
+                                'winter.t10.min',
                                 't10.mean', 't10.sd',
                                 'tair.mean', 'tair.sd',
-                                'biomass.annual')]
+                                'biomass')]
 reco.seasonal <- flux.seasonal[!is.na(reco.sum), 
                                c('reco.sum', 
                                  'tp.annual',
-                                 'subsidence.annual',
+                                 'subsidence',
                                  'alt.annual', 
                                  'vwc.mean', 'vwc.sd',
                                  'gwc.mean', 'gwc.sd',
                                  'wtd.mean', 'wtd.sd',
-                                 'precip.sum', 'winter.snow.depth',
-                                 'winter.min.t10.min',
+                                 'precip', 'spring.snow.depth',
+                                 'winter.t10.min',
                                  't10.mean', 't10.sd',
                                  'tair.mean', 'tair.sd',
-                                 'biomass.annual')]
+                                 'biomass')]
 
 # # set.seed doesn't seem to apply to sample
 # train.nee.seasonal <- sample(1:nrow(nee.seasonal), 0.8*nrow(nee.seasonal))
@@ -200,7 +200,7 @@ train.reco.seasonal <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Auto
 #                data = nee.seasonal[train.nee.seasonal,],
 #                distribution = "gaussian",
 #                n.trees = 400,
-#                shrinkage = 0.1,
+#                shrinkage = 0.01,
 #                interaction.depth = 6,
 #                n.minobsinnode = 5)
 # summary(nee.seasonal.gbm)
@@ -214,7 +214,7 @@ nee.seasonal.influence <- nee.seasonal.gbm %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
                          var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'vwc.sd' ~ 'SD VWC', 
@@ -222,14 +222,14 @@ nee.seasonal.influence <- nee.seasonal.gbm %>%
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'wtd.mean' ~ 'Mean WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
-                         var == 'precip.sum' ~ 'Precipitation', 
-                         var == 'winter.snow.depth' ~ 'Snow Depth', 
-                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                         var == 'precip' ~ 'Precipitation', 
+                         var == 'spring.snow.depth' ~ 'Snow Depth', 
+                         var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                          var == 't10.mean' ~ 'Mean Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'tair.mean' ~ 'Mean Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'nee',
@@ -282,7 +282,7 @@ ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred)) +
               slope = nee.seasonal.loc.slope, color = 'black')
 
 nee.seasonal.r2 <- summary(nee.seasonal.lm)$r.squared
-nee.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+nee.seasonal.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), 
                                 ' ~ ', 
                                 round(nee.seasonal.r2[1], 2))
 
@@ -290,7 +290,7 @@ nee.seasonal.fit.plot <- ggplot(nee.seasonal.pred, aes(x = nee.sum, y = nee.pred
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = nee.seasonal.loc.intercept, slope = nee.seasonal.loc.slope, color = 'black') +
-  geom_text(x = -65, y = 200, label = nee.seasonal.r2.label,
+  geom_text(x = -50, y = 175, label = nee.seasonal.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -304,34 +304,34 @@ example.plots.seasonal <- flux.seasonal %>%
   filter(fence == 4 & plot == 1 | fence == 4 & plot == 6 | fence == 1 & plot == 5)
 
 nee.seasonal.pd.biomass <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = nee.seasonal.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
 nee.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.biomass,
-                                predictor = 'biomass.annual', response = 'nee.sum',
+                                predictor = 'biomass', response = 'nee.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.1
-
-nee.seasonal.pd.gwc.sd <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = nee.seasonal.gbm$n.trees,
-               grid.resolution = 100)
-nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.sd,
-                                predictor = 'gwc.sd', response = 'nee.sum',
-                                color.var = 'year.label', shape.var = 'treatment')
-nee.seasonal.plot.2
 
 nee.seasonal.pd.vwc.mean <- nee.seasonal.gbm %>%
   pdp::partial(pred.var = "vwc.mean", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
-nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
+nee.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.mean,
                                 predictor = 'vwc.mean', response = 'nee.sum',
+                                color.var = 'year.label', shape.var = 'treatment')
+nee.seasonal.plot.2
+
+nee.seasonal.pd.gwc.sd <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "gwc.sd", n.trees = nee.seasonal.gbm$n.trees,
+               grid.resolution = 100)
+nee.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.sd,
+                                predictor = 'gwc.sd', response = 'nee.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.3
 
-nee.seasonal.pd.gwc.mean <- nee.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.mean", n.trees = nee.seasonal.gbm$n.trees,
+nee.seasonal.pd.vwc.sd <- nee.seasonal.gbm %>%
+  pdp::partial(pred.var = "vwc.sd", n.trees = nee.seasonal.gbm$n.trees,
                grid.resolution = 100)
-nee.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.gwc.mean,
-                                predictor = 'gwc.mean', response = 'nee.sum',
+nee.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = nee.seasonal.pd.vwc.sd,
+                                predictor = 'vwc.sd', response = 'nee.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 nee.seasonal.plot.4
 
@@ -369,20 +369,20 @@ nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
                                      'treatment',
                                      'nee.sum',
                                      'tp.annual',
-                                     'subsidence.annual',
+                                     'subsidence',
                                      'alt.annual', 
                                      'vwc.mean', 'vwc.sd',
                                      'gwc.mean', 'gwc.sd',
                                      'wtd.mean', 'wtd.sd',
-                                     'precip.sum', 'winter.snow.depth',
-                                     'winter.min.t10.min',
+                                     'precip', 'spring.snow.depth',
+                                     'winter.t10.min',
                                      't10.mean', 't10.sd',
                                      'tair.mean', 'tair.sd',
-                                     'biomass.annual')] %>%
-  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+                                     'biomass')] %>%
+  mutate(across(tp.annual:biomass, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
   cbind.data.frame(nee.seasonal.shap) %>%
   select(-nee.sum.shap) %>%
-  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+  pivot_longer(cols = tp.annual:biomass.shap, 
                names_to = 'var', 
                values_to = 'value') %>%
   mutate(variable.type = ifelse(str_detect(var, 'shap'),
@@ -394,7 +394,7 @@ nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
   pivot_wider(names_from = 'variable.type',
               values_from = 'value') %>%
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                                     var == 'subsidence.annual' ~ 'Subsidence',
+                                     var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
                                      var == 'vwc.mean' ~ 'Mean VWC', 
                                      var == 'vwc.sd' ~ 'SD VWC', 
@@ -402,14 +402,14 @@ nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
                                      var == 'gwc.sd' ~ 'SD GWC', 
                                      var == 'wtd.mean' ~ 'Mean WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
-                                     var == 'precip.sum' ~ 'Precipitation', 
-                                     var == 'winter.snow.depth' ~ 'Snow Depth', 
-                                     var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                                     var == 'precip' ~ 'Precipitation', 
+                                     var == 'spring.snow.depth' ~ 'Snow Depth', 
+                                     var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                                      var == 't10.mean' ~ 'Mean Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
                                      var == 'tair.mean' ~ 'Mean Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
-                                     var == 'biomass.annual' ~ 'Biomass'),
+                                     var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
@@ -545,7 +545,7 @@ ggplot(nee.seasonal.shap %>%
 #                          n.trees = 800,
 #                          shrinkage = 0.01,
 #                          interaction.depth = 6,
-#                          n.minobsinnode = 10)
+#                          n.minobsinnode = 5)
 # summary(reco.seasonal.gbm)
 # saveRDS(reco.seasonal.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_gbm.rds')
 reco.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_seasonal_gbm.rds')
@@ -554,7 +554,7 @@ reco.seasonal.influence <- reco.seasonal.gbm %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
                          var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'vwc.sd' ~ 'SD VWC', 
@@ -562,14 +562,14 @@ reco.seasonal.influence <- reco.seasonal.gbm %>%
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'wtd.mean' ~ 'Mean WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
-                         var == 'precip.sum' ~ 'Precipitation', 
-                         var == 'winter.snow.depth' ~ 'Snow Depth', 
-                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                         var == 'precip' ~ 'Precipitation', 
+                         var == 'spring.snow.depth' ~ 'Snow Depth', 
+                         var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                          var == 't10.mean' ~ 'Mean Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'tair.mean' ~ 'Mean Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'reco',
@@ -613,7 +613,7 @@ reco.seasonal.loc.intercept <- as.numeric(((reco.seasonal.lm$coefficients[1] *
                                  reco.seasonal.lm.reversed$coefficients[2])))
 
 reco.seasonal.r2 <- summary(reco.seasonal.lm)$r.squared
-reco.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+reco.seasonal.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), 
                                  ' ~ ', 
                                  round(reco.seasonal.r2[1], 2))
 
@@ -621,7 +621,7 @@ reco.seasonal.fit.plot <- ggplot(reco.seasonal.pred, aes(x = reco.sum, y = reco.
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = reco.seasonal.loc.intercept, slope = reco.seasonal.loc.slope, color = 'black') +
-  geom_text(x = 150, y = 525, label = reco.seasonal.r2.label,
+  geom_text(x = 110, y = 550, label = reco.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -632,10 +632,10 @@ reco.seasonal.fit.plot
 
 # plot partial dependence plots on top of data points
 reco.seasonal.pd.biomass <- reco.seasonal.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = reco.seasonal.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = reco.seasonal.gbm$n.trees,
                grid.resolution = 100)
 reco.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.biomass,
-                                predictor = 'biomass.annual', response = 'reco.sum',
+                                predictor = 'biomass', response = 'reco.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.1
 
@@ -647,23 +647,23 @@ reco.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.alt
                                 color.var = 'year.label', shape.var = 'treatment')
 reco.seasonal.plot.2
 
-reco.seasonal.pd.subsidence <- reco.seasonal.gbm %>%
-  pdp::partial(pred.var = "subsidence.annual", n.trees = reco.seasonal.gbm$n.trees,
-               grid.resolution = 100)
-reco.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.subsidence,
-                                predictor = 'subsidence.annual', response = 'reco.sum',
-                                color.var = 'year.label', shape.var = 'treatment') +
-  scale_x_reverse(name = expression('Subsidence (cm)'),
-                  breaks = seq(-100, 0, by = 25),
-                  labels = seq(-100, 0, by = 25)*-1)
-reco.seasonal.plot.3
-
 reco.seasonal.pd.wtd <- reco.seasonal.gbm %>%
   pdp::partial(pred.var = "wtd.mean", n.trees = reco.seasonal.gbm$n.trees,
                grid.resolution = 100)
-reco.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.wtd,
+reco.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.wtd,
                                  predictor = 'wtd.mean', response = 'reco.sum',
                                  color.var = 'year.label', shape.var = 'treatment')
+reco.seasonal.plot.3
+
+reco.seasonal.pd.subsidence <- reco.seasonal.gbm %>%
+  pdp::partial(pred.var = "subsidence", n.trees = reco.seasonal.gbm$n.trees,
+               grid.resolution = 100)
+reco.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = reco.seasonal.pd.subsidence,
+                                 predictor = 'subsidence', response = 'reco.sum',
+                                 color.var = 'year.label', shape.var = 'treatment') +
+  scale_x_reverse(name = expression('Subsidence (cm)'),
+                  breaks = seq(-100, 0, by = 25),
+                  labels = seq(-100, 0, by = 25)*-1)
 reco.seasonal.plot.4
 
 reco.seasonal.pd.plot <- ggarrange(reco.seasonal.plot.1,
@@ -700,20 +700,20 @@ reco.seasonal.shap <- flux.seasonal[!is.na(reco.sum),
                                      'treatment',
                                      'reco.sum',
                                      'tp.annual',
-                                     'subsidence.annual',
+                                     'subsidence',
                                      'alt.annual', 
                                      'vwc.mean', 'vwc.sd',
                                      'gwc.mean', 'gwc.sd',
                                      'wtd.mean', 'wtd.sd',
-                                     'precip.sum', 'winter.snow.depth',
-                                     'winter.min.t10.min',
+                                     'precip', 'spring.snow.depth',
+                                     'winter.t10.min',
                                      't10.mean', 't10.sd',
                                      'tair.mean', 'tair.sd',
-                                     'biomass.annual')] %>%
-  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+                                     'biomass')] %>%
+  mutate(across(tp.annual:biomass, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
   cbind.data.frame(reco.seasonal.shap) %>%
   select(-reco.sum.shap) %>%
-  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+  pivot_longer(cols = tp.annual:biomass.shap, 
                names_to = 'var', 
                values_to = 'value') %>%
   mutate(variable.type = ifelse(str_detect(var, 'shap'),
@@ -725,7 +725,7 @@ reco.seasonal.shap <- flux.seasonal[!is.na(reco.sum),
   pivot_wider(names_from = 'variable.type',
               values_from = 'value') %>%
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                                     var == 'subsidence.annual' ~ 'Subsidence',
+                                     var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
                                      var == 'vwc.mean' ~ 'Mean VWC', 
                                      var == 'vwc.sd' ~ 'SD VWC', 
@@ -733,14 +733,14 @@ reco.seasonal.shap <- flux.seasonal[!is.na(reco.sum),
                                      var == 'gwc.sd' ~ 'SD GWC', 
                                      var == 'wtd.mean' ~ 'Mean WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
-                                     var == 'precip.sum' ~ 'Precipitation', 
-                                     var == 'winter.snow.depth' ~ 'Snow Depth', 
-                                     var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                                     var == 'precip' ~ 'Precipitation', 
+                                     var == 'spring.snow.depth' ~ 'Snow Depth', 
+                                     var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                                      var == 't10.mean' ~ 'Mean Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
                                      var == 'tair.mean' ~ 'Mean Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
-                                     var == 'biomass.annual' ~ 'Biomass'),
+                                     var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
@@ -875,7 +875,7 @@ ggplot(reco.seasonal.shap %>%
 #                 n.trees = 800,
 #                 shrinkage = 0.01,
 #                 interaction.depth = 6,
-#                 n.minobsinnode = 10)
+#                 n.minobsinnode = 5)
 # summary(gpp.seasonal.gbm)
 # saveRDS(gpp.seasonal.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
 gpp.seasonal.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_seasonal_gbm.rds')
@@ -887,7 +887,7 @@ gpp.seasonal.influence <- gpp.seasonal.gbm %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
                          var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'vwc.sd' ~ 'SD VWC', 
@@ -895,14 +895,14 @@ gpp.seasonal.influence <- gpp.seasonal.gbm %>%
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'wtd.mean' ~ 'Mean WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
-                         var == 'precip.sum' ~ 'Precipitation', 
-                         var == 'winter.snow.depth' ~ 'Snow Depth', 
-                         var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                         var == 'precip' ~ 'Precipitation', 
+                         var == 'spring.snow.depth' ~ 'Snow Depth', 
+                         var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                          var == 't10.mean' ~ 'Mean Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'tair.mean' ~ 'Mean Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'gpp',
@@ -944,7 +944,7 @@ gpp.seasonal.loc.intercept <- as.numeric(((gpp.seasonal.lm$coefficients[1] *
                                  gpp.seasonal.lm.reversed$coefficients[2])))
 
 gpp.seasonal.r2 <- summary(gpp.seasonal.lm)$r.squared
-gpp.seasonal.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+gpp.seasonal.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), 
                                 ' ~ ', 
                                 round(gpp.seasonal.r2[1], 2))
 
@@ -952,7 +952,7 @@ gpp.seasonal.fit.plot <- ggplot(gpp.seasonal.pred, aes(x = gpp.sum, y = gpp.pred
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = gpp.seasonal.loc.intercept, slope = gpp.seasonal.loc.slope, color = 'black') +
-  geom_text(x = 50, y = 720, label = gpp.seasonal.r2.label,
+  geom_text(x = 50, y = 675, label = gpp.seasonal.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -963,10 +963,10 @@ gpp.seasonal.fit.plot
 
 # plot partial dependence plots on top of data points
 gpp.seasonal.pd.biomass <- gpp.seasonal.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = gpp.seasonal.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = gpp.seasonal.gbm$n.trees,
                grid.resolution = 100)
 gpp.seasonal.plot.1 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.biomass,
-                                 predictor = 'biomass.annual', response = 'gpp.sum',
+                                 predictor = 'biomass', response = 'gpp.sum',
                                  color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.1
 
@@ -978,19 +978,19 @@ gpp.seasonal.plot.2 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.alt,
                                  color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.2
 
-gpp.seasonal.pd.gwc.sd <- gpp.seasonal.gbm %>%
-  pdp::partial(pred.var = "gwc.sd", n.trees = gpp.seasonal.gbm$n.trees,
+gpp.seasonal.pd.wtd <- gpp.seasonal.gbm %>%
+  pdp::partial(pred.var = "wtd.mean", n.trees = gpp.seasonal.gbm$n.trees,
                grid.resolution = 100)
-gpp.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.gwc.sd,
-                                predictor = 'gwc.sd', response = 'gpp.sum',
+gpp.seasonal.plot.3 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.wtd,
+                                predictor = 'wtd.mean', response = 'gpp.sum',
                                 color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.3
 
-gpp.seasonal.pd.vwc.sd <- gpp.seasonal.gbm %>%
-  pdp::partial(pred.var = "vwc.sd", n.trees = gpp.seasonal.gbm$n.trees,
+gpp.seasonal.pd.spring.snow.depth <- gpp.seasonal.gbm %>%
+  pdp::partial(pred.var = "spring.snow.depth", n.trees = gpp.seasonal.gbm$n.trees,
                grid.resolution = 100)
-gpp.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.vwc.sd,
-                                 predictor = 'vwc.sd', response = 'gpp.sum',
+gpp.seasonal.plot.4 <- plot.pdp(df1 = flux.seasonal, df2 = gpp.seasonal.pd.spring.snow.depth,
+                                 predictor = 'spring.snow.depth', response = 'gpp.sum',
                                  color.var = 'year.label', shape.var = 'treatment')
 gpp.seasonal.plot.4
 
@@ -1028,20 +1028,20 @@ gpp.seasonal.shap <- flux.seasonal[!is.na(gpp.sum),
                                       'treatment',
                                       'gpp.sum',
                                       'tp.annual',
-                                      'subsidence.annual',
+                                      'subsidence',
                                       'alt.annual', 
                                       'vwc.mean', 'vwc.sd',
                                       'gwc.mean', 'gwc.sd',
                                       'wtd.mean', 'wtd.sd',
-                                      'precip.sum', 'winter.snow.depth',
-                                      'winter.min.t10.min',
+                                      'precip', 'spring.snow.depth',
+                                      'winter.t10.min',
                                       't10.mean', 't10.sd',
                                       'tair.mean', 'tair.sd',
-                                      'biomass.annual')] %>%
-  mutate(across(tp.annual:biomass.annual, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
+                                      'biomass')] %>%
+  mutate(across(tp.annual:biomass, ~ (.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE))) %>%
   cbind.data.frame(gpp.seasonal.shap) %>%
   select(-gpp.sum.shap) %>%
-  pivot_longer(cols = tp.annual:biomass.annual.shap, 
+  pivot_longer(cols = tp.annual:biomass.shap, 
                names_to = 'var', 
                values_to = 'value') %>%
   mutate(variable.type = ifelse(str_detect(var, 'shap'),
@@ -1053,7 +1053,7 @@ gpp.seasonal.shap <- flux.seasonal[!is.na(gpp.sum),
   pivot_wider(names_from = 'variable.type',
               values_from = 'value') %>%
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
-                                     var == 'subsidence.annual' ~ 'Subsidence',
+                                     var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
                                      var == 'vwc.mean' ~ 'Mean VWC', 
                                      var == 'vwc.sd' ~ 'SD VWC', 
@@ -1061,14 +1061,14 @@ gpp.seasonal.shap <- flux.seasonal[!is.na(gpp.sum),
                                      var == 'gwc.sd' ~ 'SD GWC', 
                                      var == 'wtd.mean' ~ 'Mean WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
-                                     var == 'precip.sum' ~ 'Precipitation', 
-                                     var == 'winter.snow.depth' ~ 'Snow Depth', 
-                                     var == 'winter.min.t10.min' ~ 'Winter Min Soil Temp', 
+                                     var == 'precip' ~ 'Precipitation', 
+                                     var == 'spring.snow.depth' ~ 'Snow Depth', 
+                                     var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
                                      var == 't10.mean' ~ 'Mean Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
                                      var == 'tair.mean' ~ 'Mean Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
-                                     var == 'biomass.annual' ~ 'Biomass'),
+                                     var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
@@ -1229,7 +1229,7 @@ flux.monthly[, month := factor(month)]
 nee.monthly <- flux.monthly[!is.na(nee.sum), 
                             c('nee.sum',
                               'tp.to.date',
-                              'subsidence.annual',
+                              'subsidence',
                               'td', 
                               'vwc.mean', 'vwc.sd',
                               'gwc.mean', 'gwc.sd',
@@ -1241,11 +1241,11 @@ nee.monthly <- flux.monthly[!is.na(nee.sum),
                               'gwc.mean.2m',
                               'gdd', 'fdd',
                               'gdd.2m',
-                              'biomass.annual')]
+                              'biomass')]
 gpp.monthly <- flux.monthly[!is.na(gpp.sum), 
                             c('gpp.sum',
                               'tp.to.date',
-                              'subsidence.annual',
+                              'subsidence',
                               'td', 
                               'vwc.mean', 'vwc.sd',
                               'gwc.mean', 'gwc.sd',
@@ -1257,11 +1257,11 @@ gpp.monthly <- flux.monthly[!is.na(gpp.sum),
                               'gwc.mean.2m',
                               'gdd', 'fdd',
                               'gdd.2m',
-                              'biomass.annual')]
+                              'biomass')]
 reco.monthly <- flux.monthly[!is.na(reco.sum), 
                              c('reco.sum',
                                'tp.to.date',
-                               'subsidence.annual',
+                               'subsidence',
                                'td', 
                                'vwc.mean', 'vwc.sd',
                                'gwc.mean', 'gwc.sd',
@@ -1273,7 +1273,7 @@ reco.monthly <- flux.monthly[!is.na(reco.sum),
                                'gwc.mean.2m',
                                'gdd', 'fdd',
                                'gdd.2m',
-                               'biomass.annual')]
+                               'biomass')]
 # set.seed doesn't seem to apply to sample
 # train.nee.monthly <- sample(1:nrow(nee.monthly), 0.8*nrow(nee.monthly))
 # train.gpp.monthly <- sample(1:nrow(gpp.monthly), 0.8*nrow(gpp.monthly))
@@ -1304,10 +1304,10 @@ train.reco.monthly <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autoc
 #                distribution = "gaussian",
 #                n.trees = 1000,
 #                shrinkage = 0.1,
-#                interaction.depth = 7,
+#                interaction.depth = 4,
 #                n.minobsinnode = 5)
 # summary(nee.monthly.gbm)
-# # saveRDS(nee.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
+# saveRDS(nee.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
 nee.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/nee_monthly_gbm.rds')
 summary(nee.monthly.gbm)
 
@@ -1324,7 +1324,7 @@ nee.monthly.influence <- nee.monthly.gbm %>%
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 't10.sd' ~ 'SD Soil Temp', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 'gwc.mean.2m' ~ '2 Month Mean GWC', 
                          var == 'wtd.mean' ~ 'Mean WTD', 
                          var == 'gwc.mean' ~ 'Mean GWC', 
@@ -1334,7 +1334,7 @@ nee.monthly.influence <- nee.monthly.gbm %>%
                          var == 'precip' ~ 'Precipitation', 
                          var == 'fdd' ~ 'FDD',
                          var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'nee',
@@ -1379,7 +1379,7 @@ nee.monthly.loc.intercept <- as.numeric(((nee.monthly.lm$coefficients[1] *
                                  nee.monthly.lm.reversed$coefficients[2])))
 
 nee.monthly.r2 <- summary(nee.monthly.lm)$r.squared
-nee.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), 
+nee.monthly.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), 
                                ' ~ ', 
                                round(nee.monthly.r2[1], 2))
 
@@ -1416,20 +1416,20 @@ nee.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.tair.mea
 nee.monthly.plot.1
 
 nee.monthly.pd.biomass <- nee.monthly.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = nee.monthly.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = nee.monthly.gbm$n.trees,
                grid.resolution = 100)
 nee.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = nee.monthly.pd.biomass,
-                                predictor = 'biomass.annual', response = 'nee.sum',
+                                predictor = 'biomass', response = 'nee.sum',
                                 color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
-  #            aes(x = biomass.annual, y = nee.sum),
+  #            aes(x = biomass, y = nee.sum),
   #            inherit.aes = FALSE,
   #            shape = 1, size = 3) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = nee.sum, label = plot.id),
+  #           aes(x = biomass, y = nee.sum, label = plot.id),
   #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = nee.sum, label = ID),
+  #           aes(x = biomass, y = nee.sum, label = ID),
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 nee.monthly.plot.2
 
@@ -1503,16 +1503,16 @@ nee.monthly.pd.plot
 #                    trControl = control,
 #                    tuneGrid = grid)
 # gbm.train
-# # run model
+# run model
 # reco.monthly.gbm <- gbm(reco.sum~.,
 #                        data = reco.monthly[train.reco.monthly,],
 #                        distribution = "gaussian",
 #                        n.trees = 1000,
 #                        shrinkage = 0.1,
 #                        interaction.depth = 6,
-#                        n.minobsinnode = 5)
+#                        n.minobsinnode = 7)
 # summary(reco.monthly.gbm)
-# # saveRDS(reco.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
+# saveRDS(reco.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
 reco.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/reco_monthly_gbm.rds')
 summary(reco.monthly.gbm)
 
@@ -1522,7 +1522,7 @@ reco.monthly.influence <- reco.monthly.gbm %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
   mutate(var = case_when(var == 't10.mean' ~ 'Mean Soil Temp', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'gwc.sd' ~ 'SD GWC', 
                          var == 'tp.to.date' ~ 'Thaw Penetration', 
@@ -1539,7 +1539,7 @@ reco.monthly.influence <- reco.monthly.gbm %>%
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 'gdd' ~ 'GDD',
                          var == 'gdd.2m' ~ '2 Month GDD',
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'reco',
@@ -1581,13 +1581,13 @@ reco.monthly.loc.intercept <- as.numeric(((reco.monthly.lm$coefficients[1] *
                                 reco.monthly.lm.reversed$coefficients[2])))
 
 reco.monthly.r2 <- summary(reco.monthly.lm)$r.squared
-reco.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(reco.monthly.r2[1], 2))
+reco.monthly.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), ' ~ ', round(reco.monthly.r2[1], 2))
 
 reco.monthly.fit.plot <- ggplot(reco.monthly.pred, aes(x = reco.sum, y = reco.pred)) +
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = reco.monthly.loc.intercept, slope = reco.monthly.loc.slope, color = 'black') +
-  geom_text(x = 10, y = 180, label = reco.monthly.r2.label,
+  geom_text(x = 10, y = 170, label = reco.monthly.r2.label,
             hjust = 0,
             vjust = 0,
             parse = TRUE) +
@@ -1616,48 +1616,27 @@ reco.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.t10.me
 reco.monthly.plot.1
 
 reco.monthly.pd.biomass <- reco.monthly.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = reco.monthly.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = reco.monthly.gbm$n.trees,
                grid.resolution = 100)
 reco.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.biomass,
-                               predictor = 'biomass.annual', response = 'reco.sum',
+                               predictor = 'biomass', response = 'reco.sum',
                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
-  #            aes(x = biomass.annual, y = reco.sum),
+  #            aes(x = biomass, y = reco.sum),
   #            inherit.aes = FALSE,
   #            shape = 1, size = 3) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = reco.sum, label = plot.id),
+  #           aes(x = biomass, y = reco.sum, label = plot.id),
   #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = reco.sum, label = ID),
+  #           aes(x = biomass, y = reco.sum, label = ID),
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.2
-
-reco.monthly.pd.subsidence <- reco.monthly.gbm %>%
-  pdp::partial(pred.var = "subsidence.annual", n.trees = reco.monthly.gbm$n.trees,
-               grid.resolution = 100)
-reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
-                                predictor = 'subsidence.annual', response = 'reco.sum',
-                                color.var = 'month', shape.var = 'treatment') +
-  # geom_point(data = example.plots.monthly,
-  #            aes(x = subsidence.annual, y = reco.sum),
-  #            inherit.aes = FALSE,
-  #            shape = 1, size = 3) +
-  # geom_text(data = example.plots.monthly,
-  #           aes(x = subsidence.annual, y = reco.sum, label = plot.id),
-  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
-  scale_x_reverse(name = expression('Subsidence (cm)'),
-                  breaks = seq(-100, 0, by = 25),
-                  labels = seq(-100, 0, by = 25)*-1)# +
-# geom_text(data = example.plots.monthly,
-#           aes(x = subsidence.annual, y = reco.sum, label = ID),
-#           inherit.aes = FALSE, size = 3, nudge_y = -15)
-reco.monthly.plot.3
 
 reco.monthly.pd.tair <- reco.monthly.gbm %>%
   pdp::partial(pred.var = "tair.mean", n.trees = reco.monthly.gbm$n.trees,
                grid.resolution = 100)
-reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
+reco.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
                                 predictor = 'tair.mean', response = 'reco.sum',
                                 color.var = 'month', shape.var = 'treatment')# +
 # geom_point(data = example.plots.monthly,
@@ -1669,6 +1648,27 @@ reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.tair,
 #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
 # geom_text(data = example.plots.monthly,
 #           aes(x = gwc.sd, y = reco.sum, label = ID),
+#           inherit.aes = FALSE, size = 3, nudge_y = -15)
+reco.monthly.plot.3
+
+reco.monthly.pd.subsidence <- reco.monthly.gbm %>%
+  pdp::partial(pred.var = "subsidence", n.trees = reco.monthly.gbm$n.trees,
+               grid.resolution = 100)
+reco.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = reco.monthly.pd.subsidence,
+                                predictor = 'subsidence', response = 'reco.sum',
+                                color.var = 'month', shape.var = 'treatment') +
+  # geom_point(data = example.plots.monthly,
+  #            aes(x = subsidence, y = reco.sum),
+  #            inherit.aes = FALSE,
+  #            shape = 1, size = 3) +
+  # geom_text(data = example.plots.monthly,
+  #           aes(x = subsidence, y = reco.sum, label = plot.id),
+  #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
+  scale_x_reverse(name = expression('Subsidence (cm)'),
+                  breaks = seq(-100, 0, by = 25),
+                  labels = seq(-100, 0, by = 25)*-1)# +
+# geom_text(data = example.plots.monthly,
+#           aes(x = subsidence, y = reco.sum, label = ID),
 #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 reco.monthly.plot.4
 
@@ -1713,9 +1713,9 @@ reco.monthly.pd.plot
 #                        n.trees = 1000,
 #                        shrinkage = 0.1,
 #                        interaction.depth = 6,
-#                        n.minobsinnode = 10)
+#                        n.minobsinnode = 5)
 # summary(gpp.monthly.gbm)
-# # saveRDS(gpp.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
+# saveRDS(gpp.monthly.gbm, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
 gpp.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
 summary(gpp.monthly.gbm)
 
@@ -1729,7 +1729,7 @@ gpp.monthly.influence <- gpp.monthly.gbm %>%
                          var == 'vwc.mean' ~ 'Mean VWC', 
                          var == 'tair.mean' ~ 'Mean Air Temp',
                          var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'subsidence.annual' ~ 'Subsidence',
+                         var == 'subsidence' ~ 'Subsidence',
                          var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'gdd.2m' ~ '2 Month GDD',
                          var == 'precip' ~ 'Precipitation', 
@@ -1742,7 +1742,7 @@ gpp.monthly.influence <- gpp.monthly.gbm %>%
                          var == 'fdd' ~ 'FDD',
                          var == 'gdd' ~ 'GDD',
                          var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
-                         var == 'biomass.annual' ~ 'Biomass')) %>%
+                         var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
          response = 'gpp',
@@ -1785,7 +1785,7 @@ gpp.monthly.loc.intercept <- as.numeric(((gpp.monthly.lm$coefficients[1] *
                                 gpp.monthly.lm.reversed$coefficients[2])))
 
 gpp.monthly.r2 <- summary(gpp.monthly.lm)$r.squared
-gpp.monthly.r2.label <- paste0(as.character(expression('R'^2 ~ ' = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
+gpp.monthly.r2.label <- paste0(as.character(expression('r'^2 ~ ' = ')), ' ~ ', round(gpp.monthly.r2[1], 2))
 
 gpp.monthly.fit.plot <- ggplot(gpp.monthly.pred, aes(x = gpp.sum, y = gpp.pred)) +
   geom_point() +
@@ -1820,20 +1820,20 @@ gpp.monthly.plot.1 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.tair.mea
 gpp.monthly.plot.1
 
 gpp.monthly.pd.biomass <- gpp.monthly.gbm %>%
-  pdp::partial(pred.var = "biomass.annual", n.trees = gpp.monthly.gbm$n.trees,
+  pdp::partial(pred.var = "biomass", n.trees = gpp.monthly.gbm$n.trees,
                grid.resolution = 100)
 gpp.monthly.plot.2 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.biomass,
-                                predictor = 'biomass.annual', response = 'gpp.sum',
+                                predictor = 'biomass', response = 'gpp.sum',
                                 color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
-  #            aes(x = biomass.annual, y = gpp.sum),
+  #            aes(x = biomass, y = gpp.sum),
   #            inherit.aes = FALSE,
   #            shape = 1, size = 3) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = gpp.sum, label = plot.id),
+  #           aes(x = biomass, y = gpp.sum, label = plot.id),
   #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = biomass.annual, y = gpp.sum, label = ID),
+  #           aes(x = biomass, y = gpp.sum, label = ID),
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.2
 
@@ -1855,21 +1855,21 @@ gpp.monthly.plot.3 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.t10.mean
 #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.3
 
-gpp.monthly.pd.vwc.sd <- gpp.monthly.gbm %>%
-  pdp::partial(pred.var = "vwc.sd", n.trees = gpp.monthly.gbm$n.trees,
+gpp.monthly.pd.gdd.2m <- gpp.monthly.gbm %>%
+  pdp::partial(pred.var = "gdd.2m", n.trees = gpp.monthly.gbm$n.trees,
                grid.resolution = 100)
-gpp.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.vwc.sd,
-                               predictor = 'vwc.sd', response = 'gpp.sum',
+gpp.monthly.plot.4 <- plot.pdp(df1 = flux.monthly, df2 = gpp.monthly.pd.gdd.2m,
+                               predictor = 'gdd.2m', response = 'gpp.sum',
                                color.var = 'month', shape.var = 'treatment')# +
   # geom_point(data = example.plots.monthly,
-  #            aes(x = vwc.sd, y = gpp.sum),
+  #            aes(x = gdd.2m, y = gpp.sum),
   #            inherit.aes = FALSE,
   #            shape = 1, size = 3) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = vwc.sd, y = gpp.sum, label = plot.id),
+  #           aes(x = gdd.2m, y = gpp.sum, label = plot.id),
   #           inherit.aes = FALSE, size = 3, nudge_y = -7) +
   # geom_text(data = example.plots.monthly,
-  #           aes(x = vwc.sd, y = gpp.sum, label = ID),
+  #           aes(x = gdd.2m, y = gpp.sum, label = ID),
   #           inherit.aes = FALSE, size = 3, nudge_y = -15)
 gpp.monthly.plot.4
 
@@ -2621,7 +2621,7 @@ flux.summary.winter <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autoch
 # NEE
 # 2019 filled
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = nee.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = nee.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2636,7 +2636,7 @@ ggplot(flux.annual.filled.plotting,
   theme(axis.title.x = element_blank())
 
 nee.trajectory.gs <- ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = nee.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = nee.sum.gs, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2653,7 +2653,7 @@ nee.trajectory.gs <- ggplot(flux.annual.filled.plotting,
 nee.trajectory.gs
 
 nee.trajectory <- ggplot(flux.annual.filled.plotting,
-                            aes(x = flux.year, y = nee.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+                            aes(x = flux.year, y = nee.sum.annual, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2670,7 +2670,7 @@ nee.trajectory <- ggplot(flux.annual.filled.plotting,
 nee.trajectory
 
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = nee.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = nee.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2686,7 +2686,7 @@ ggplot(flux.annual.filled.plotting,
 
 # Reco
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = reco.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = reco.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2701,7 +2701,7 @@ ggplot(flux.annual.filled.plotting,
   theme(axis.title.x = element_blank())
 
 reco.trajectory.gs <- ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = reco.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = reco.sum.gs, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2719,7 +2719,7 @@ reco.trajectory.gs <- ggplot(flux.annual.filled.plotting,
 reco.trajectory.gs
 
 reco.trajectory <- ggplot(flux.annual.filled.plotting,
-                          aes(x = flux.year, y = reco.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+                          aes(x = flux.year, y = reco.sum.annual, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2737,7 +2737,7 @@ reco.trajectory <- ggplot(flux.annual.filled.plotting,
 reco.trajectory
 
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = reco.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = reco.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -2753,7 +2753,7 @@ ggplot(flux.annual.filled.plotting,
 
 # GPP
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = gpp.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = gpp.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2768,7 +2768,7 @@ ggplot(flux.annual.filled.plotting,
   theme(axis.title.x = element_blank())
 
 gpp.trajectory.gs <- ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = gpp.sum.gs, color = biomass.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = gpp.sum.gs, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2786,7 +2786,7 @@ gpp.trajectory.gs <- ggplot(flux.annual.filled.plotting,
 gpp.trajectory.gs
 
 gpp.trajectory <- ggplot(flux.annual.filled.plotting,
-                            aes(x = flux.year, y = gpp.sum.annual, color = biomass.annual, shape = factor(filled.gbm))) +
+                            aes(x = flux.year, y = gpp.sum.annual, color = biomass, shape = factor(filled.gbm))) +
   geom_hline(yintercept = 0) +
   geom_point() +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -2804,7 +2804,7 @@ gpp.trajectory <- ggplot(flux.annual.filled.plotting,
 gpp.trajectory
 
 ggplot(flux.annual.filled.plotting,
-       aes(x = flux.year, y = gpp.sum.gs, color = subsidence.annual, shape = factor(filled.gbm))) +
+       aes(x = flux.year, y = gpp.sum.gs, color = subsidence, shape = factor(filled.gbm))) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
   geom_point() +
   geom_hline(yintercept = 0) +
@@ -3051,7 +3051,7 @@ flux.pc1.plot
 
 ### Investigate relationship between soil moisture variables and biomass #######
 biomass.hydrology.plot.1 <- ggplot(flux.seasonal, 
-       aes(x = subsidence.annual*-1, biomass.annual,
+       aes(x = subsidence*-1, biomass,
            color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3067,7 +3067,7 @@ biomass.hydrology.plot.1 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.2 <- ggplot(flux.seasonal, 
-       aes(x = wtd.mean*-1, biomass.annual, 
+       aes(x = wtd.mean*-1, biomass, 
            color = year.label)) +
   geom_vline(xintercept = 0, linetype = 'dashed') +
   geom_point(aes(shape = treatment)) +
@@ -3084,7 +3084,7 @@ biomass.hydrology.plot.2 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.3 <- ggplot(flux.seasonal, 
-       aes(x = vwc.mean, biomass.annual, 
+       aes(x = vwc.mean, biomass, 
            color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3100,7 +3100,7 @@ biomass.hydrology.plot.3 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.4 <- ggplot(flux.seasonal, 
-       aes(x = gwc.mean, biomass.annual, 
+       aes(x = gwc.mean, biomass, 
            color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3116,7 +3116,7 @@ biomass.hydrology.plot.4 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.5 <- ggplot(flux.seasonal, 
-                                   aes(x = wtd.sd, biomass.annual, 
+                                   aes(x = wtd.sd, biomass, 
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3132,7 +3132,7 @@ biomass.hydrology.plot.5 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.6 <- ggplot(flux.seasonal, 
-                                   aes(x = vwc.sd, biomass.annual, 
+                                   aes(x = vwc.sd, biomass, 
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3148,7 +3148,7 @@ biomass.hydrology.plot.6 <- ggplot(flux.seasonal,
   theme_bw()
 
 biomass.hydrology.plot.7 <- ggplot(flux.seasonal, 
-                                   aes(x = gwc.sd, biomass.annual, 
+                                   aes(x = gwc.sd, biomass, 
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3602,7 +3602,7 @@ flux.tk.time.series <- merge(plots.tk.class %>%
 flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, plot.id,
                                                     treatment, tk.class.factor, 
                                                     filled.gbm, alt.annual,
-                                                    subsidence.annual, biomass.annual, 
+                                                    subsidence, biomass, 
                                                     wtd.mean, wtd.sd,
                                                     vwc.mean, vwc.sd,
                                                     gwc.mean, gwc.sd,
@@ -3611,7 +3611,7 @@ flux.tk.time.series <- melt(flux.tk.time.series[, .(flux.year, fence, plot, plot
                             id.vars = c('flux.year', 'fence', 'plot', 'plot.id',
                                         'treatment', 'tk.class.factor', 
                                         'filled.gbm', 'alt.annual', 
-                                        'subsidence.annual', 'biomass.annual', 
+                                        'subsidence', 'biomass', 
                                         'wtd.mean', 'wtd.sd',
                                         'vwc.mean', 'vwc.sd',
                                         'gwc.mean', 'gwc.sd'),
@@ -3623,8 +3623,8 @@ flux.tk.time.series <- dcast(flux.tk.time.series[,
                                   ':=' (season = paste0('flux.sum.', str_extract(variable, pattern = 'gs|annual')),
                                         flux.type = str_extract(variable, pattern = 'nee|gpp|reco'))], 
               flux.year + fence + plot + plot.id + treatment + tk.class.factor + 
-                flux.type + filled.gbm + alt.annual + subsidence.annual + 
-                biomass.annual + wtd.mean + wtd.sd + vwc.mean + vwc.sd + 
+                flux.type + filled.gbm + alt.annual + subsidence + 
+                biomass + wtd.mean + wtd.sd + vwc.mean + vwc.sd + 
                 gwc.mean + gwc.sd ~ season,
               value.var = 'flux.sum')
 flux.tk.time.series[,
@@ -3648,7 +3648,7 @@ var_labeller <- as_labeller(c(GPP = 'GPP', NEE = 'NEE', Reco = 'R[eco]',
                             default = label_parsed)
 
 flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
-       aes(x = flux.year, y = flux.sum.gs, color = biomass.annual)) +
+       aes(x = flux.year, y = flux.sum.gs, color = biomass)) +
   geom_hline(yintercept = 0) +
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3678,7 +3678,7 @@ flux.tk.class.timeseries.plot
 #        width = 6.5)
 
 flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
-                                        aes(x = flux.year, y = flux.sum.annual, color = biomass.annual)) +
+                                        aes(x = flux.year, y = flux.sum.annual, color = biomass)) +
   geom_hline(yintercept = 0) +
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
@@ -3740,12 +3740,12 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             gwc.sd.sd = sd(gwc.sd, na.rm = TRUE),
                             alt.mean = mean(alt.annual),
                             alt.sd = sd(alt.annual),
-                            subsidence.mean = mean(subsidence.annual),
-                            subsidence.sd = sd(subsidence.annual),
+                            subsidence.mean = mean(subsidence),
+                            subsidence.sd = sd(subsidence),
                             tp.mean = mean(tp.annual),
                             tp.sd = sd(tp.annual),
-                            biomass.mean = mean(biomass.annual),
-                            biomass.sd = sd(biomass.annual)),
+                            biomass.mean = mean(biomass),
+                            biomass.sd = sd(biomass)),
                         by = c('tk.class.factor')]
 
 flux.tk[, .N, by = c('tk.class.factor')]
@@ -4263,7 +4263,7 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
         axis.text.x = element_blank())
 alt.tk.class
 
-sub.class.model <- lm(subsidence.annual ~ factor(tk.class),
+sub.class.model <- lm(subsidence ~ factor(tk.class),
                       data = flux.tk)
 emmeans(sub.class.model, specs = pairwise~factor(tk.class),
         infer = c(TRUE, TRUE))
@@ -4271,9 +4271,9 @@ flux.tk.mean <- flux.tk.mean %>%
   mutate(sub.letters = c('ab', 'b', 'd', 'c'))
 
 subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsidence.mean), size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = subsidence.annual),
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = subsidence),
               color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = subsidence.annual), 
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = subsidence), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
              width = 0.25) +
   geom_point() +
@@ -4290,7 +4290,7 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
         axis.text.x = element_blank())
 subsidence.tk.class
 
-biomass.class.model <- lm(biomass.annual ~ factor(tk.class),
+biomass.class.model <- lm(biomass ~ factor(tk.class),
                       data = flux.tk)
 emmeans(biomass.class.model, specs = pairwise~factor(tk.class),
         infer = c(TRUE, TRUE))
@@ -4298,9 +4298,9 @@ flux.tk.mean <- flux.tk.mean %>%
   mutate(biomass.letters = c('a', 'a', 'a', 'a'))
 
 biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.mean), size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = biomass.annual),
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = biomass),
               color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = biomass.annual), 
+  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = biomass), 
              inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
              width = 0.25) +
   geom_point() +
@@ -4370,10 +4370,10 @@ flux.tk.time.series.mean <- flux.tk.time.series[,
                                                   gwc.sd.se = sd(gwc.sd, na.rm = TRUE)/sqrt(.N),
                                                   alt.mean = mean(alt.annual),
                                                   alt.se = sd(alt.annual)/sqrt(.N),
-                                                  subsidence.mean = mean(subsidence.annual),
-                                                  subsidence.se = sd(subsidence.annual)/sqrt(.N),
-                                                  biomass.mean = mean(biomass.annual),
-                                                  biomass.se = sd(biomass.annual)/sqrt(.N)),
+                                                  subsidence.mean = mean(subsidence),
+                                                  subsidence.se = sd(subsidence)/sqrt(.N),
+                                                  biomass.mean = mean(biomass),
+                                                  biomass.se = sd(biomass)/sqrt(.N)),
                                                 by = c('tk.class.factor')]
 # plot WTD
 wtd.tk.class.timeseries <- ggplot(flux.tk.time.series, 
@@ -4467,7 +4467,7 @@ alt.tk.class.timeseries
 
 # plot subsidence
 subsidence.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = subsidence.annual)) +
+                                  aes (x = flux.year, y = subsidence)) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
   # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
@@ -4481,7 +4481,7 @@ subsidence.tk.class.timeseries
 
 # plot biomass
 biomass.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                         aes (x = flux.year, y = biomass.annual)) +
+                                         aes (x = flux.year, y = biomass)) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
   # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
