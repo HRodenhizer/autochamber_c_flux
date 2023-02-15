@@ -3,13 +3,6 @@
 ###                          Code by HGR 11/2021                             ###
 ################################################################################
 
-### To Do
-# Model Reco in 2019 plots that don't have measurements
-# Merge modeled 2019 plots with measured plots
-# Try using data from flux_filled files to facilitate merge with 2019 measured data?
-# This will be annoying because column names don't quite line up between years
-
-
 ### Load Libraries #############################################################
 library(data.table)
 library(lubridate)
@@ -30,7 +23,7 @@ reco.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autocha
 gpp.monthly.gbm <- readRDS('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/gpp_monthly_gbm.rds')
 ################################################################################
 
-### Try modeling (with GBM) ####################################################
+### Gap Fill with GBM ##########################################################
 ### try monthly
 # model data
 flux.monthly.filled.2019 <- flux.monthly
@@ -195,6 +188,6 @@ flux.seasonal.filled.2019[,
 
 # # Save output
 # write.csv(flux.seasonal.filled.2019,
-#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019.csv',
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal_filled_2019.csv',
 #           row.names = FALSE)
 ################################################################################
