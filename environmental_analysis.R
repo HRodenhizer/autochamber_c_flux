@@ -1003,8 +1003,11 @@ summary(wtd.model)
 wtd.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_coefficients.csv')
 
 wtd.model.r2 <- r.squaredGLMM(wtd.model)
-wtd.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(wtd.model.r2[1], 2))
-wtd.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(wtd.model.r2[2], 2))
+wtd.r2.label1 <- paste0(as.character(expression({'r'^{2}}[m] ~ ' = ')), ' ~ ', round(wtd.model.r2[1], 2))
+wtd.r2.label2 <- paste0(as.character(expression({'r'^{2}}[c] ~ ' = ')), ' ~ ', round(wtd.model.r2[2], 2))
+wtd.r2.labels = data.frame(x = c(111, 111),
+                    y = c(-28, -35),
+                    label = c(wtd.r2.label1, wtd.r2.label2))
 
 # # make confidence interval data frame for graphing
 # wtd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
@@ -1066,18 +1069,13 @@ wtd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = wtd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
-  geom_text(aes(x = 111, y = -29.5, 
-                label = wtd.r2.label1),
+  geom_text(data = wtd.r2.labels,
+            aes(x = x, y = y, 
+                label = label),
             inherit.aes = FALSE,
             parse = TRUE,
             hjust = 'inward',
-            size = 3.5) +
-  geom_text(aes(x = 111, y = -35, 
-                label = wtd.r2.label2),
-            inherit.aes = FALSE,
-            parse = TRUE,
-            hjust = 'inward',
-            size = 3.5) +
+            size = 3) +
   scale_color_viridis(name = 'Year',
                       discrete = TRUE,
                       direction = -1,
@@ -1153,8 +1151,11 @@ summary(wtd.sd.model)
 wtd.sd.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/wtd_sd_coefficients.csv')
 
 wtd.sd.model.r2 <- r.squaredGLMM(wtd.sd.model)
-wtd.sd.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(wtd.sd.model.r2[1], 2))
-wtd.sd.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(wtd.sd.model.r2[2], 2))
+wtd.sd.r2.label1 <- paste0(as.character(expression({'r'^{2}}[m] ~ ' = ')), ' ~ ', round(wtd.sd.model.r2[1], 2))
+wtd.sd.r2.label2 <- paste0(as.character(expression({'r'^{2}}[c] ~ ' = ')), ' ~ ', round(wtd.sd.model.r2[2], 2))
+wtd.sd.r2.labels = data.frame(x = c(111, 111),
+                              y = c(16.5, 14.5),
+                              label = c(wtd.sd.r2.label1, wtd.sd.r2.label2))
 
 # # make confidence interval data frame for graphing
 # wtd.sd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
@@ -1197,16 +1198,12 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = wtd.sd.model.fit, aes(x = subsidence, y = I(exp(fit))), color = 'black') +
-  geom_text(aes(x = 111, y = 16, 
-                label = wtd.sd.r2.label1),
+  geom_text(data = wtd.sd.r2.labels,
+            aes(x = x, y = y, 
+                label = label),
             parse = TRUE,
             hjust = 'inward',
-            size = 3.5) +
-  geom_text(aes(x = 111, y = 14.5, 
-                label = wtd.sd.r2.label2),
-            parse = TRUE,
-            hjust = 'inward',
-            size = 3.5) +
+            size = 3) +
   scale_color_viridis(name = 'Year',
                       discrete = TRUE,
                       direction = -1,
@@ -1322,8 +1319,11 @@ summary(vwc.model)
 vwc.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/vwc_coefficients.csv')
 
 vwc.model.r2 <- r.squaredGLMM(vwc.model)
-vwc.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(vwc.model.r2[1], 2))
-vwc.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(vwc.model.r2[2], 2))
+vwc.r2.label1 <- paste0(as.character(expression({'r'^{2}}[m] ~ ' = ')), ' ~ ', round(vwc.model.r2[1], 2))
+vwc.r2.label2 <- paste0(as.character(expression({'r'^{2}}[c] ~ ' = ')), ' ~ ', round(vwc.model.r2[2], 2))
+vwc.r2.labels = data.frame(x = c(111, 111),
+                           y = c(32, 25),
+                           label = c(vwc.r2.label1, vwc.r2.label2))
 
 # # make confidence interval data frame for graphing
 # vwc.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
@@ -1366,16 +1366,12 @@ vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = vwc.model.fit, aes(x = subsidence, y = fit), color = 'black') +
-  geom_text(aes(x = 111, y = 28.5, 
-                label = vwc.r2.label1),
+  geom_text(data = vwc.r2.labels,
+            aes(x = x, y = y, 
+                label = label),
             parse = TRUE,
             hjust = 'inward',
-            size = 3.5) +
-  geom_text(aes(x = 111, y = 22, 
-                label = vwc.r2.label2),
-            parse = TRUE,
-            hjust = 'inward',
-            size = 3.5) +
+            size = 3) +
   scale_color_viridis(name = 'Year',
                       discrete = TRUE,
                       direction = -1,
@@ -1449,8 +1445,11 @@ summary(vwc.sd.model)
 vwc.sd.model.ci <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/vwc_sd_coefficients.csv')
 
 vwc.sd.model.r2 <- r.squaredGLMM(vwc.sd.model)
-vwc.sd.r2.label1 <- paste0(as.character(expression('R'^2 ~ 'm = ')), ' ~ ', round(vwc.sd.model.r2[1], 2))
-vwc.sd.r2.label2 <- paste0(as.character(expression('R'^2 ~ 'c = ')), ' ~ ', round(vwc.sd.model.r2[2], 2))
+vwc.sd.r2.label1 <- paste0(as.character(expression({'r'^{2}}[m] ~ ' = ')), ' ~ ', round(vwc.sd.model.r2[1], 2))
+vwc.sd.r2.label2 <- paste0(as.character(expression({'r'^{2}}[c] ~ ' = ')), ' ~ ', round(vwc.sd.model.r2[2], 2))
+vwc.sd.r2.labels = data.frame(x = c(111, 111),
+                              y = c(4.5, 2),
+                              label = c(vwc.sd.r2.label1, vwc.sd.r2.label2))
 
 # # make confidence interval data frame for graphing
 # vwc.sd.model.fit <- expand.grid(subsidence = round(min(sub.moisture$subsidence)):round(max(sub.moisture$subsidence)))
@@ -1494,16 +1493,12 @@ vwc.sd.plot <- ggplot(sub.moisture,
               fill = 'gray', 
               alpha = 0.5) +
   geom_line(data = vwc.sd.model.fit, aes(x = subsidence, y = fit), color = 'black') +
-  geom_text(aes(x = 110, y = 2, 
-                label = vwc.sd.r2.label1),
+  geom_text(data = vwc.sd.r2.labels,
+            aes(x = x, y = y, 
+                label = label),
             parse = TRUE,
             hjust = 'inward',
-            size = 3.5) +
-  geom_text(aes(x = 110, y = 0, 
-                label = vwc.sd.r2.label2),
-            parse = TRUE,
-            hjust = 'inward',
-            size = 3.5) +
+            size = 3) +
   scale_color_viridis(name = 'Year',
                       discrete = TRUE,
                       direction = -1,
@@ -1734,7 +1729,7 @@ hydrology.model.table <- rbind.data.frame(wtd.model.ci %>%
          Min = signif(Min, 3),
          Max = signif(Max, 3))
 # write_excel_csv(hydrology.model.table,
-#                 '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/hydrology_model_table.xlsx',
+#                 '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/hydrology_model_table.xlsx',
 #                 na = '')
 ################################################################################
 
@@ -2320,6 +2315,9 @@ wtd.transect.plot <- ggarrange(transect.plot,
           labels = LETTERS[2:3])
 wtd.transect.plot
 
+precip.labels <- data.frame(x = c(as_date('2018-07-28'), as_date('2018-08-09')),
+                            y = c(28, 28),
+                            label = c('Dry', 'Wet'))
 precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)], 
                       aes(x = date, y = precip)) +
   geom_line() +
@@ -2327,8 +2325,7 @@ precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)],
   geom_vline(aes(xintercept = as_date('2018-07-27'), color = 'TD'), linetype = 'dashed') +
   geom_vline(aes(xintercept = as_date('2018-08-08'), color = 'WTD'), linetype = 'dashed') +
   geom_vline(aes(xintercept = as_date('2018-08-10'), color = 'TD'), linetype = 'dashed') +
-  geom_text(aes(x = as_date('2018-07-28'), y = 28, label = 'Dry'), size = 3) +
-  geom_text(aes(x = as_date('2018-08-09'), y = 28, label = 'Wet'), size = 3) +
+  geom_text(data = precip.labels, aes(x = x, y = y, label = label), size = 3) +
   scale_y_continuous(name = 'Precip (mm)') +
   scale_color_manual(name = 'Measurement\nDates',
                      breaks = c('WTD', 'TD'),
@@ -2338,10 +2335,10 @@ precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)],
 precip.plot
 
 wtd.transect.plot.precip <- ggarrange(precip.plot,
-                               wtd.transect.plot,
-                               ncol = 1,
-                               heights = c(0.25, 1),
-                               labels = LETTERS[1])
+                                      wtd.transect.plot,
+                                      ncol = 1,
+                                      heights = c(0.25, 1),
+                                      labels = LETTERS[1])
 wtd.transect.plot.precip
 
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.jpg',

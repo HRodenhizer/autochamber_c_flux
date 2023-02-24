@@ -1388,7 +1388,7 @@ nee.monthly.fit.plot <- ggplot(nee.monthly.pred, aes(x = nee.sum, y = nee.pred))
   geom_point() +
   # geom_smooth(method = 'lm', color = 'black') +
   geom_abline(intercept = nee.monthly.loc.intercept, slope = nee.monthly.loc.slope, color = 'black') +
-  geom_text(x = -50, y = 110, label = nee.monthly.r2.label,
+  geom_text(x = -50, y = 130, label = nee.monthly.r2.label,
             hjust = 0,
             vjust = 1,
             parse = TRUE) +
@@ -2021,7 +2021,7 @@ model.fit.monthly <- data.frame(response = c('GPP', 'NEE', 'Reco')) %>%
                   max(nee.monthly.pred$nee.sum),
                   max(reco.monthly.pred$reco.sum)),
          x = c(0, -60, 10),
-         y = c(315, 115, 285))
+         y = c(315, 135, 285))
 
 monthly.grob.dimensions <- data.frame(xmin = 10,
                                       xmax = 40,
@@ -3153,8 +3153,7 @@ biomass.hydrology.plot.7 <- ggplot(flux.seasonal,
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'SD GWC (%)',
-                     breaks = seq(0.5, 1, by = 0.25)) +
+  scale_x_continuous(name = 'SD GWC (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
@@ -3219,7 +3218,7 @@ fill_gaps <- function(raster,
                       erode_n = 2,
                       dilate_kernel = matrix(c(0,1,0, 1,1,1, 0,1,0), nrow = 3),
                       erode_kernel = matrix(c(0,1,0, 1,1,1, 0,1,0), nrow = 3)) {
-  
+
   raster_array <- as.array(
     matrix(
       raster[,],
@@ -3227,23 +3226,23 @@ fill_gaps <- function(raster,
       ncol = raster@nrows
     )
   )
-  
+
   for (i in 1:dilate_n) {
     raster_array <- mmand::dilate(
       raster_array,
       dilate_kernel)
   }
-  
+
   for (i in 1:erode_n) {
     raster_array <- mmand::erode(
       raster_array,
       erode_kernel)
   }
-  
+
   filled_vector <- as.vector(raster_array)
   filled_raster <- raster
   filled_raster[,] <- filled_vector
-  
+
   return(filled_raster)
 }
 
@@ -3275,7 +3274,7 @@ tk.edges.cip[tk.edges.cip != 1] <- NA
 tk.edges.cip.1 <- tk.edges.cip
 for (i in 1:nlayers(tk.edges.cip.1)) {
   tk.edges.cip.1[[i]] <- boundaries(tk.edges.cip.1[[i]], type = 'inner', directions = 4)
-  
+
 }
 tk.edges.cip.1[is.na(tk.edges.cip.1)] <- 0
 
@@ -3283,7 +3282,7 @@ tk.edges.cip.1[is.na(tk.edges.cip.1)] <- 0
 tk.edges.cip.2 <- tk.edges.cip
 for (i in 1:nlayers(tk.edges.cip.2)) {
   tk.edges.cip.2[[i]] <- boundaries(tk.edges.cip.2[[i]], type = 'outer', directions = 4)
-  
+
 }
 tk.edges.cip.2[tk.edges.cip.2 == 1] <- 2
 tk.edges.cip.2[is.na(tk.edges.cip.2)] <- 0
@@ -3334,7 +3333,7 @@ plots.tk.class <- raster::extract(tk.edges.cip, as(plots, 'Spatial'), df = TRUE)
                                        'Soil Warming', 'Air + Soil Warming'))) %>%
   ungroup() %>%
   full_join(plots %>%
-              select(fence, plot), 
+              select(fence, plot),
             by = c('fence', 'plot')) %>%
   st_as_sf()
 
@@ -3480,6 +3479,7 @@ plots.tk.class <- plots.tk.class %>%
          tk.class.factor = case_when(!(fence == 6 & plot %in% c(1, 4) & flux.year == 2018) & !(fence == 5 & plot == 3 & flux.year == 2017) ~ tk.class.factor,
                               fence == 6 & plot %in% c(1, 4) & flux.year == 2018 ~ factor('Non-TK'),
                               fence == 5 & plot == 3 & flux.year == 2017 ~ factor('Non-TK')))
+plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/thermokarst_classes.csv')
 
 # plot the tk classifications through time
 ggplot(filter(plots.tk.class, flux.year >= 2017), 
@@ -3578,12 +3578,12 @@ tk.class.figure <- grid.arrange(tk.fill.legend,
 #        width = 6.5)
 
 
-# flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
-# flux.annual.filled.plotting[, treatment := factor(treatment,
-#                                                   levels = c('Control', 
-#                                                              'Air Warming',
-#                                                              'Soil Warming',
-#                                                              'Air + Soil Warming'))]
+flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_annual_filled_2019_winter.csv')
+flux.annual.filled.plotting[, treatment := factor(treatment,
+                                                  levels = c('Control',
+                                                             'Air Warming',
+                                                             'Soil Warming',
+                                                             'Air + Soil Warming'))]
 # tk class in 2010 and 2017-2021
 flux.tk <- merge(plots.tk.class,
                  flux.annual.filled.plotting[flux.year == 2010  & plot %in% c(2, 4)| 
@@ -3656,10 +3656,11 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
   scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
-                     values = c(1, 0.3)) +
+                     values = c(1, 0.3),
+                     guide = guide_legend(order = 2)) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
-                     guide = guide_legend(order = 2)) +
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
                      labels = seq(2, 12, by = 2)) +
@@ -3686,10 +3687,11 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
   scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
-                     values = c(1, 0.3)) +
+                     values = c(1, 0.3),
+                     guide = guide_legend(order = 2)) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
-                     guide = guide_legend(order = 2)) +
+                     guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
                      labels = seq(2, 12, by = 2)) +
