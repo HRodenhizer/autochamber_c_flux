@@ -3729,8 +3729,8 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             gpp.sd.annual = sd(gpp.sum.annual, na.rm = TRUE),
                             reco.sum.annual = mean(reco.sum.annual, na.rm = TRUE),
                             reco.sd.annual = sd(reco.sum.annual, na.rm = TRUE),
-                            wtd.mean = mean(wtd.mean),
-                            wtd.sd = sd(wtd.mean),
+                            wtd.mean = mean(wtd.mean, na.rm = TRUE),
+                            wtd.sd = sd(wtd.mean, na.rm = TRUE),
                             wtd.sd.mean = mean(wtd.sd, na.rm = TRUE),
                             wtd.sd.sd = sd(wtd.sd, na.rm = TRUE),
                             vwc.mean = mean(vwc.mean),
@@ -3750,8 +3750,14 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             biomass.mean = mean(biomass),
                             biomass.sd = sd(biomass)),
                         by = c('tk.class.factor')]
+# write.csv(flux.tk.mean,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/tk_flux_env_mean.csv',
+#           row.names = FALSE)
 
 flux.tk[, .N, by = c('tk.class.factor')]
+flux.tk[, pond := factor(fifelse(wtd.mean < 0,
+                                 'Pond',
+                                 'Dry Surface'))]
 
 
 ### Environmental conditions by tk class (each plot classified by year, 2010, 2017-2021)
@@ -3766,12 +3772,16 @@ flux.tk.mean <- flux.tk.mean %>%
 wtd.tk.class <- ggplot(flux.tk.mean, 
        aes (x = tk.class.factor, y = wtd.mean*-1), 
        size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1),
-              color = 'gray40') +
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = wtd.mean*-1, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.mean*-1),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = wtd.mean*-1 - wtd.sd, ymax = wtd.mean*-1 + wtd.sd),
                 width = 0.2) +
@@ -3780,8 +3790,11 @@ wtd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'WTD (cm)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
 wtd.tk.class
 
 wtd.sd.class.model <- lm(wtd.sd ~ factor(tk.class),
@@ -3794,12 +3807,15 @@ flux.tk.mean <- flux.tk.mean %>%
 wtd.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = wtd.sd.mean), 
                        size = 2) +
-  # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = wtd.sd, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = wtd.sd),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = wtd.sd.mean - wtd.sd.sd, ymax = wtd.sd.mean + wtd.sd.sd),
                 width = 0.2) +
@@ -3808,8 +3824,11 @@ wtd.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD WTD (cm)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
 wtd.sd.tk.class
 
 # plot VWC
@@ -3823,12 +3842,15 @@ flux.tk.mean <- flux.tk.mean %>%
 vwc.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = vwc.mean), 
                        size = 2) +
-  # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = vwc.mean, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.mean),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = vwc.mean - vwc.sd, ymax = vwc.mean + vwc.sd),
                 width = 0.2) +
@@ -3837,9 +3859,12 @@ vwc.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'VWC (%)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 vwc.tk.class
 
 vwc.sd.class.model <- lm(vwc.sd ~ factor(tk.class),
@@ -3852,12 +3877,15 @@ flux.tk.mean <- flux.tk.mean %>%
 vwc.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = vwc.sd.mean), 
                        size = 2) +
-  # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = vwc.sd, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = vwc.sd),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = vwc.sd.mean - vwc.sd.sd, ymax = vwc.sd.mean + vwc.sd.sd),
                 width = 0.2) +
@@ -3866,9 +3894,12 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD VWC (%)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 vwc.sd.tk.class
 
 # plot gwc
@@ -3882,12 +3913,15 @@ flux.tk.mean <- flux.tk.mean %>%
 gwc.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = gwc.mean), 
                        size = 2) +
-  # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = gwc.mean, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.mean),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = gwc.mean - gwc.sd, ymax = gwc.mean + gwc.sd),
                 width = 0.2) +
@@ -3896,9 +3930,12 @@ gwc.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'GWC (%)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 gwc.tk.class
 
 gwc.sd.class.model <- lm(gwc.sd ~ factor(tk.class),
@@ -3911,12 +3948,15 @@ flux.tk.mean <- flux.tk.mean %>%
 gwc.sd.tk.class <- ggplot(flux.tk.mean, 
                        aes (x = tk.class.factor, y = gwc.sd.mean), 
                        size = 2) +
-  # geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = gwc.sd, color = pond), 
+             inherit.aes = FALSE,  size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gwc.sd),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = gwc.sd.mean - gwc.sd.sd, ymax = gwc.sd.mean + gwc.sd.sd),
                 width = 0.2) +
@@ -3925,9 +3965,12 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD GWC (%)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 gwc.sd.tk.class
 
 # plot ALT
@@ -3939,11 +3982,15 @@ flux.tk.mean <- flux.tk.mean %>%
   mutate(alt.letters = c('a', 'a', 'c', 'b'))
 
 alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1), size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = alt.annual*-1, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = alt.annual*-1),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_errorbar(aes(ymin = alt.mean*-1 - alt.sd, ymax = alt.mean*-1 + alt.sd),
@@ -3953,9 +4000,12 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'ALT (cm)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 alt.tk.class
 
 sub.class.model <- lm(subsidence ~ factor(tk.class),
@@ -3966,11 +4016,15 @@ flux.tk.mean <- flux.tk.mean %>%
   mutate(sub.letters = c('a', 'a', 'c', 'b'))
 
 subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsidence.mean), size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = subsidence),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = subsidence), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = subsidence, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = subsidence),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = subsidence.mean - subsidence.sd, ymax = subsidence.mean + subsidence.sd),
                 width = 0.2) +
@@ -3980,9 +4034,12 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'Subsidence (cm)') +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank())
+        axis.text.x = element_blank(),
+        legend.title = element_blank())
 subsidence.tk.class
 
 biomass.class.model <- lm(biomass ~ factor(tk.class),
@@ -3993,11 +4050,15 @@ flux.tk.mean <- flux.tk.mean %>%
   mutate(biomass.letters = c('a', 'a', 'a', 'a'))
 
 biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.mean), size = 2) +
-  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = biomass),
-              color = 'gray40') +
-  geom_jitter(data = flux.tk, aes(x = tk.class.factor, y = biomass), 
-             inherit.aes = FALSE, color = 'gray50', size = 1, alpha = 0.5,
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = biomass, color = pond), 
+             inherit.aes = FALSE, size = 1, alpha = 0.5,
              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = biomass),
+              color = 'gray40',
+              fill = 'transparent') +
   geom_point() +
   geom_errorbar(aes(ymin = biomass.mean - biomass.sd, ymax = biomass.mean + biomass.sd),
                 width = 0.2) +
@@ -4007,8 +4068,11 @@ biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.m
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
   theme_bw() +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
 biomass.tk.class
 
 tk.class.environment <- ggarrange(alt.tk.class +
@@ -4034,7 +4098,9 @@ tk.class.environment <- ggarrange(alt.tk.class +
                                   widths = c(1, 0.93, 0.96),
                                   heights = c(0.6, 0.6, 1),
                                   labels = LETTERS[1:9],
-                                  label.y = 1.025)
+                                  label.y = 1.025,
+                                  legend = 'top',
+                                  common.legend = TRUE)
 tk.class.environment
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment.jpg',
 #        tk.class.environment,
@@ -4047,164 +4113,150 @@ tk.class.environment
 #        width = 6.5,
 #        bg = 'white')
 
+### CO2 fluxes by tk class (each plot classified by year, 2010, 2017-2021)
+# plot NEE
+nee.class.model <- lm(nee.sum.gs ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(nee.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(nee.y = rep(400, 4),
+         nee.sum.letters = c('a', 'b', 'a', 'b'))
 
-### Environmental conditions by tk class (each plot classified by tk class in 2021)
-### Too much info - will not use these, I think
-flux.tk.time.series.mean <- flux.tk.time.series[,
-                                                .(wtd.mean = mean(wtd.mean),
-                                                  wtd.se = sd(wtd.mean)/sqrt(.N),
-                                                  wtd.sd.mean = mean(wtd.sd, na.rm = TRUE),
-                                                  wtd.sd.se = sd(wtd.sd, na.rm = TRUE)/sqrt(.N),
-                                                  vwc.mean = mean(vwc.mean),
-                                                  vwc.se = sd(vwc.mean)/sqrt(.N),
-                                                  vwc.sd.mean = mean(vwc.sd, na.rm = TRUE),
-                                                  vwc.sd.se = sd(vwc.sd, na.rm = TRUE)/sqrt(.N),
-                                                  gwc.mean = mean(gwc.mean, na.rm = TRUE),
-                                                  gwc.se = sd(gwc.mean, na.rm = TRUE)/sqrt(.N),
-                                                  gwc.sd.mean = mean(gwc.sd, na.rm = TRUE),
-                                                  gwc.sd.se = sd(gwc.sd, na.rm = TRUE)/sqrt(.N),
-                                                  alt.mean = mean(alt.annual),
-                                                  alt.se = sd(alt.annual)/sqrt(.N),
-                                                  subsidence.mean = mean(subsidence),
-                                                  subsidence.se = sd(subsidence)/sqrt(.N),
-                                                  biomass.mean = mean(biomass),
-                                                  biomass.se = sd(biomass)/sqrt(.N)),
-                                                by = c('tk.class.factor')]
-# plot WTD
-wtd.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                       aes (x = flux.year, y = wtd.mean*-1)) +
+nee.tk.class <- ggplot(flux.tk.mean, 
+                       aes (x = tk.class.factor, y = nee.sum.gs), 
+                       size = 2) +
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'WTD (cm)') +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = nee.sum.gs, color = pond), 
+              inherit.aes = FALSE, size = 1, alpha = 0.5,
+              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = nee.sum.gs),
+              color = 'gray40',
+              fill = 'transparent') +
+  geom_point() +
+  geom_errorbar(aes(ymin = nee.sum.gs - nee.sd.gs, ymax = nee.sum.gs + nee.sd.gs),
+                width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = nee.y, label = nee.sum.letters),
+            inherit.aes = FALSE,
+            size = 3) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
+  scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
+  facet_grid('NEE' ~ .) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-wtd.tk.class.timeseries
+        legend.title = element_blank())
+nee.tk.class
 
-wtd.sd.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = wtd.sd)) +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-wtd.sd.tk.class.timeseries
+# plot Reco
+reco.class.model <- lm(reco.sum.gs ~ factor(tk.class),
+                      data = flux.tk)
+emmeans(reco.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(reco.y = rep(50, 4),
+         reco.sum.letters = c('a', 'b', 'b', 'ab'))
 
-# plot vwc
-vwc.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = vwc.mean)) +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'VWC (%)') +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-vwc.tk.class.timeseries
-
-vwc.sd.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                     aes (x = flux.year, y = vwc.sd)) +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'SD VWC (%)') +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-vwc.sd.tk.class.timeseries
-
-# plot gwc
-gwc.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = gwc.mean)) +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'GWC (%)') +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-gwc.tk.class.timeseries
-
-gwc.sd.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                     aes (x = flux.year, y = gwc.sd)) +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'SD GWC (%)') +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-gwc.sd.tk.class.timeseries
-
-# plot ALT
-alt.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = alt.annual*-1)) +
+reco.tk.class <- ggplot(flux.tk.mean, 
+                       aes (x = tk.class.factor, y = reco.sum.gs*-1), 
+                       size = 2) +
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'ALT (cm)') +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = reco.sum.gs*-1, color = pond), 
+              inherit.aes = FALSE, size = 1, alpha = 0.5,
+              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = reco.sum.gs*-1),
+              color = 'gray40',
+              fill = 'transparent') +
+  geom_point() +
+  geom_errorbar(aes(ymin = reco.sum.gs*-1 - reco.sd.gs, ymax = reco.sum.gs*-1 + reco.sd.gs),
+                width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = reco.y, label = reco.sum.letters),
+            inherit.aes = FALSE,
+            size = 3) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
+  scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
+  facet_grid('Reco' ~ .,
+             labeller = var_labeller) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-alt.tk.class.timeseries
+        legend.title = element_blank())
+reco.tk.class
 
-# plot subsidence
-subsidence.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                  aes (x = flux.year, y = subsidence)) +
+# plot GPP
+gpp.class.model <- lm(gpp.sum.gs ~ factor(tk.class),
+                       data = flux.tk)
+emmeans(gpp.class.model, specs = pairwise~factor(tk.class),
+        infer = c(TRUE, TRUE))
+flux.tk.mean <- flux.tk.mean %>%
+  mutate(gpp.y = rep(-50, 4),
+         gpp.sum.letters = c('a', 'b', 'b', 'b'))
+
+gpp.tk.class <- ggplot(flux.tk.mean, 
+                        aes (x = tk.class.factor, y = gpp.sum.gs), 
+                        size = 2) +
+  annotate("rect", xmin = 0.3, xmax = 1.5, ymin = -Inf, ymax = Inf,
+           alpha = .05) +
   geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = 'Subsidence (cm)') +
+  geom_jitter(data = flux.tk, 
+              aes(x = tk.class.factor, y = gpp.sum.gs, color = pond), 
+              inherit.aes = FALSE, size = 1, alpha = 0.5,
+              width = 0.25) +
+  geom_violin(data = flux.tk, aes(x = tk.class.factor, y = gpp.sum.gs),
+              color = 'gray40',
+              fill = 'transparent') +
+  geom_point() +
+  geom_errorbar(aes(ymin = gpp.sum.gs - gpp.sd.gs, ymax = gpp.sum.gs + gpp.sd.gs),
+                width = 0.2) +
+  geom_text(data = flux.tk.mean, 
+            aes(x = tk.class.factor, y = gpp.y, label = gpp.sum.letters),
+            inherit.aes = FALSE,
+            size = 3) +
+  scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
+  scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
+  scale_color_manual(values = c('gray70', 'gray20'),
+                     na.translate = FALSE) +
+  facet_grid('GPP' ~ .,
+             labeller = var_labeller) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-subsidence.tk.class.timeseries
+        legend.title = element_blank())
+gpp.tk.class
 
-# plot biomass
-biomass.tk.class.timeseries <- ggplot(flux.tk.time.series, 
-                                         aes (x = flux.year, y = biomass)) +
-  geom_hline(yintercept = 0, linetype = 'dashed') +
-  geom_line(aes(group = plot.id), color = 'gray50', size = 1, alpha = 0.5) +
-  # geom_point(color = 'gray50', size = 1, alpha = 0.5) +
-  geom_smooth(method = 'gam', color = 'black') +
-  scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  facet_grid(.~ tk.class.factor)
-biomass.tk.class.timeseries
-
-tk.class.environment <- ggarrange(alt.tk.class,
-                                  subsidence.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 7, unit = 'pt'))),
-                                  wtd.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 7, unit = 'pt'))),
-                                  biomass.tk.class,
-                                  ncol = 1)
-tk.class.environment
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environment_tk_class.jpg',
-#        tk.class.environment,
+tk.flux.class.plot <- ggarrange(gpp.tk.class +
+                                  theme(axis.text.x = element_blank(),
+                                        axis.title.y = element_text(margin = margin(r = 7, unit = 'pt'))),
+                                nee.tk.class +
+                                  theme(axis.text.x = element_blank()),
+                                reco.tk.class +
+                                  theme(axis.text.x = element_text(angle = 45,
+                                                                   hjust = 1,
+                                                                   vjust = 1),
+                                        axis.title.y = element_text(margin = margin(r = 4, unit = 'pt'))),
+                                ncol = 1,
+                                heights = c(0.55, 0.55, 1),
+                                legend = 'top',
+                                common.legend = TRUE)
+tk.flux.class.plot
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux.jpg',
+#        tk.flux.class.plot,
 #        height = 5.5,
-#        width = 3.5,
+#        width = 2.5,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/environment_tk_class.pdf',
-#        tk.class.environment,
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_flux.pdf',
+#        tk.flux.class.plot,
 #        height = 5.5,
-#        width = 3.5,
+#        width = 2.5,
 #        bg = 'white')
 ################################################################################
 

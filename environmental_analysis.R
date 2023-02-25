@@ -354,7 +354,8 @@ wtd.delta <- wtd.alt.data.2021 %>%
   summarize(wtd.mean.end = mean(wtd.mean, na.rm = TRUE),
             wtd.sd.end = sd(wtd.mean, na.rm = TRUE)) %>%
   cbind.data.frame(wtd.start) %>%
-  mutate(wtd.diff = wtd.mean.end - wtd.mean.initial,
+  mutate(treatment = 'Overall',
+         wtd.diff = wtd.mean.end - wtd.mean.initial,
          wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
 
 wtd.delta.treatment <- wtd.alt.data.2021 %>%
@@ -365,6 +366,13 @@ wtd.delta.treatment <- wtd.alt.data.2021 %>%
   full_join(wtd.start.treatment, by = 'treatment') %>%
   mutate(wtd.diff = wtd.mean.end - wtd.mean.initial,
          wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
+
+wtd.delta <- rbind.data.frame(wtd.delta.treatment,
+                              wtd.delta)
+rm(wtd.delta.treatment)
+# write.csv(wtd.delta,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/wtd_change.csv',
+#           row.names = FALSE)
 
 alt.start <- wtd.alt.data %>%
   filter(year == 2009) %>%
@@ -785,7 +793,7 @@ snow.free.date <- snow.free %>%
 
 env.summary <- rbind(env.summary, snow.free.date, fill = TRUE)
 
-# write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/environmental_summary.csv',
+# write.csv(env.summary, '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/meteorological_summary.csv',
 #           row.names = FALSE)
 ################################################################################
 
