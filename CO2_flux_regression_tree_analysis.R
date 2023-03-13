@@ -56,29 +56,29 @@ flux.seasonal <- merge(flux.seasonal, newgroups.join, by = c('fence', 'plot'), a
 ### Function to Plot Partial Dependence Plots ###############################################################################
 plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
   # print(paste('Running predictor.name <- xxx'))
-  predictor.name <- case_when(predictor == 'tp.annual' ~ expression('Thaw Penetration (cm)'), 
-                              predictor == 'subsidence' ~ expression('Subsidence (cm)'),
-                              predictor == 'alt.annual' ~ expression('ALT (cm)'), 
-                              predictor == 'vwc.mean' ~ expression('Mean VWC (%)'), 
-                              predictor == 'vwc.sd' ~ expression('SD VWC (%)'), 
-                              predictor == 'gwc.mean' ~ expression('Mean GWC (%)'), 
-                              predictor == 'gwc.sd' ~ expression('SD GWC (%)'), 
-                              predictor == 'wtd.mean' ~ expression('Mean WTD (cm)'), 
-                              predictor == 'wtd.sd' ~ expression('SD WTD (cm)'), 
-                              predictor == 'precip' ~ expression('Precipitation (mm)'), 
-                              predictor == 'spring.snow.depth' ~ expression('Snow Depth (cm)'), 
-                              predictor == 'winter.t10.min' ~ expression('Winter Min Soil Temp ('*degree*'C)'), 
-                              predictor == 't10.mean' ~ expression('Mean Soil Temp ('*degree*'C)'), 
-                              predictor == 't10.sd' ~ expression('SD Soil Temp ('*degree*'C)'), 
-                              predictor == 'tair.mean' ~ expression('Mean Air Temp ('*degree*'C)'), 
-                              predictor == 'tair.sd' ~ expression('SD Air Temp ('*degree*'C)'), 
-                              predictor == 'biomass' ~ expression('Biomass (g m'^-2*')'),
-                              predictor == 'gdd.2m' ~ expression('2 Month GDD'))
+  predictor.name <- case_when(predictor == 'tp.annual' ~ "expression('Thaw Penetration (cm)')", 
+                              predictor == 'subsidence' ~ "expression('Subsidence (cm)')",
+                              predictor == 'alt.annual' ~ "expression('ALT (cm)')", 
+                              predictor == 'vwc.mean' ~ "expression('Mean VWC (%)')", 
+                              predictor == 'vwc.sd' ~ "expression('SD VWC (%)')", 
+                              predictor == 'gwc.mean' ~ "expression('Mean GWC (%)')", 
+                              predictor == 'gwc.sd' ~ "expression('SD GWC (%)')", 
+                              predictor == 'wtd.mean' ~ "expression('Mean WTD (cm)')", 
+                              predictor == 'wtd.sd' ~ "expression('SD WTD (cm)')", 
+                              predictor == 'precip' ~ "expression('Precipitation (mm)')", 
+                              predictor == 'spring.snow.depth' ~ "expression('Snow Depth (cm)')", 
+                              predictor == 'winter.t10.min' ~ "expression('Winter Min Soil Temp ('*degree*'C)')", 
+                              predictor == 't10.mean' ~ "expression('Mean Soil Temp ('*degree*'C)')", 
+                              predictor == 't10.sd' ~ "expression('SD Soil Temp ('*degree*'C)')", 
+                              predictor == 'tair.mean' ~ "expression('Mean Air Temp ('*degree*'C)')", 
+                              predictor == 'tair.sd' ~ "expression('SD Air Temp ('*degree*'C)')", 
+                              predictor == 'biomass' ~ "expression('Biomass (g m'^-2*')')",
+                              predictor == 'gdd.2m' ~ "expression('2 Month GDD')")
 
   # print(paste('Running response.name <- xxx'))
-  response.name <- case_when(response == 'nee.sum' ~ expression('NEE (gC m'^-2*')'),
-                             response == 'gpp.sum' ~ expression('GPP (gC m'^-2*')'),
-                             response == 'reco.sum' ~ expression('R'['eco']~'(gC m'^-2*')'))
+  response.name <- case_when(response == 'nee.sum' ~ "expression('NEE (gC m'^-2*')')",
+                             response == 'gpp.sum' ~ "expression('GPP (gC m'^-2*')')",
+                             response == 'reco.sum' ~ "expression('R'['eco']~'(gC m'^-2*')')")
   # print(paste('Running color.name <- xxx'))
   color.name <- case_when(color.var == 'year.label' ~ 'Year',
                           color.var == 'month' ~ 'Month')
@@ -118,8 +118,8 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
                        breaks = c('Marginal Effect'),
                        values = c('black'),
                        guide = guide_legend(order = 1)) +
-    scale_x_continuous(name = predictor.name) +
-    scale_y_continuous(name = response.name) +
+    scale_x_continuous(name = eval(parse(text = predictor.name))) +
+    scale_y_continuous(name = eval(parse(text = response.name))) +
     theme_bw()
   
   return(plot)
@@ -3695,7 +3695,7 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
                      labels = seq(2, 12, by = 2)) +
-  scale_y_continuous(name = expression('GS Flux (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('NGS Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
              labeller = var_labeller) +
