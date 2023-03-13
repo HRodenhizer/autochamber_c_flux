@@ -2231,8 +2231,8 @@ transect.extract <- transect.extract %>%
 
 ### Plot transects
 # colors needed
-names <- c('Unsaturated Active Layer', 'Saturated Active Layer', 'Permafrost')
-color <- c('Permafrost' = '#666666', 
+names <- c('Unsaturated Active Layer', 'Saturated Active Layer', 'Frozen Soil')
+color <- c('Frozen Soil' = '#666666', 
            'Unsaturated Active Layer' = '#996633', 
            'Saturated Active Layer' = '#006699')
 treatment.labels <- data.frame(fence = 6,
@@ -2254,7 +2254,7 @@ transect.plot <- ggplot(transect.extract,
               linetype = 1,
               size = 0.25,
               colour = 'black') +
-  geom_ribbon(aes(ymin = -Inf, ymax = td.norm, fill = 'Permafrost'),
+  geom_ribbon(aes(ymin = -Inf, ymax = td.norm, fill = 'Frozen Soil'),
               linetype = 1,
               size = 0.5,
               colour = 'black') +
@@ -2349,6 +2349,9 @@ wtd.transect.plot.precip <- ggarrange(precip.plot,
                                       labels = LETTERS[1])
 wtd.transect.plot.precip
 
+# # As of 2023-03-10, the jpg output is having an issue with the legend text
+# # overlapping the legend keys. Instead I am converting the pdf to jpeg with:
+# # pdftoppm -jpeg -r 300 wtd_transect_plot.pdf wtd_transect_plot.jpg
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/wtd_transect_plot.jpg',
 #        wtd.transect.plot.precip,
 #        height = 8.5,
