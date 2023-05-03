@@ -330,7 +330,7 @@ autoplot(pca.annual.norm, data = env.annual.plot, colour = 'reco.sum',
 
 ### WTD TD Plot ################################################################
 wtd.alt.data <- flux.annual %>%
-  select(flux.year, fence, plot, treatment, alt, wtd.mean, wtd.sd) %>%
+  select(flux.year, plot.id, treatment, alt, wtd.mean, wtd.sd) %>%
   mutate(year = as.numeric(as.character(flux.year)),
          treatment = factor(case_when(treatment %in% c('Control', 'Air Warming') ~ 'Control',
                                treatment %in% c('Soil Warming', 'Air + Soil Warming') ~ 'Soil Warming')))
@@ -338,46 +338,66 @@ wtd.alt.data <- flux.annual %>%
 wtd.alt.data.2021 <-  wtd.alt.data %>%
   filter(year == 2009 | year == 2021)
 
-wtd.start <- wtd.alt.data.2021 %>%
+wtd.alt.start <- wtd.alt.data.2021 %>%
   filter(year == 2009) %>%
   summarize(wtd.mean.initial = mean(wtd.mean, na.rm = TRUE),
-            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE))
+            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE),
+            alt.mean.initial = mean(alt, na.rm = TRUE),
+            alt.sd.initial = sd(alt, na.rm = TRUE))
 
-wtd.start.treatment <- wtd.alt.data.2021 %>%
+wtd.alt.start.treatment <- wtd.alt.data.2021 %>%
   filter(year == 2009) %>%
   group_by(treatment) %>%
   summarize(wtd.mean.initial = mean(wtd.mean, na.rm = TRUE),
-            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE))
+            wtd.sd.initial = sd(wtd.mean, na.rm = TRUE),
+            alt.mean.initial = mean(alt, na.rm = TRUE),
+            alt.sd.initial = sd(alt, na.rm = TRUE))
 
-wtd.delta <- wtd.alt.data.2021 %>%
+wtd.alt.delta <- wtd.alt.data.2021 %>%
   filter(year == 2021) %>%
   summarize(wtd.mean.end = mean(wtd.mean, na.rm = TRUE),
-            wtd.sd.end = sd(wtd.mean, na.rm = TRUE)) %>%
-  cbind.data.frame(wtd.start) %>%
+            wtd.sd.end = sd(wtd.mean, na.rm = TRUE),
+            alt.mean.end = mean(alt, na.rm = TRUE),
+            alt.sd.end = sd(alt, na.rm = TRUE)) %>%
+  cbind.data.frame(wtd.alt.start) %>%
   mutate(treatment = 'Overall',
          wtd.diff = wtd.mean.end - wtd.mean.initial,
-         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
+         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2),
+         alt.diff = alt.mean.end - alt.mean.initial,
+         alt.diff.sd = sqrt(alt.sd.end^2 + alt.sd.initial^2))
 
-wtd.delta.treatment <- wtd.alt.data.2021 %>%
+wtd.alt.delta.treatment <- wtd.alt.data.2021 %>%
   filter(year == 2021) %>%
   group_by(treatment) %>%
   summarize(wtd.mean.end = mean(wtd.mean, na.rm = TRUE),
-            wtd.sd.end = sd(wtd.mean, na.rm = TRUE)) %>%
-  full_join(wtd.start.treatment, by = 'treatment') %>%
+            wtd.sd.end = sd(wtd.mean, na.rm = TRUE),
+            alt.mean.end = mean(alt, na.rm = TRUE),
+            alt.sd.end = sd(alt, na.rm = TRUE)) %>%
+  full_join(wtd.alt.start.treatment, by = 'treatment') %>%
   mutate(wtd.diff = wtd.mean.end - wtd.mean.initial,
-         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2))
+         wtd.diff.sd = sqrt(wtd.sd.end^2 + wtd.sd.initial^2),
+         alt.diff = alt.mean.end - alt.mean.initial,
+         alt.diff.sd = sqrt(alt.sd.end^2 + alt.sd.initial^2))
 
-wtd.delta <- rbind.data.frame(wtd.delta.treatment,
-                              wtd.delta)
-rm(wtd.delta.treatment)
-# write.csv(wtd.delta,
+wtd.alt.delta <- rbind.data.frame(wtd.alt.delta.treatment,
+                                  wtd.alt.delta) %>%
+  mutate(wtd.cov.initial = wtd.sd.initial/wtd.mean.initial,
+         wtd.cov.end = wtd.sd.end/wtd.mean.end,
+         alt.cov.initial = alt.sd.initial/alt.mean.initial,
+         alt.cov.end = alt.sd.end/alt.mean.end)
+rm(wtd.alt.start, wtd.alt.start.treatment, wtd.alt.delta.treatment)
+# write.csv(wtd.alt.delta,
 #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/wtd_change.csv',
 #           row.names = FALSE)
 
-alt.start <- wtd.alt.data %>%
-  filter(year == 2009) %>%
-  summarise(alt = mean(alt, na.rm = TRUE)) %>%
-  as.numeric()
+# Take a look at plots which got drier
+drier.plots <- wtd.alt.data.2021 %>%
+  select(flux.year, plot.id, wtd.mean) %>%
+  pivot_wider(names_from = flux.year, values_from = wtd.mean, names_prefix = 'year.') %>%
+  filter(year.2009 < year.2021)
+
+alt.start <- wtd.alt.delta$alt.mean.initial[3]
+wtd.start <- wtd.alt.delta$wtd.mean.initial[3]
 arrows <- data.frame(xmin = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/3, 
                               max(wtd.alt.data$alt)),
                      xmax = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/15, 
@@ -431,8 +451,10 @@ wtd.alt.plot
 
 wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
                        aes(x = alt, y = wtd.mean*-1, 
-                           color = treatment,
-                           shape = flux.year)) +
+                           shape = flux.year,
+                           group = plot.id)) +
+  # geom_hline(yintercept = 0, color = 'gray') +
+  # geom_hline(yintercept = wtd.start*-1, linetype = 'dashed') +
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_vline(xintercept = alt.start, linetype = 'dashed') +
   geom_segment(data = arrows,
@@ -444,7 +466,9 @@ wtd.alt.plot.bw <- ggplot(wtd.alt.data.2021,
             inherit.aes = FALSE,
             hjust = 0.5,
             vjust = -0.5) +
-  geom_point(size = 2) +
+  # geom_line(color = 'gray90', linewidth = 0.25) +
+  geom_point(size = 2, 
+             aes(color = treatment)) +
   scale_x_continuous(name = 'Active Layer Thickness (cm)') +
   scale_y_continuous(name = 'Mean Water Table Depth (cm)') +
   scale_color_manual(name = 'Treatment',
