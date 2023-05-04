@@ -3750,6 +3750,17 @@ flux.tk.mean <- flux.tk[, .(nee.sum.gs = mean(nee.sum.gs, na.rm = TRUE),
                             biomass.mean = mean(biomass),
                             biomass.sd = sd(biomass)),
                         by = c('tk.class.factor')]
+flux.tk.mean[,
+             ':=' (alt.cov = abs(alt.sd/alt.mean),
+                   subsidence.cov = abs(subsidence.sd/subsidence.mean),
+                   biomass.cov = abs(biomass.sd/biomass.mean),
+                   gwc.cov = abs(gwc.sd/gwc.mean),
+                   vwc.cov = abs(vwc.sd/vwc.mean),
+                   wtd.cov = abs(wtd.sd/wtd.mean),
+                   sd.gwc.cov = abs(gwc.sd.sd/gwc.sd.mean),
+                   sd.vwc.cov = abs(vwc.sd.sd/vwc.sd.mean),
+                   sd.wtd.cov = abs(wtd.sd.sd/wtd.sd.mean))
+             ]
 # write.csv(flux.tk.mean,
 #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/tk_flux_env_mean.csv',
 #           row.names = FALSE)
@@ -3758,7 +3769,6 @@ flux.tk[, .N, by = c('tk.class.factor')]
 flux.tk[, pond := factor(fifelse(wtd.mean < 0,
                                  'Pond',
                                  'Dry Surface'))]
-
 
 ### Environmental conditions by tk class (each plot classified by year, 2010, 2017-2021)
 # plot WTD
@@ -3790,7 +3800,7 @@ wtd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'WTD (cm)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3824,7 +3834,7 @@ wtd.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD WTD (cm)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3859,7 +3869,7 @@ vwc.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'VWC (%)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3894,7 +3904,7 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD VWC (%)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3930,7 +3940,7 @@ gwc.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'GWC (%)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -3965,7 +3975,7 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'SD GWC (%)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4000,7 +4010,7 @@ alt.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = alt.mean*-1),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'ALT (cm)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4034,7 +4044,7 @@ subsidence.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = subsid
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = 'Subsidence (cm)') +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4068,7 +4078,7 @@ biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.m
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
   scale_y_continuous(name = expression('Biomass (g m'^-2*')')) +
-  scale_color_manual(values = c('gray70', 'gray20'),
+  scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
@@ -4104,8 +4114,8 @@ tk.class.environment <- ggarrange(alt.tk.class +
 tk.class.environment
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment.jpg',
 #        tk.class.environment,
-#        height = 5.5,
-#        width = 5.5,
+#        height = 6.5,
+#        width = 6.5,
 #        bg = 'white')
 # ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment.pdf',
 #        tk.class.environment,
