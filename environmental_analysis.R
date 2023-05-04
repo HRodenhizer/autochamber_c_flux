@@ -332,6 +332,7 @@ autoplot(pca.annual.norm, data = env.annual.plot, colour = 'reco.sum',
 wtd.alt.data <- flux.annual %>%
   select(flux.year, plot.id, treatment, alt, wtd.mean, wtd.sd) %>%
   mutate(year = as.numeric(as.character(flux.year)),
+         treatment_full = factor(treatment, levels = c('Control', 'Air Warming', 'Soil Warming', 'Air + Soil Warming')),
          treatment = factor(case_when(treatment %in% c('Control', 'Air Warming') ~ 'Control',
                                treatment %in% c('Soil Warming', 'Air + Soil Warming') ~ 'Soil Warming')))
 
@@ -396,6 +397,37 @@ drier.plots <- wtd.alt.data.2021 %>%
   pivot_wider(names_from = flux.year, values_from = wtd.mean, names_prefix = 'year.') %>%
   filter(year.2009 < year.2021)
 
+# Compare treatments in 2021
+t.test(alt ~ treatment, 
+       data = wtd.alt.data.2021 %>%
+         filter(year == 2021),
+       alternative = 'less')
+
+alt.treatment.anova <- lm(alt ~ treatment_full, 
+                          data = wtd.alt.data.2021 %>%
+                            filter(year == 2021))
+summary(alt.treatment.anova)
+emmeans(alt.treatment.anova, specs = pairwise ~ treatment_full)
+
+t.test(wtd.mean ~ treatment, 
+       data = wtd.alt.data.2021 %>%
+         filter(year == 2021),
+       alternative = 'greater')
+
+wtd.treatment.anova <- lm(wtd.mean ~ treatment_full, 
+                          data = wtd.alt.data.2021 %>%
+                            filter(year == 2021))
+summary(wtd.treatment.anova)
+emmeans(wtd.treatment.anova, specs = pairwise ~ treatment_full)
+
+# compare start and end
+t.test(alt ~ flux.year, data = wtd.alt.data.2021,
+       alternative = 'less')
+
+t.test(wtd.mean ~ flux.year, data = wtd.alt.data.2021,
+       alternative = 'greater')
+
+# plot ALT and WTD at start and end
 alt.start <- wtd.alt.delta$alt.mean.initial[3]
 wtd.start <- wtd.alt.delta$wtd.mean.initial[3]
 arrows <- data.frame(xmin = c(max(wtd.alt.data$alt) - (max(wtd.alt.data$alt) - min(wtd.alt.data$alt))/3, 
