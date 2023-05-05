@@ -3643,6 +3643,106 @@ flux.tk.time.series[,
                           tk.class.factor = factor(tk.class.factor,
                                                    levels = c('Initial', 'Non-TK', 'TK Margin', 'TK Center')))]
 
+# Create table of initial, peak, and end values
+flux.tk.timeseries.pred <- tibble()
+flux.tk.pred.grid <- expand_grid(tk.class.factor = factor(levels(flux.tk.time.series$tk.class.factor)[2:4],
+                                                                levels = levels(flux.tk.time.series$tk.class.factor)[2:4]),
+                                       variable = factor(levels(flux.tk.time.series$variable),
+                                                         levels = levels(flux.tk.time.series$variable)),
+                                       flux.year = seq(2010, 2021))
+for (tk.class in levels(flux.tk.time.series$tk.class.factor)[2:4]) {
+  print(tk.class)
+  
+  for (flux.var in levels(flux.tk.time.series$variable)) {
+    print(flux.var)
+    
+    df <- flux.tk.time.series %>%
+      filter(tk.class.factor == tk.class & variable == flux.var)
+    
+    model <- mgcv::gam(flux.sum.gs ~ s(flux.year, bs = "cs"), 
+                       data = df)
+    
+    # add predictions to a dataframe
+    preds <- flux.tk.pred.grid %>%
+      filter(tk.class.factor == tk.class & variable == flux.var) %>%
+      mutate(flux.sum.gs.pred = predict(model, 
+                                        flux.tk.pred.grid %>%
+                                          filter(tk.class.factor == tk.class & variable == flux.var) %>%
+                                          select(flux.year),
+                                        se.fit = TRUE)[[1]],
+             flux.sum.gs.pred.se = predict(model, 
+                                        flux.tk.pred.grid %>%
+                                          filter(tk.class.factor == tk.class & variable == flux.var) %>%
+                                          select(flux.year),
+                                        se.fit = TRUE)[[2]])
+    flux.tk.timeseries.pred <- rbind.data.frame(flux.tk.timeseries.pred, preds)
+    
+  }
+  
+}
+
+flux.tk.timeseries.pred.filter <- flux.tk.timeseries.pred %>%
+  group_by(tk.class.factor, variable) %>%
+  mutate(keep = factor(case_when(flux.year == 2010 ~ 'Initial',
+                                 flux.sum.gs.pred == max(flux.sum.gs.pred) ~ 'Peak',
+                                 flux.year == 2021 ~ 'Final',
+                                 TRUE ~ NA),
+                       levels = c('Initial', 'Peak', 'Final'))) %>%
+  filter(!is.na(keep)) %>%
+  arrange(tk.class.factor, variable, keep)
+
+flux.tk.table <- flux.tk.time.series %>%
+  group_by(flux.year, tk.class.factor, variable) %>%
+  summarise(flux.sum.gs.mean = mean(flux.sum.gs),
+            flux.sum.gs.se = sd(flux.sum.gs)/sqrt(n())) %>%
+  group_by(tk.class.factor, variable) %>%
+  mutate(keep = factor(case_when(flux.year == 2010 ~ 'Initial',
+                          flux.sum.gs.mean == max(flux.sum.gs.mean) ~ 'Peak',
+                          flux.year == 2021 ~ 'Final',
+                          TRUE ~ NA),
+                       levels = c('Initial', 'Peak', 'Final'))) %>%
+  filter(!is.na(keep)) %>%
+  arrange(tk.class.factor, variable, keep) %>%
+  full_join(flux.tk.timeseries.pred.filter, 
+            by = c('tk.class.factor', 'variable', 'flux.year', 'keep')) %>%
+  mutate(Measured = ifelse(!is.na(flux.sum.gs.mean),
+                           paste(round(flux.sum.gs.mean), '+/-', round(flux.sum.gs.se*1.96)), # convert to 95% CI
+                           NA),
+         Modeled = ifelse(!is.na(flux.sum.gs.pred),
+                          paste(round(flux.sum.gs.pred), '+/-', round(flux.sum.gs.pred.se*1.96)),
+                          NA),
+         Year = as.numeric(as.character(flux.year)) - 2008) %>%
+  select(-c(flux.sum.gs.mean, flux.sum.gs.se, 
+            flux.sum.gs.pred, flux.sum.gs.pred.se,
+            flux.year)) %>%
+  pivot_longer(cols = c('Measured', 'Modeled'), values_to = 'Flux') %>%
+  filter(!is.na(Flux)) %>%
+  pivot_wider(names_from = c(variable, name), values_from = c(Year, Flux)) %>%
+  mutate(across(matches('Year_(Reco|GPP)_Modeled'), 
+         ~ case_when(keep == 'Final' & is.na(.x) ~ lag(.x, n = 1),
+                     TRUE ~ .x)),
+         across(matches('Flux_(Reco|GPP)_Modeled'), 
+                ~ case_when(keep == 'Final' & is.na(.x) ~ lag(.x, n = 1),
+                            TRUE ~ .x))) %>%
+  select(`TK Class` = tk.class.factor,
+         Stage = keep,
+         Year_NEE_Measured,
+         Flux_NEE_Measured,
+         Year_NEE_Modeled,
+         Flux_NEE_Modeled,
+         Year_Reco_Measured,
+         Flux_Reco_Measured,
+         Year_Reco_Modeled,
+         Flux_Reco_Modeled,
+         Year_GPP_Measured,
+         Flux_GPP_Measured,
+         Year_GPP_Modeled,
+         Flux_GPP_Modeled)
+
+# write.csv(flux.tk.table,
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/tables/tk_flux_summary.csv',
+#           row.names = FALSE)
+
 # plot of timeseries with 2021 tk class
 var_labeller <- as_labeller(c(GPP = 'GPP', NEE = 'NEE', Reco = 'R[eco]',
                               `Non-TK` = '`Non-TK`', `TK Margin` = '`TK Margin`', `TK Center` = '`TK Center`'),
@@ -3652,7 +3752,20 @@ flux.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
        aes(x = flux.year, y = flux.sum.gs, color = biomass)) +
   geom_hline(yintercept = 0) +
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
-  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  geom_ribbon(data = flux.tk.timeseries.pred,
+            aes(x = as.numeric(as.character(flux.year)),
+                ymin = flux.sum.gs.pred - flux.sum.gs.pred.se*1.96, # convert to 95% CI from SE using z-value
+                ymax = flux.sum.gs.pred + flux.sum.gs.pred.se*1.96),
+            fill = 'gray60',
+            alpha = 0.4,
+            inherit.aes = FALSE) +
+  geom_line(data = flux.tk.timeseries.pred,
+            aes(x = as.numeric(as.character(flux.year)),
+                y = flux.sum.gs.pred),
+            color = 'black',
+            inherit.aes = FALSE) +
+  # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black',
+  #             linewidth = 0.5) +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
   scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
@@ -3683,7 +3796,9 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
                                         aes(x = flux.year, y = flux.sum.annual, color = biomass)) +
   geom_hline(yintercept = 0) +
   geom_point(aes(alpha = factor(filled.gbm), shape = treatment)) +
-  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), 
+              color = 'black',
+              linewidth = 0.5) +
   scale_color_viridis(name = expression('Biomass (g m'^-2*')')) +
   scale_alpha_manual(name = 'Data Source',
                      labels = c('Gap Filled Data', 'Modeled Only'),
