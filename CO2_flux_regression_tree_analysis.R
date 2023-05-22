@@ -2576,16 +2576,23 @@ flux.annual.filled.plotting <- fread('/home/heidi/Documents/School/NAU/Schuur La
 
 ### Create a table with GS, NGS, and annual values
 flux.summary.winter <- fread('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_seasonal_filled_2019_winter.csv')
+flux.summary.winter <- flux.summary.winter[flux.year >= 2009]
 flux.summary.winter[, ':=' (nee.sum.winter = NULL,
                             reco.sum.winter = NULL,
                             gpp.sum.winter = NULL)]
-flux.summary.winter <- flux.summary.winter[, .(nee.sum = mean(nee.sum),
-                        reco.sum = mean(reco.sum),
-                        gpp.sum = mean(gpp.sum)),
-                    by = .(flux.year, season, treatment)]
+flux.summary.winter <- flux.summary.winter[, 
+                                           .(nee.sum = mean(nee.sum),
+                                             nee.sd = sd(nee.sum),
+                                             reco.sum = mean(reco.sum),
+                                             reco.sd = sd(reco.sum),
+                                             gpp.sum = mean(gpp.sum),
+                                             gpp.sd = sd(gpp.sum)),
+                                           by = .(flux.year, season, treatment)]
 flux.summary.winter <- dcast(melt(flux.summary.winter, 
                                   id.vars = c('flux.year', 'season', 'treatment'),
-                                  value.vars = c('nee.sum', 'reco.sum', 'gpp.sum'),
+                                  value.vars = c('nee.sum', 'nee.sd', 
+                                                 'reco.sum', 'reco.sd',
+                                                 'gpp.sum', 'gpp.sd'),
                                   variable.name = 'type',
                                   value.name = 'flux'),
                              flux.year + treatment ~ type + season, 
@@ -2593,18 +2600,39 @@ flux.summary.winter <- dcast(melt(flux.summary.winter,
                              sep = '.')
 flux.summary.winter[,
                     ':=' (nee.sum.annual = nee.sum.0 + nee.sum.1,
+                          nee.sd.annual = sqrt(nee.sd.0^2 + nee.sd.1^2),
                           reco.sum.annual = reco.sum.0 + reco.sum.1,
+                          reco.sd.annual = sqrt(reco.sd.0^2 + reco.sd.1^2),
                           gpp.sum.annual = gpp.sum.0 + gpp.sum.1,
+                          gpp.sd.annual = sqrt(gpp.sd.0^2 + gpp.sd.1^2),
                           treatment = factor(treatment,
                                               levels = c('Control', 'Air Warming',
                                                          'Soil Warming', 'Air + Soil Warming')))]
 flux.summary.winter <- flux.summary.winter[,
                     lapply(.SD, round, 0),
-                    .SD = c('nee.sum.1', 'nee.sum.0', 'nee.sum.annual', 
-                            'reco.sum.1', 'reco.sum.0', 'reco.sum.annual',
-                            'gpp.sum.1', 'gpp.sum.0', 'gpp.sum.annual'),
+                    .SDcols = patterns('sum|sd'),
                     by = .(flux.year, treatment)]
 flux.summary.winter <- flux.summary.winter[order(flux.year, treatment)]
+flux.summary.winter <- flux.summary.winter[,
+                                           ':=' (nee.sum.0 = paste0(round(nee.sum.0), ' +- ', round(nee.sd.0)),
+                                                 reco.sum.0 = paste0(round(reco.sum.0), ' +- ', round(nee.sd.0)),
+                                                 gpp.sum.0 = paste0(round(gpp.sum.0), ' +- ', round(nee.sd.0)),
+                                                 nee.sum.1 = paste0(round(nee.sum.1), ' +- ', round(nee.sd.1)),
+                                                 reco.sum.1 = paste0(round(reco.sum.1), ' +- ', round(nee.sd.1)),
+                                                 gpp.sum.1 = paste0(round(gpp.sum.1), ' +- ', round(nee.sd.1)),
+                                                 nee.sum.annual = paste0(round(nee.sum.annual), ' +- ', round(nee.sd.annual)),
+                                                 reco.sum.annual = paste0(round(reco.sum.annual), ' +- ', round(nee.sd.annual)),
+                                                 gpp.sum.annual = paste0(round(gpp.sum.annual), ' +- ', round(nee.sd.annual)))]
+flux.summary.winter <- flux.summary.winter[,
+                                           ':=' (nee.sd.0 = NULL,
+                                                 reco.sd.0 = NULL,
+                                                 gpp.sd.0 = NULL,
+                                                 nee.sd.1 = NULL,
+                                                 reco.sd.1 = NULL,
+                                                 gpp.sd.1 = NULL,
+                                                 nee.sd.annual = NULL,
+                                                 reco.sd.annual = NULL,
+                                                 gpp.sd.annual = NULL)]
 flux.summary.winter <- flux.summary.winter[, .(Year = flux.year, Treatment = treatment, 
                         `GS NEE` = nee.sum.1, `NGS NEE` = nee.sum.0,
                         `Annual NEE` = nee.sum.annual,
@@ -4431,3 +4459,26 @@ extreme.plots.flux.plot
 #        width = 4)
 ################################################################################
 
+### Soil moisture and variability in soil moisture #############################
+ggplot(flux.seasonal, aes(x = wtd.mean, y = wtd.sd, color = flux.year)) +
+  geom_point() +
+  scale_color_viridis(direction = -1)
+ggplot(flux.seasonal, aes(x = vwc.mean, y = vwc.sd, color = flux.year)) +
+  geom_point() +
+  scale_color_viridis(direction = -1)
+ggplot(flux.seasonal, aes(x = gwc.mean, y = gwc.sd, color = flux.year)) +
+  geom_point() +
+  scale_color_viridis(direction = -1)
+flux.daily <- fread("/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_daily.csv")
+ggplot(flux.daily, aes(x = date, y = gwc.mean)) +
+  geom_point(aes(alpha = 0.05)) +
+  scale_y_continuous(limits = c(0, 10))
+ggplot(flux.daily %>%
+         filter(flux.year >= 2020), 
+       aes(x = date, y = gwc.mean)) +
+  geom_point()
+ggplot(flux.daily %>%
+         filter(flux.year >= 2020), 
+       aes(x = date, y = gwc.sd)) +
+  geom_point()
+################################################################################

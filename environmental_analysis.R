@@ -827,10 +827,14 @@ env.summary <- dcast(env.summary, measurement + group ~ flux.year)
 
 # Add snow depth
 snow.depth <- flux.annual %>%
+  filter(as.numeric(as.character(flux.year)) >= 2010) %>%
   mutate(group = treatment,
          measurement = 'snow.depth') %>%
   group_by(flux.year, measurement, group) %>%
-  summarise(snow.depth.mean = round(mean(spring.snow.depth, na.rm = TRUE), 2)) %>%
+  summarise(snow.depth.mean = round(mean(spring.snow.depth, na.rm = TRUE), 2),
+            snow.depth.sd = round(sd(spring.snow.depth, na.rm = TRUE), 2)) %>%
+  mutate(snow.depth.mean = paste0(snow.depth.mean, ' +- ', snow.depth.sd)) %>%
+  select(-snow.depth.sd) %>%
   ungroup() %>%
   pivot_wider(names_from = 'flux.year',
               values_from = 'snow.depth.mean')
@@ -842,7 +846,10 @@ snow.free.date <- snow.free %>%
   mutate(group = treatment,
          measurement = 'snow.free.date') %>%
   group_by(flux.year, measurement, group) %>%
-  summarise(doy.snow.free = round(mean(doy.snow.free, na.rm = TRUE))) %>%
+  summarise(mean.doy.snow.free = round(mean(doy.snow.free, na.rm = TRUE)),
+            snow.free.sd = round(sd(doy.snow.free, na.rm = TRUE))) %>%
+  mutate(doy.snow.free = paste0(mean.doy.snow.free, ' +- ', snow.free.sd)) %>%
+  select(-c(mean.doy.snow.free, snow.free.sd)) %>%
   ungroup() %>%
   pivot_wider(names_from = 'flux.year',
               values_from = 'doy.snow.free')
