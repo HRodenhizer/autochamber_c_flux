@@ -2737,7 +2737,9 @@ flux.monthly.final <- flux.monthly[
     vwc.min.2m,	vwc.min.3m, vwc.mean.2m,	vwc.mean.3m,	vwc.max.2m,	vwc.max.3m,
     gwc.min.2m,	gwc.min.3m, gwc.mean.2m,	gwc.mean.3m,	gwc.max.2m,	gwc.max.3m)
 ]
-    
+
+setkey(flux.monthly.final, year, month, block, fence, plot)
+
 # Seasonal
 flux.seasonal.final <- flux.seasonal[
   ,
@@ -2794,6 +2796,9 @@ flux.annual.final <- flux.annual[
 ### Half-hourly
 saveRDS(flux.hh,
         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_hh.RData')
+# write.csv(flux.hh, 
+#           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/EML_AK_CiPEHR_Compiled_Dataset_HH.csv', 
+#           row.names = FALSE)
 
 ### Daily
 write.csv(flux.daily.final, 
