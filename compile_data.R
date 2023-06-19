@@ -2796,6 +2796,24 @@ flux.annual.final <- flux.annual[
 ### Half-hourly
 saveRDS(flux.hh,
         '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/flux_hh.RData')
+
+# save_by_year <- function(selection, df) {
+#   if (selection == 2009) {
+#     data <- df[flux.year <= selection]
+#   } else {
+#     data <- df[flux.year == selection]
+#   }
+# 
+#   write.csv(data,
+#             paste0('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/EML_AK_CiPEHR_Compiled_Dataset_HH_',
+#                    selection,
+#                    '.csv'),
+#             row.names = FALSE)
+# }
+# 
+# years <- unique(flux.hh$flux.year)[2:14]
+# 
+# walk(years, ~save_by_year(.x, flux.hh))
 # write.csv(flux.hh, 
 #           '/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/input_data/EML_AK_CiPEHR_Compiled_Dataset_HH.csv', 
 #           row.names = FALSE)
