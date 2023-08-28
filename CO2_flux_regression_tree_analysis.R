@@ -11,17 +11,17 @@ library(treeshap)
 library(emmeans)
 library(data.table)
 library(lubridate)
-library(viridis)
-library(ggpubr)
-library(ggnewscale)
 library(raster)
 library(sf)
 library(zoo)
 library(thermokarstdetection)
+library(viridis)
+library(ggnewscale)
 library(ggrepel)
 library(ggsn)
-library(ggnewscale)
 library(gridExtra)
+library(ggpubr)
+library(patchwork)
 library(tidyverse)
 #############################################################################################################################
 
@@ -59,18 +59,18 @@ plot.pdp <- function(df1, df2, predictor, response, color.var, shape.var) {
   predictor.name <- case_when(predictor == 'tp.annual' ~ "expression('Thaw Penetration (cm)')", 
                               predictor == 'subsidence' ~ "expression('Subsidence (cm)')",
                               predictor == 'alt.annual' ~ "expression('ALT (cm)')", 
-                              predictor == 'vwc.mean' ~ "expression('Mean VWC (%)')", 
-                              predictor == 'vwc.sd' ~ "expression('SD VWC (%)')", 
-                              predictor == 'gwc.mean' ~ "expression('Mean GWC (%)')", 
-                              predictor == 'gwc.sd' ~ "expression('SD GWC (%)')", 
-                              predictor == 'wtd.mean' ~ "expression('Mean WTD (cm)')", 
+                              predictor == 'vwc.mean' ~ "expression('15-cm SM (%)')", 
+                              predictor == 'vwc.sd' ~ "expression('SD 15-cm SM (%)')", 
+                              predictor == 'gwc.mean' ~ "expression('5-cm SM (%)')", 
+                              predictor == 'gwc.sd' ~ "expression('SD 5-cm SM (%)')", 
+                              predictor == 'wtd.mean' ~ "expression('WTD (cm)')", 
                               predictor == 'wtd.sd' ~ "expression('SD WTD (cm)')", 
                               predictor == 'precip' ~ "expression('Precipitation (mm)')", 
                               predictor == 'spring.snow.depth' ~ "expression('Snow Depth (cm)')", 
                               predictor == 'winter.t10.min' ~ "expression('Winter Min Soil Temp ('*degree*'C)')", 
-                              predictor == 't10.mean' ~ "expression('Mean Soil Temp ('*degree*'C)')", 
+                              predictor == 't10.mean' ~ "expression('Soil Temp ('*degree*'C)')", 
                               predictor == 't10.sd' ~ "expression('SD Soil Temp ('*degree*'C)')", 
-                              predictor == 'tair.mean' ~ "expression('Mean Air Temp ('*degree*'C)')", 
+                              predictor == 'tair.mean' ~ "expression('Air Temp ('*degree*'C)')", 
                               predictor == 'tair.sd' ~ "expression('SD Air Temp ('*degree*'C)')", 
                               predictor == 'biomass' ~ "expression('Biomass (g m'^-2*')')",
                               predictor == 'gdd.2m' ~ "expression('2 Month GDD')")
@@ -216,18 +216,18 @@ nee.seasonal.influence <- nee.seasonal.gbm %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                          var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
-                         var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 'precip' ~ 'Precipitation', 
                          var == 'spring.snow.depth' ~ 'Snow Depth', 
                          var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                         var == 't10.mean' ~ 'Mean Soil Temp',  
+                         var == 't10.mean' ~ 'Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
-                         var == 'tair.mean' ~ 'Mean Air Temp', 
+                         var == 'tair.mean' ~ 'Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
@@ -396,36 +396,36 @@ nee.seasonal.shap <- flux.seasonal[!is.na(nee.sum),
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                                      var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
-                                     var == 'vwc.mean' ~ 'Mean VWC', 
-                                     var == 'vwc.sd' ~ 'SD VWC', 
-                                     var == 'gwc.mean' ~ 'Mean GWC', 
-                                     var == 'gwc.sd' ~ 'SD GWC', 
-                                     var == 'wtd.mean' ~ 'Mean WTD', 
+                                     var == 'vwc.mean' ~ '15-cm SM', 
+                                     var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                                     var == 'gwc.mean' ~ '5-cm SM', 
+                                     var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                                     var == 'wtd.mean' ~ 'WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
                                      var == 'precip' ~ 'Precipitation', 
                                      var == 'spring.snow.depth' ~ 'Snow Depth', 
                                      var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                                     var == 't10.mean' ~ 'Mean Soil Temp',  
+                                     var == 't10.mean' ~ 'Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
-                                     var == 'tair.mean' ~ 'Mean Air Temp', 
+                                     var == 'tair.mean' ~ 'Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
                                      var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
                                       'Biomass',
-                                      'Mean VWC', 
-                                      'SD VWC', 
-                                      'Mean GWC', 
-                                      'SD GWC', 
-                                      'Mean WTD', 
+                                      '15-cm SM', 
+                                      'SD 15-cm SM', 
+                                      '5-cm SM', 
+                                      'SD 5-cm SM', 
+                                      'WTD', 
                                       'SD WTD', 
                                       'Precipitation', 
                                       'Snow Depth', 
                                       'Winter Min Soil Temp', 
-                                      'Mean Soil Temp',  
+                                      'Soil Temp',  
                                       'SD Soil Temp', 
-                                      'Mean Air Temp', 
+                                      'Air Temp', 
                                       'SD Air Temp')),
          response = 'NEE') %>%
   rename(flux.sum = nee.sum)
@@ -556,18 +556,18 @@ reco.seasonal.influence <- reco.seasonal.gbm %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                          var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
-                         var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 'precip' ~ 'Precipitation', 
                          var == 'spring.snow.depth' ~ 'Snow Depth', 
                          var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                         var == 't10.mean' ~ 'Mean Soil Temp',  
+                         var == 't10.mean' ~ 'Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
-                         var == 'tair.mean' ~ 'Mean Air Temp', 
+                         var == 'tair.mean' ~ 'Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
@@ -727,36 +727,36 @@ reco.seasonal.shap <- flux.seasonal[!is.na(reco.sum),
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                                      var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
-                                     var == 'vwc.mean' ~ 'Mean VWC', 
-                                     var == 'vwc.sd' ~ 'SD VWC', 
-                                     var == 'gwc.mean' ~ 'Mean GWC', 
-                                     var == 'gwc.sd' ~ 'SD GWC', 
-                                     var == 'wtd.mean' ~ 'Mean WTD', 
+                                     var == 'vwc.mean' ~ '15-cm SM', 
+                                     var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                                     var == 'gwc.mean' ~ '5-cm SM', 
+                                     var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                                     var == 'wtd.mean' ~ 'WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
                                      var == 'precip' ~ 'Precipitation', 
                                      var == 'spring.snow.depth' ~ 'Snow Depth', 
                                      var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                                     var == 't10.mean' ~ 'Mean Soil Temp',  
+                                     var == 't10.mean' ~ 'Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
-                                     var == 'tair.mean' ~ 'Mean Air Temp', 
+                                     var == 'tair.mean' ~ 'Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
                                      var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
                                       'Biomass',
-                                      'Mean VWC', 
-                                      'SD VWC', 
-                                      'Mean GWC', 
-                                      'SD GWC', 
-                                      'Mean WTD', 
+                                      '15-cm SM', 
+                                      'SD 15-cm SM', 
+                                      '5-cm SM', 
+                                      'SD 5-cm SM', 
+                                      'WTD', 
                                       'SD WTD', 
                                       'Precipitation', 
                                       'Snow Depth', 
                                       'Winter Min Soil Temp', 
-                                      'Mean Soil Temp',  
+                                      'Soil Temp',  
                                       'SD Soil Temp', 
-                                      'Mean Air Temp', 
+                                      'Air Temp', 
                                       'SD Air Temp')),
          response = 'Reco') %>%
   rename(flux.sum = reco.sum)
@@ -889,18 +889,18 @@ gpp.seasonal.influence <- gpp.seasonal.gbm %>%
   mutate(var = case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                          var == 'subsidence' ~ 'Subsidence',
                          var == 'alt.annual' ~ 'ALT', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
-                         var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 'precip' ~ 'Precipitation', 
                          var == 'spring.snow.depth' ~ 'Snow Depth', 
                          var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                         var == 't10.mean' ~ 'Mean Soil Temp',  
+                         var == 't10.mean' ~ 'Soil Temp',  
                          var == 't10.sd' ~ 'SD Soil Temp', 
-                         var == 'tair.mean' ~ 'Mean Air Temp', 
+                         var == 'tair.mean' ~ 'Air Temp', 
                          var == 'tair.sd' ~ 'SD Air Temp', 
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
@@ -1055,36 +1055,36 @@ gpp.seasonal.shap <- flux.seasonal[!is.na(gpp.sum),
   mutate(variable = factor(case_when(var == 'tp.annual' ~ 'Thaw Penetration', 
                                      var == 'subsidence' ~ 'Subsidence',
                                      var == 'alt.annual' ~ 'ALT', 
-                                     var == 'vwc.mean' ~ 'Mean VWC', 
-                                     var == 'vwc.sd' ~ 'SD VWC', 
-                                     var == 'gwc.mean' ~ 'Mean GWC', 
-                                     var == 'gwc.sd' ~ 'SD GWC', 
-                                     var == 'wtd.mean' ~ 'Mean WTD', 
+                                     var == 'vwc.mean' ~ '15-cm SM', 
+                                     var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                                     var == 'gwc.mean' ~ '5-cm SM', 
+                                     var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                                     var == 'wtd.mean' ~ 'WTD', 
                                      var == 'wtd.sd' ~ 'SD WTD', 
                                      var == 'precip' ~ 'Precipitation', 
                                      var == 'spring.snow.depth' ~ 'Snow Depth', 
                                      var == 'winter.t10.min' ~ 'Winter Min Soil Temp', 
-                                     var == 't10.mean' ~ 'Mean Soil Temp',  
+                                     var == 't10.mean' ~ 'Soil Temp',  
                                      var == 't10.sd' ~ 'SD Soil Temp', 
-                                     var == 'tair.mean' ~ 'Mean Air Temp', 
+                                     var == 'tair.mean' ~ 'Air Temp', 
                                      var == 'tair.sd' ~ 'SD Air Temp', 
                                      var == 'biomass' ~ 'Biomass'),
                            levels = c('ALT', 
                                       'Thaw Penetration', 
                                       'Subsidence', 
                                       'Biomass',
-                                      'Mean VWC', 
-                                      'SD VWC', 
-                                      'Mean GWC', 
-                                      'SD GWC', 
-                                      'Mean WTD', 
+                                      '15-cm SM', 
+                                      'SD 15-cm SM', 
+                                      '5-cm SM', 
+                                      'SD 5-cm SM', 
+                                      'WTD', 
                                       'SD WTD', 
                                       'Precipitation', 
                                       'Snow Depth', 
                                       'Winter Min Soil Temp', 
-                                      'Mean Soil Temp',  
+                                      'Soil Temp',  
                                       'SD Soil Temp', 
-                                      'Mean Air Temp', 
+                                      'Air Temp', 
                                       'SD Air Temp')),
          response = 'GPP') %>%
   rename(flux.sum = gpp.sum)
@@ -1213,11 +1213,11 @@ shapley.plot <- ggplot(seasonal.shap.extreme,
   theme(axis.title.y = element_blank())
 shapley.plot
 
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot(update).jpg',
 #        shapley.plot,
 #        height = 6.5,
 #        width = 6.5)
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_shapley_plot(update).pdf',
 #        shapley.plot,
 #        height = 6.5,
 #        width = 6.5)
@@ -1316,24 +1316,24 @@ nee.monthly.influence <- nee.monthly.gbm %>%
   summary() %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
-  mutate(var = case_when(var == 'tair.mean' ~ 'Mean Air Temp',
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 't10.mean' ~ 'Mean Soil Temp', 
+  mutate(var = case_when(var == 'tair.mean' ~ 'Air Temp',
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 't10.mean' ~ 'Soil Temp', 
                          var == 'gdd.2m' ~ '2 Month GDD',
-                         var == 'gwc.sd' ~ 'SD GWC', 
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
                          var == 'wtd.sd' ~ 'SD WTD', 
                          var == 't10.sd' ~ 'SD Soil Temp', 
                          var == 'subsidence' ~ 'Subsidence',
-                         var == 'gwc.mean.2m' ~ '2 Month Mean GWC', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
+                         var == 'gwc.mean.2m' ~ '2 Month 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
                          var == 'tp.to.date' ~ 'Thaw Penetration', 
                          var == 'td' ~ 'Thaw Depth',
                          var == 'gdd' ~ 'GDD',
                          var == 'precip' ~ 'Precipitation', 
                          var == 'fdd' ~ 'FDD',
-                         var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
+                         var == 'vwc.mean.2m' ~ '2 Month 15-cm SM',
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
@@ -1521,24 +1521,24 @@ reco.monthly.influence <- reco.monthly.gbm %>%
   summary() %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
-  mutate(var = case_when(var == 't10.mean' ~ 'Mean Soil Temp', 
-                         var == 'subsidence' ~ 'Subsidence',
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'tp.to.date' ~ 'Thaw Penetration', 
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
-                         var == 't10.sd' ~ 'SD Soil Temp', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
-                         var == 'gwc.mean.2m' ~ '2 Month Mean GWC', 
-                         var == 'precip' ~ 'Precipitation', 
-                         var == 'tair.mean' ~ 'Mean Air Temp',
-                         var == 'td' ~ 'Thaw Depth',
-                         var == 'fdd' ~ 'FDD',
-                         var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
-                         var == 'wtd.sd' ~ 'SD WTD', 
-                         var == 'gdd' ~ 'GDD',
+  mutate(var = case_when(var == 'tair.mean' ~ 'Air Temp',
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 't10.mean' ~ 'Soil Temp', 
                          var == 'gdd.2m' ~ '2 Month GDD',
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
+                         var == 'wtd.sd' ~ 'SD WTD', 
+                         var == 't10.sd' ~ 'SD Soil Temp', 
+                         var == 'subsidence' ~ 'Subsidence',
+                         var == 'gwc.mean.2m' ~ '2 Month 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
+                         var == 'tp.to.date' ~ 'Thaw Penetration', 
+                         var == 'td' ~ 'Thaw Depth',
+                         var == 'gdd' ~ 'GDD',
+                         var == 'precip' ~ 'Precipitation', 
+                         var == 'fdd' ~ 'FDD',
+                         var == 'vwc.mean.2m' ~ '2 Month 15-cm SM',
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
@@ -1724,24 +1724,24 @@ gpp.monthly.influence <- gpp.monthly.gbm %>%
   summary() %>%
   as.data.frame() %>%
   arrange(rel.inf) %>%
-  mutate(var = case_when(var == 't10.mean' ~ 'Mean Soil Temp', 
-                         var == 'vwc.sd' ~ 'SD VWC', 
-                         var == 'vwc.mean' ~ 'Mean VWC', 
-                         var == 'tair.mean' ~ 'Mean Air Temp',
-                         var == 'gwc.sd' ~ 'SD GWC', 
-                         var == 'subsidence' ~ 'Subsidence',
-                         var == 't10.sd' ~ 'SD Soil Temp', 
+  mutate(var = case_when(var == 'tair.mean' ~ 'Air Temp',
+                         var == 'vwc.sd' ~ 'SD 15-cm SM', 
+                         var == 'vwc.mean' ~ '15-cm SM', 
+                         var == 't10.mean' ~ 'Soil Temp', 
                          var == 'gdd.2m' ~ '2 Month GDD',
-                         var == 'precip' ~ 'Precipitation', 
-                         var == 'wtd.mean' ~ 'Mean WTD', 
-                         var == 'gwc.mean' ~ 'Mean GWC', 
-                         var == 'tp.to.date' ~ 'Thaw Penetration', 
+                         var == 'gwc.sd' ~ 'SD 5-cm SM', 
                          var == 'wtd.sd' ~ 'SD WTD', 
-                         var == 'gwc.mean.2m' ~ '2 Month Mean GWC', 
+                         var == 't10.sd' ~ 'SD Soil Temp', 
+                         var == 'subsidence' ~ 'Subsidence',
+                         var == 'gwc.mean.2m' ~ '2 Month 5-cm SM', 
+                         var == 'wtd.mean' ~ 'WTD', 
+                         var == 'gwc.mean' ~ '5-cm SM', 
+                         var == 'tp.to.date' ~ 'Thaw Penetration', 
                          var == 'td' ~ 'Thaw Depth',
-                         var == 'fdd' ~ 'FDD',
                          var == 'gdd' ~ 'GDD',
-                         var == 'vwc.mean.2m' ~ '2 Month Mean VWC',
+                         var == 'precip' ~ 'Precipitation', 
+                         var == 'fdd' ~ 'FDD',
+                         var == 'vwc.mean.2m' ~ '2 Month 15-cm SM',
                          var == 'biomass' ~ 'Biomass')) %>%
   mutate(variable = factor(var, levels = .$var),
          var = factor(seq(1, n())),
@@ -2128,169 +2128,144 @@ monthly.influence.plot
 
 
 ### Join into one plot
-influence.plot <- ggarrange(monthly.influence.plot +
+influence.plot <- monthly.influence.plot +
             theme(strip.background.y = element_blank(),
-                  strip.text.y = element_blank()),
-          seasonal.influence.plot,
-          ncol = 2,
-          widths = c(0.925, 1))
+                  strip.text.y = element_blank()) | 
+          seasonal.influence.plot
 influence.plot
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot(patchwork).jpg',
 #        influence.plot,
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/gbm_influence_plot(patchwork).pdf',
 #        influence.plot,
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
 
 ### Plot PDP plots all together
-seasonal.pdp <- ggarrange(gpp.seasonal.plot.1 +
-                            theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))) +
-                            facet_grid(. ~ 1), 
-                          gpp.seasonal.plot.2 +
-                            # scale_x_continuous(name = expression('SD GWC (%)'),
-                            #                    breaks = seq(0.5, 1, by = 0.25)) +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid(. ~ 2),
-                          gpp.seasonal.plot.3 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid(. ~ 3), 
-                          gpp.seasonal.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("GPP" ~ 4),
-                          nee.seasonal.plot.1 +
-                            theme(axis.title.y = element_text(margin = margin(r = 0, unit = 'pt'))), 
-                          nee.seasonal.plot.2 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
-                          nee.seasonal.plot.3 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
-                          nee.seasonal.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("NEE" ~ .),
-                          reco.seasonal.plot.1 +
-                            theme(axis.title.y = element_text(margin = margin(r = 6.5, unit = 'pt'))), 
-                          reco.seasonal.plot.2 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))),
-                          reco.seasonal.plot.3 +
-                            # scale_x_continuous(name = expression('SD GWC (%)'),
-                            #                    breaks = seq(0.5, 1, by = 0.25)) +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))), 
-                          reco.seasonal.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("R[eco]" ~ .,
-                                       labeller = label_parsed),
-                          ncol = 4, nrow = 3,
-                          common.legend = TRUE, legend = 'right',
-                          heights = c(1, 0.93, 0.93),
-                          widths = c(1, 0.77, 0.77, 0.85))
+seasonal.pdp <- (
+  gpp.seasonal.plot.1 +
+    facet_grid(. ~ 1) |
+    gpp.seasonal.plot.2 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid(. ~ 2) |
+    gpp.seasonal.plot.3 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid(. ~ 3) | 
+    gpp.seasonal.plot.4 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid("GPP" ~ 4)
+  ) / (
+    nee.seasonal.plot.1 | 
+    nee.seasonal.plot.2 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) |
+    nee.seasonal.plot.3 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) |
+    nee.seasonal.plot.4 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) +
+      facet_grid("NEE" ~ .)
+  ) / (
+    reco.seasonal.plot.1 | 
+    reco.seasonal.plot.2 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) |
+    reco.seasonal.plot.3 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) | 
+    reco.seasonal.plot.4 +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank()) +
+      facet_grid("R[eco]" ~ .,
+                 labeller = label_parsed)
+  ) +
+  plot_layout(guides = "collect") & theme(legend.position = 'right')
 seasonal.pdp
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_pdp.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_pdp(patchwork).jpg',
 #        seasonal.pdp,
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_pdp.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/seasonal_pdp(patchwork).pdf',
 #        seasonal.pdp,
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
 
-monthly.pdp <- ggarrange(gpp.monthly.plot.1 +
-                           theme(axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                           facet_grid(. ~ 1), 
-                          gpp.monthly.plot.2 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank()) +
-                            facet_grid(. ~ 2),
-                          gpp.monthly.plot.3 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid(. ~ 3), 
-                          gpp.monthly.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("GPP" ~ 4),
-                          nee.monthly.plot.1 +
-                           theme(axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))), 
-                          nee.monthly.plot.2 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank()),
-                          nee.monthly.plot.3 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))), 
-                          nee.monthly.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("NEE" ~ .),
-                          reco.monthly.plot.1 +
-                           theme(axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))), 
-                          reco.monthly.plot.2 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank()),
-                          reco.monthly.plot.3 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))), 
-                          reco.monthly.plot.4 +
-                            theme(axis.title.y = element_blank(),
-                                  axis.text.y = element_blank(),
-                                  axis.ticks.y = element_blank(),
-                                  axis.title.x = element_text(margin = margin(t = 5.75, unit = 'pt'))) +
-                            facet_grid("R[eco]" ~ .,
-                                       labeller = label_parsed),
-                          ncol = 4, nrow = 3,
-                          common.legend = TRUE, legend = 'right',
-                          heights = c(1, 0.93, 0.93),
-                          widths = c(1, 0.77, 0.77, 0.85))
+monthly.pdp <- (
+  gpp.monthly.plot.1 +
+    facet_grid(. ~ 1) |
+    gpp.monthly.plot.2 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid(. ~ 2) |
+    gpp.monthly.plot.3 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid(. ~ 3) | 
+    gpp.monthly.plot.4 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid("GPP" ~ 4)
+) / (
+  nee.monthly.plot.1 | 
+    nee.monthly.plot.2 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) |
+    nee.monthly.plot.3 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) |
+    nee.monthly.plot.4 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid("NEE" ~ .)
+) / (
+  reco.monthly.plot.1 | 
+    reco.monthly.plot.2 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) |
+    reco.monthly.plot.3 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) | 
+    reco.monthly.plot.4 +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    facet_grid("R[eco]" ~ .,
+               labeller = label_parsed)
+) +
+  plot_layout(guides = "collect") & theme(legend.position = 'right')
 monthly.pdp
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/monthly_pdp.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/monthly_pdp(patchwork).jpg',
 #        monthly.pdp,
 #        height = 10,
 #        width = 10,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/monthly_pdp.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/monthly_pdp(patchwork).pdf',
 #        monthly.pdp,
 #        height = 10,
 #        width = 10,
@@ -2418,7 +2393,7 @@ winter.flux <- flux.soil.eddy[month %in% c(10, 11, 12, 1, 2, 3, 4) &
 winter.flux[, CO2_measured := CO2_measured * 12.0107 * 1800 / 1000000]
 
 # Model EC winter respiration using soil temperature response
-# TS_1_1_1 (first sensor, depth = 5 cm)
+# TS_1_1_1 (first sensor, depth = 5-cm)
 ggplot(winter.flux, 
        aes(x = TS_1_1_1, y = CO2_measured, color = factor(month))) +
   geom_point() +
@@ -3117,7 +3092,7 @@ biomass.hydrology.plot.3 <- ggplot(flux.seasonal,
            color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'VWC (%)') +
+  scale_x_continuous(name = '15-cm SM (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
@@ -3133,7 +3108,7 @@ biomass.hydrology.plot.4 <- ggplot(flux.seasonal,
            color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'GWC (%)') +
+  scale_x_continuous(name = '5-cm SM (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
@@ -3165,7 +3140,7 @@ biomass.hydrology.plot.6 <- ggplot(flux.seasonal,
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'SD VWC (%)') +
+  scale_x_continuous(name = 'SD 15-cm SM (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
@@ -3181,7 +3156,7 @@ biomass.hydrology.plot.7 <- ggplot(flux.seasonal,
                                        color = year.label)) +
   geom_point(aes(shape = treatment)) +
   # geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cs"), color = 'black') +
-  scale_x_continuous(name = 'SD GWC (%)') +
+  scale_x_continuous(name = 'SD 5-cm SM (%)') +
   scale_y_continuous(name = expression('Biomass (gC' ~ m^-2*')')) +
   scale_shape_manual(name = 'Treatment',
                      values = c(1, 0, 16, 15),
@@ -3192,26 +3167,25 @@ biomass.hydrology.plot.7 <- ggplot(flux.seasonal,
                       guide = guide_legend(order = 2)) +
   theme_bw()
 
-biomass.hydrology.plot <- ggarrange(biomass.hydrology.plot.4,
-                                    biomass.hydrology.plot.7,
-                                    biomass.hydrology.plot.3,
-                                    biomass.hydrology.plot.6,
-                                    biomass.hydrology.plot.2,
-                                    biomass.hydrology.plot.5,
-                                    # biomass.hydrology.plot.1,
-                                    ncol = 2,
-                                    nrow = 3,
-                                    common.legend = TRUE,
-                                    legend = "right",
-                                    labels = LETTERS[1:6])
+biomass.hydrology.plot <- (
+  biomass.hydrology.plot.4 | biomass.hydrology.plot.7
+  ) / (
+    biomass.hydrology.plot.3 | biomass.hydrology.plot.6
+  ) / (
+    biomass.hydrology.plot.2 | biomass.hydrology.plot.5
+  ) +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') +
+  plot_layout(guides = 'collect') & 
+  theme(legend.position = 'right',
+        plot.tag = element_text(face = 'bold'))
 biomass.hydrology.plot
 
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture(patchwork).jpg',
 #        biomass.hydrology.plot,
 #        height = 7,
 #        width = 6.5,
 #        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/biomass_moisture(patchwork).pdf',
 #        biomass.hydrology.plot,
 #        height = 7,
 #        width = 6.5)
@@ -3418,7 +3392,7 @@ tk.class.map <- ggplot(filter(tk.edges.cip.df, flux.year %in% c(2017, 2021)),
   geom_sf(data = fences, 
           inherit.aes = FALSE,
           aes(linetype = 'Snow Fence')) +
-  geom_text(data = a, aes(x = x, y = y, label = label), inherit.aes = FALSE) +
+  # geom_text(data = a, aes(x = x, y = y, label = label), inherit.aes = FALSE) +
   scalebar(location = "bottomleft", 
            anchor = c('x' = tk.edges.cip@extent@xmin + 5, 'y' = tk.edges.cip@extent@ymin + 10), 
            dist = 25, dist_unit = 'm', transform = FALSE,
@@ -3523,12 +3497,14 @@ b <- data.frame(x = 2014.9,
                 label = c('B'))
 
 tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
-       aes(x = flux.year, fill = tk.class.factor)) +
+       aes(x = flux.year, color = tk.class.factor, fill = tk.class.factor)) +
   geom_bar(width = 1) +
-  geom_text(data = b, aes(x = x, y = y, label = label),
-            inherit.aes = FALSE) +
+  # geom_text(data = b, aes(x = x, y = y, label = label),
+  #           inherit.aes = FALSE) +
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
+  scale_color_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
+                     values = grayscale.values) +
   scale_x_continuous(name = 'Year',
                      labels = seq(9, 13)) +
   scale_y_continuous(name = 'Count',
@@ -3552,10 +3528,12 @@ c <- data.frame(x = rep(2015.5, 4),
                 label = c('C', NA, NA, NA))
 
 tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017), 
-       aes(x = flux.year, fill = tk.class.factor)) +
+       aes(x = flux.year, color = tk.class.factor, fill = tk.class.factor)) +
   geom_bar(width = 1) +
-  geom_text(data = c, aes(x = x, y = y, label = label),
-            inherit.aes = FALSE) +
+  # geom_text(data = c, aes(x = x, y = y, label = label),
+  #           inherit.aes = FALSE) +
+  scale_color_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
+                     values = grayscale.values) +
   scale_fill_manual(breaks = c('Non-TK', 'TK Margin', 'TK Center'),
                     values = grayscale.values) +
   scale_x_continuous(name = 'Year',
@@ -3596,11 +3574,40 @@ tk.class.figure <- grid.arrange(tk.fill.legend,
                                                        ncol = 12,
                                                        byrow = TRUE),
                                 padding = 0)
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.jpg',
+tk.class.figure <- (
+  (plot_spacer() |
+     wrap_elements(tk.fill.legend) | 
+     wrap_elements(tk.fence.legend) |
+     plot_spacer()) +
+    plot_layout(widths = c(0.3, 1, 0.33, 0.3))
+) / (
+  as_ggplot(tk.plot.legend)
+) / (
+  tk.class.map +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"))) / (
+      (
+        tk.class.histogram +
+          theme(legend.position = 'none',
+                plot.margin = margin(0, 0, 0, 0, "pt")) | 
+          tk.class.histogram.treat +
+          theme(legend.position = 'none',
+                axis.title.y = element_blank(),
+                plot.margin = margin(0, 0, 0, 0, "pt"))
+      ) +
+        plot_layout(widths = c(0.25, 1))
+    ) +
+  plot_layout(heights = c(0.1, 0.1, 1, 0.5)) +
+  plot_annotation(tag_levels = list(c('', '', '', '(a)', '(b)', '(c)'))) &
+  theme(legend.position = 'none',
+        legend.direction = 'horizontal',
+        plot.tag = element_text(face = 'bold'))
+
+tk.class.figure
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification(patchwork).jpg',
 #        tk.class.figure,
 #        height = 6,
 #        width = 6.5) 
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_classification(patchwork).pdf',
 #        tk.class.figure,
 #        height = 6,
 #        width = 6.5)
@@ -3838,7 +3845,7 @@ flux.annual.tk.class.timeseries.plot <- ggplot(flux.tk.time.series,
   scale_x_continuous(name = 'Year',
                      breaks = seq(2010, 2020, by = 2),
                      labels = seq(2, 12, by = 2)) +
-  scale_y_continuous(name = expression('NGS Flux (gC m'^-2*')')) +
+  scale_y_continuous(name = expression('Annual Flux (gC m'^-2*')')) +
   facet_grid(variable ~ tk.class.factor,
              scales = 'free_y',
              labeller = var_labeller) +
@@ -4011,7 +4018,7 @@ vwc.tk.class <- ggplot(flux.tk.mean,
             aes(x = tk.class.factor, y = 28, label = vwc.mean.letters),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
-  scale_y_continuous(name = 'VWC (%)') +
+  scale_y_continuous(name = '15-cm SM (%)') +
   scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
@@ -4046,7 +4053,7 @@ vwc.sd.tk.class <- ggplot(flux.tk.mean,
             aes(x = tk.class.factor, y = 0.95, label = vwc.sd.letters),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
-  scale_y_continuous(name = 'SD VWC (%)') +
+  scale_y_continuous(name = 'SD 15-cm SM (%)') +
   scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
@@ -4082,7 +4089,7 @@ gwc.tk.class <- ggplot(flux.tk.mean,
             aes(x = tk.class.factor, y = 58, label = gwc.mean.letters),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
-  scale_y_continuous(name = 'GWC (%)') +
+  scale_y_continuous(name = '5-cm SM (%)') +
   scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
@@ -4117,7 +4124,7 @@ gwc.sd.tk.class <- ggplot(flux.tk.mean,
             aes(x = tk.class.factor, y = -1, label = gwc.sd.letters),
             inherit.aes = FALSE) +
   scale_x_discrete(labels = c('Initial (Year 2)', 'Non-TK (Year 9-13)', 'TK Margin (Year 9-13)', 'TK Center (Year 9-13)')) +
-  scale_y_continuous(name = 'SD GWC (%)') +
+  scale_y_continuous(name = 'SD 5-cm SM (%)') +
   scale_color_manual(values = c('gray75', 'gray10'),
                      na.translate = FALSE) +
   theme_bw() +
@@ -4228,39 +4235,28 @@ biomass.tk.class <- ggplot(flux.tk.mean, aes (x = tk.class.factor, y = biomass.m
         legend.title = element_blank())
 biomass.tk.class
 
-tk.class.environment <- ggarrange(alt.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 5, unit = 'pt'))),
-                                  gwc.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 2, unit = 'pt'))),
-                                  gwc.sd.tk.class,
-                                  subsidence.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 10, unit = 'pt'))),
-                                  vwc.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 5, unit = 'pt'))),
-                                  vwc.sd.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 7, unit = 'pt'))),
-                                  biomass.tk.class +
-                                    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)),
-                                  wtd.tk.class +
-                                    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)),
-                                  wtd.sd.tk.class +
-                                    theme(axis.title.y = element_text(margin = margin(r = 9, unit = 'pt')),
-                                          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)),
-                                  ncol = 3,
-                                  nrow = 3,
-                                  widths = c(1, 0.93, 0.96),
-                                  heights = c(0.6, 0.6, 1),
-                                  labels = LETTERS[1:9],
-                                  label.y = 1.025,
-                                  legend = 'top',
-                                  common.legend = TRUE)
+tk.class.environment <- guide_area()/
+  (alt.tk.class | gwc.tk.class | gwc.sd.tk.class) /
+  (subsidence.tk.class | vwc.tk.class | vwc.sd.tk.class) /
+  (biomass.tk.class +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) | 
+     wtd.tk.class +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) |
+     wtd.sd.tk.class +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))) +
+  plot_layout(guides = "collect",
+              heights = c(0.1, 1, 1, 1)) +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') & 
+  theme(legend.position = 'top',
+        plot.tag = element_text(face = 'bold'))
+
 tk.class.environment
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment(patchwork).jpg',
 #        tk.class.environment,
 #        height = 6.5,
 #        width = 6.5,
 #        bg = 'white')
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/tk_class_environment(patchwork).pdf',
 #        tk.class.environment,
 #        height = 6.5,
 #        width = 6.5,

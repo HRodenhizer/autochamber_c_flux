@@ -1256,7 +1256,7 @@ ggplot(subset(sub.moisture, !is.na(wtd.sd)),
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'WTD SD (cm)') +
+  scale_y_continuous(name = 'SD WTD (cm)') +
   facet_grid(fence ~ plot) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1287,46 +1287,46 @@ wtd.sd.plot <- ggplot(subset(sub.moisture, !is.na(wtd.sd)),
   theme_bw()
 wtd.sd.plot
 
-# there is high variability in wtd when magnitude of subsidence is similar to 
-# pre-subsidence wtd (using 2010, because precipitation was closer to average 
-# and subsidence was still very nearly 0)
-# that can't explain all of it, though
-# microtopography doesn't seem to explain any more of it
-test <- sub.moisture %>%
-  filter(flux.year == 2010) %>%
-  select(plot.id, wtd.mean.2010 = wtd.mean, wtd.sd.2010 = wtd.sd) %>%
-  mutate(wtd.1sd.upr = (wtd.mean.2010 - wtd.sd.2010*3)*-1,
-         wtd.1sd.lwr = (wtd.mean.2010 + wtd.sd.2010*3)*-1) %>%
-  full_join(sub.moisture, by = 'plot.id') %>%
-  mutate(sub.wtd.mag = case_when(subsidence > wtd.1sd.lwr & subsidence < wtd.1sd.upr ~ 0,
-                                 subsidence < wtd.1sd.lwr | subsidence > wtd.1sd.upr ~ subsidence - wtd.1sd.lwr))
-ggplot(subset(test, !is.na(wtd.sd)),
-       aes(x = subsidence, y = wtd.sd)) +
-  geom_point(aes(color = sub.wtd.mag, shape = treatment)) +
-  geom_text(data = subset(sub.moisture, wtd.sd > 10), 
-            aes(label = plot.id),
-            nudge_y = 0.25,
-            size = 3) +
-  scale_color_viridis(direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
-
-ggplot(subset(test, !is.na(wtd.sd)),
-       aes(x = mtopo, y = wtd.sd)) +
-  geom_point(aes(color = subsidence, shape = treatment)) +
-  geom_text(data = subset(sub.moisture, wtd.sd > 10), 
-            aes(label = plot.id),
-            nudge_y = 0.25,
-            size = 3) +
-  scale_color_viridis(direction = -1) +
-  scale_shape_manual(values = c(1, 0, 16, 15)) +
-  scale_x_continuous(name = 'Microtopography (cm)') +
-  scale_y_continuous(name = 'SD WTD (cm)') +
-  theme_bw() +
-  theme(legend.title = element_blank())
+# # there is high variability in wtd when magnitude of subsidence is similar to 
+# # pre-subsidence wtd (using 2010, because precipitation was closer to average 
+# # and subsidence was still very nearly 0)
+# # that can't explain all of it, though
+# # microtopography doesn't seem to explain any more of it
+# test <- sub.moisture %>%
+#   filter(flux.year == 2010) %>%
+#   select(plot.id, wtd.mean.2010 = wtd.mean, wtd.sd.2010 = wtd.sd) %>%
+#   mutate(wtd.1sd.upr = (wtd.mean.2010 - wtd.sd.2010*3)*-1,
+#          wtd.1sd.lwr = (wtd.mean.2010 + wtd.sd.2010*3)*-1) %>%
+#   full_join(sub.moisture, by = 'plot.id') %>%
+#   mutate(sub.wtd.mag = case_when(subsidence > wtd.1sd.lwr & subsidence < wtd.1sd.upr ~ 0,
+#                                  subsidence < wtd.1sd.lwr | subsidence > wtd.1sd.upr ~ subsidence - wtd.1sd.lwr))
+# ggplot(subset(test, !is.na(wtd.sd)),
+#        aes(x = subsidence, y = wtd.sd)) +
+#   geom_point(aes(color = sub.wtd.mag, shape = treatment)) +
+#   geom_text(data = subset(sub.moisture, wtd.sd > 10), 
+#             aes(label = plot.id),
+#             nudge_y = 0.25,
+#             size = 3) +
+#   scale_color_viridis(direction = -1) +
+#   scale_shape_manual(values = c(1, 0, 16, 15)) +
+#   scale_x_continuous(name = 'Subsidence (cm)') +
+#   scale_y_continuous(name = 'SD WTD (cm)') +
+#   theme_bw() +
+#   theme(legend.title = element_blank())
+# 
+# ggplot(subset(test, !is.na(wtd.sd)),
+#        aes(x = mtopo, y = wtd.sd)) +
+#   geom_point(aes(color = subsidence, shape = treatment)) +
+#   geom_text(data = subset(sub.moisture, wtd.sd > 10), 
+#             aes(label = plot.id),
+#             nudge_y = 0.25,
+#             size = 3) +
+#   scale_color_viridis(direction = -1) +
+#   scale_shape_manual(values = c(1, 0, 16, 15)) +
+#   scale_x_continuous(name = 'Microtopography (cm)') +
+#   scale_y_continuous(name = 'SD WTD (cm)') +
+#   theme_bw() +
+#   theme(legend.title = element_blank())
 
 ### VWC
 # model1 <- lmer(vwc.mean ~ 1 +
@@ -1425,7 +1425,7 @@ ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'VWC (%)') +
+  scale_y_continuous(name = '15-cm SM (%)') +
   facet_wrap(~plot.id, ncol = 8) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1451,7 +1451,7 @@ vwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = vwc.mean)) +
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'VWC (%)') +
+  scale_y_continuous(name = '15-cm SM (%)') +
   theme_bw()
 vwc.plot
 
@@ -1551,7 +1551,7 @@ ggplot(sub.moisture,
                       direction = -1) +
   scale_shape_manual(values = c(1, 0, 16, 15)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD VWC (%)') +
+  scale_y_continuous(name = 'SD 15-cm SM (%)') +
   facet_wrap(~plot.id, ncol = 8) +
   theme_bw() +
   theme(legend.title = element_blank())
@@ -1578,7 +1578,7 @@ vwc.sd.plot <- ggplot(sub.moisture,
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD VWC (%)') +
+  scale_y_continuous(name = 'SD 15-cm SM (%)') +
   theme_bw()
 vwc.sd.plot
 
@@ -1637,7 +1637,7 @@ gwc.plot <- ggplot(sub.moisture, aes(x = subsidence, y = gwc.mean)) +
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'GWC (%)') +
+  scale_y_continuous(name = '5-cm SM (%)') +
   theme_bw()
 gwc.plot
 
@@ -1696,7 +1696,7 @@ gwc.sd.plot <- ggplot(sub.moisture,
                      values = c(1, 0, 16, 15),
                      guide = guide_legend(order = 1)) +
   scale_x_continuous(name = 'Subsidence (cm)') +
-  scale_y_continuous(name = 'SD GWC (%)') +
+  scale_y_continuous(name = 'SD 5-cm SM (%)') +
   theme_bw()
 gwc.sd.plot
 
@@ -1707,25 +1707,25 @@ vwc.plot
 vwc.sd.plot
 gwc.plot
 gwc.sd.plot
-sub.moisture.plot <- ggarrange(gwc.plot,
-                               gwc.sd.plot,
-                               vwc.plot,
-                               vwc.sd.plot,
-                               wtd.plot,
-                               wtd.sd.plot,
-                               ncol = 2,
-                               nrow = 3,
-                               common.legend = TRUE,
-                               legend = 'right',
-                               labels = LETTERS[1:6])
+sub.moisture.plot <- (
+  gwc.plot | gwc.sd.plot
+  ) / (
+    vwc.plot | vwc.sd.plot
+  ) / (
+    wtd.plot | wtd.sd.plot
+  ) +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') +
+  plot_layout(guides = 'collect') & 
+  theme(legend.position = 'right',
+        plot.tag = element_text(face = 'bold'))
 sub.moisture.plot
 
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.jpg',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models(patchwork).jpg',
 #        sub.moisture.plot,
 #        height = 7,
 #        width = 6.5,
 #        bg = 'white') # As of 9/24/21, with no updates to R, R packages, or OS, this started plotting with a black background... I have no idea what might have changed
-# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models.pdf',
+# ggsave('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/figures/subsidence_moisture_linear_models(patchwork).pdf',
 #        sub.moisture.plot,
 #        height = 7,
 #        width = 6.5)
@@ -2377,15 +2377,6 @@ transect.diff.plot <- ggplot(transect.extract.diff,
   theme_bw()
 transect.diff.plot
 
-wtd.transect.plot <- ggarrange(transect.plot, 
-                               transect.diff.plot,
-          ncol = 2,
-          widths = c(1.75, 1),
-          common.legend = TRUE,
-          legend = 'bottom',
-          labels = LETTERS[2:3])
-wtd.transect.plot
-
 precip.labels <- data.frame(x = c(as_date('2018-07-28'), as_date('2018-08-09')),
                             y = c(28, 28),
                             label = c('Dry', 'Wet'))
@@ -2405,11 +2396,20 @@ precip.plot <- ggplot(flux.daily[flux.year == 2018 & month %in% c(7, 8)],
   theme(axis.title.x = element_blank())
 precip.plot
 
-wtd.transect.plot.precip <- ggarrange(precip.plot,
-                                      wtd.transect.plot,
-                                      ncol = 1,
-                                      heights = c(0.25, 1),
-                                      labels = LETTERS[1])
+wtd.transect.plot.precip <- (
+  (precip.plot | guide_area()) + 
+    plot_layout(widths = c(1, 0.001),
+                guides = 'keep')
+  ) / (
+    (transect.plot | transect.diff.plot) +
+      plot_layout(widths = c(1, 0.5))
+  ) +
+  guide_area() +
+  plot_layout(heights = c(0.25, 1, 0.1),
+              guides = 'collect') +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') &
+  theme(plot.tag = element_text(face = 'bold'))
+
 wtd.transect.plot.precip
 
 # # As of 2023-03-10, the jpg output is having an issue with the legend text
