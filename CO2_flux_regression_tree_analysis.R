@@ -3480,8 +3480,10 @@ plots.tk.class <- plots.tk.class %>%
                                      fence == 5 & plot == 3 & flux.year == 2017 ~ 1),
          tk.class.factor = case_when(!(fence == 6 & plot %in% c(1, 4) & flux.year == 2018) & !(fence == 5 & plot == 3 & flux.year == 2017) ~ tk.class.factor,
                               fence == 6 & plot %in% c(1, 4) & flux.year == 2018 ~ factor('Non-TK'),
-                              fence == 5 & plot == 3 & flux.year == 2017 ~ factor('Non-TK')))
-plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/thermokarst_classes.csv')
+                              fence == 5 & plot == 3 & flux.year == 2017 ~ factor('Non-TK')),
+         treatment = factor(treatment,
+                            levels = c('Control', 'Air Warming', 'Soil Warming', 'Air + Soil Warming')))
+# plots.tk.class <- read.csv('/home/heidi/Documents/School/NAU/Schuur Lab/Autochamber/autochamber_c_flux/model_output/thermokarst_classes.csv')
 
 # plot the tk classifications through time
 ggplot(filter(plots.tk.class, flux.year >= 2017), 
@@ -3515,7 +3517,8 @@ tk.class.histogram <- ggplot(filter(plots.tk.class, flux.year >= 2017),
                   ylim = c(0, 48)) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        plot.margin =  margin(t = 0, r = 5.5, b = 5.5, l = 5.5, unit = 'pt')) +
+        plot.margin =  margin(t = 0, r = 0, b = 0, l = 0, unit = 'pt'),
+        strip.text = element_text(size = 8)) +
   facet_grid(. ~ 'Total')
 tk.class.histogram
 
@@ -3546,34 +3549,12 @@ tk.class.histogram.treat <- ggplot(filter(plots.tk.class, flux.year >= 2017),
                   ylim = c(0, 12)) +
   theme_bw() +
   theme(legend.title = element_blank(),
-        plot.margin = margin(t = 0, r = 5.5, b = 5.5, l = 5.5, unit = 'pt')) +
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = 'pt'),
+        strip.text = element_text(size = 8)) +
   facet_grid(. ~ treatment)
 tk.class.histogram.treat
 
 ## TK Class Figure
-tk.class.figure <- grid.arrange(tk.fill.legend,
-                                tk.fence.legend,
-                                tk.plot.legend,
-                                tk.class.map +
-                                  theme(legend.position = 'none'),
-                                tk.class.histogram +
-                                  theme(legend.position = 'none'),
-                                tk.class.histogram.treat +
-                                  theme(legend.position = 'none',
-                                        axis.title.y = element_blank()),
-                                layout_matrix = matrix(c(7,7,1,1,1,1,1,2,2,2,7,7,
-                                                         3,3,3,3,3,3,3,3,3,3,3,3,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         4,4,4,4,4,4,4,4,4,4,4,4,
-                                                         5,5,5,6,6,6,6,6,6,6,6,6,
-                                                         5,5,5,6,6,6,6,6,6,6,6,6,
-                                                         5,5,5,6,6,6,6,6,6,6,6,6), 
-                                                       ncol = 12,
-                                                       byrow = TRUE),
-                                padding = 0)
 tk.class.figure <- (
   (plot_spacer() |
      wrap_elements(tk.fill.legend) | 
